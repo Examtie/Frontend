@@ -23,11 +23,3 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 .dev.vars*
-
-.svelte-kit/
-package
-
-.vscode
-
-.prettierignore
-.prettierrc
