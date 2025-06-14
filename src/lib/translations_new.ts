@@ -1,0 +1,363 @@
+export interface Translations {
+	// Navigation
+	home: string;
+	quiz: string;
+	marketplace: string;
+	login: string;
+	search: string;
+	
+	// Hero Section
+	heroTitle: string;
+	heroDescription: string;
+	heroSubtitle: string;
+	heroStatusBadge: string;
+	masterYour: string;
+	examsWith: string;
+	examTie: string;
+	transformStudy: string;
+	startLearningNow: string;
+	tryDemo: string;
+	loginNow: string;
+	exploreExams: string;
+	exams: string;
+	
+	// Hero Stats
+	questions: string;
+	successRate: string;
+	students: string;
+	
+	// Subjects
+	mathematics: string;
+	chemistry: string;
+	physics: string;
+	biology: string;
+	english: string;
+	geography: string;
+	history: string;
+	computerScience: string;
+	questionsCount: string; // for "2,847 questions" format
+	
+	// Quiz Demo Section
+	quizDemoTitle: string;
+	quizDemoDescription: string;
+	interactiveDemo: string;
+	experienceOur: string;
+	quizPlatform: string;
+	tryInteractive: string;
+	
+	// Features Section
+	featuresTitle: string;
+	featuresDescription: string;
+	powerfulFeatures: string;
+	whyChoose: string;
+	accelerateJourney: string;
+	maximizeSuccess: string;
+	aiPoweredLearning: string;
+	aiPoweredLearningDesc: string;
+	progressTracking: string;
+	progressTrackingDesc: string;
+	vastQuestionBank: string;
+	vastQuestionBankDesc: string;
+	instantFeedback: string;
+	instantFeedbackDesc: string;
+	adaptiveDifficulty: string;
+	adaptiveDifficultyDesc: string;
+	learnMore: string;
+	
+	// Stats Section
+	statsTitle: string;
+	statsDescription: string;
+	ourImpact: string;
+	trustedBy: string;
+	worldwide: string;
+	joinThousands: string;
+	problems: string;
+	activeStudents: string;
+	questionsSolved: string;
+	support: string;
+	
+	// Testimonials Section
+	testimonialsTitle: string;
+	testimonialsDescription: string;
+	whatStudentsSay: string;
+	realStories: string;
+	transformedPerformance: string;
+	
+	// Call to Action
+	ctaTitle: string;
+	ctaDescription: string;
+	startYourJourney: string;
+	readyToTransform: string;
+	yourLearning: string;
+	joinStudents: string;
+	improvingScores: string;
+	aiPoweredPlatform: string;
+	startSuccessJourney: string;
+	startFreeTrial: string;
+	viewPricing: string;
+	
+	// Common UI Elements
+	aiPowered: string;
+	progressTrackingShort: string;
+	fiveKQuestions: string;
+	interactiveDemoShort: string;
+	
+	// Footer
+	aboutUs: string;
+	contactUs: string;
+	privacyPolicy: string;
+	termsOfService: string;
+	
+	// Meta Information
+	pageTitle: string;
+	pageDescription: string;
+	
+	// Floating Subject Cards
+	mathSubject: string;
+	chemSubject: string;
+	physSubject: string;
+	compSciSubject: string;
+}
+
+export const translations: Record<'en' | 'th', Translations> = {
+	en: {
+		// Navigation
+		home: 'Home',
+		quiz: 'Quiz',
+		marketplace: 'Marketplace',
+		login: 'Login',
+		search: 'Search',
+		
+		// Hero Section
+		heroTitle: 'ExamTie',
+		heroDescription: 'Transform your study experience with AI-powered practice questions, instant feedback, and personalized learning paths tailored to your success.',
+		heroSubtitle: 'Master Your Exams with AI-Powered Practice',
+		heroStatusBadge: '🚀 AI-Powered Learning Platform',
+		masterYour: 'Master Your',
+		examsWith: 'Exams with',
+		examTie: 'ExamTie',
+		transformStudy: 'Transform your study experience with AI-powered practice questions, instant feedback, and personalized learning paths tailored to your success.',
+		startLearningNow: 'Start Learning Now',
+		tryDemo: 'Try Demo',
+		loginNow: 'Login Now',
+		exploreExams: 'Explore Exams',
+		exams: 'Exams',
+		
+		// Hero Stats
+		questions: 'Questions',
+		successRate: 'Success Rate',
+		students: 'Students',
+		
+		// Subjects
+		mathematics: 'Mathematics',
+		chemistry: 'Chemistry',
+		physics: 'Physics',
+		biology: 'Biology',
+		english: 'English',
+		geography: 'Geography',
+		history: 'History',
+		computerScience: 'Computer Science',
+		questionsCount: 'questions',
+		
+		// Quiz Demo Section
+		quizDemoTitle: 'Experience Our Quiz Platform',
+		quizDemoDescription: 'Try our interactive quiz interface with real-time feedback and detailed explanations. See how our AI adapts to your learning style.',
+		interactiveDemo: 'Interactive Demo',
+		experienceOur: 'Experience Our',
+		quizPlatform: 'Quiz Platform',
+		tryInteractive: 'Try our interactive quiz interface with real-time feedback and detailed explanations',
+		
+		// Features Section
+		featuresTitle: 'Why Choose ExamTie?',
+		featuresDescription: 'Powerful features designed to accelerate your learning journey and maximize your exam success',
+		powerfulFeatures: 'Powerful Features',
+		whyChoose: 'Why Choose',
+		accelerateJourney: 'Powerful features designed to accelerate your learning journey',
+		maximizeSuccess: 'and maximize your exam success',
+		aiPoweredLearning: 'AI-Powered Learning',
+		aiPoweredLearningDesc: 'Get personalized question recommendations and intelligent feedback tailored to your learning style and progress. Our AI adapts to help you improve faster.',
+		progressTracking: 'Progress Tracking',
+		progressTrackingDesc: 'Monitor your improvement with detailed analytics, performance insights, and achievement milestones. Visualize your learning journey clearly.',
+		vastQuestionBank: 'Vast Question Bank',
+		vastQuestionBankDesc: 'Access thousands of carefully curated questions across multiple subjects and difficulty levels. Fresh content updated regularly.',
+		instantFeedback: 'Instant Feedback',
+		instantFeedbackDesc: 'Get immediate explanations and learn from your mistakes with detailed solution breakdowns.',
+		adaptiveDifficulty: 'Adaptive Difficulty',
+		adaptiveDifficultyDesc: 'Questions automatically adjust to your skill level, keeping you challenged but not overwhelmed.',
+		learnMore: 'Learn more',
+		
+		// Stats Section
+		statsTitle: 'Trusted by Students Worldwide',
+		statsDescription: 'Join thousands of successful learners who have improved their exam scores with ExamTie',
+		ourImpact: 'Our Impact',
+		trustedBy: 'Trusted by Students',
+		worldwide: 'Worldwide',
+		joinThousands: 'Join thousands of successful learners who have improved their exam scores with ExamTie',
+		problems: 'Problems',
+		activeStudents: 'Active Students',
+		questionsSolved: 'Questions Solved',
+		support: 'Support',
+		
+		// Testimonials Section
+		testimonialsTitle: 'What Our Students Say',
+		testimonialsDescription: 'Real stories from students who transformed their academic performance with ExamTie',
+		whatStudentsSay: 'What Our Students Say',
+		realStories: 'Real stories from students who transformed their academic performance with ExamTie',
+		transformedPerformance: 'transformed their academic performance',
+		
+		// Call to Action
+		ctaTitle: 'Ready to Transform Your Learning?',
+		ctaDescription: 'Join thousands of students who are already improving their exam scores with our AI-powered platform. Start your success journey today.',
+		startYourJourney: 'Start Your Journey',
+		readyToTransform: 'Ready to Transform Your',
+		yourLearning: 'Learning?',
+		joinStudents: 'Join thousands of students who are already improving their exam scores with our',
+		improvingScores: 'AI-powered platform',
+		aiPoweredPlatform: '. Start your success journey today.',
+		startSuccessJourney: 'Start your success journey today',
+		startFreeTrial: 'Start Free Trial',
+		viewPricing: 'View Pricing',
+		
+		// Common UI Elements
+		aiPowered: 'AI-Powered',
+		progressTrackingShort: 'Progress Tracking',
+		fiveKQuestions: '50K+ Questions',
+		interactiveDemoShort: 'Interactive Demo',
+		
+		// Footer
+		aboutUs: 'About Us',
+		contactUs: 'Contact Us',
+		privacyPolicy: 'Privacy Policy',
+		termsOfService: 'Terms of Service',
+		
+		// Meta Information
+		pageTitle: 'ExamTie - Master Your Exams with AI-Powered Practice',
+		pageDescription: 'Take your learning to the next level with ExamTie. Practice with thousands of questions, get intelligent feedback, and track your progress across multiple subjects.',
+		
+		// Floating Subject Cards
+		mathSubject: 'Mathematics',
+		chemSubject: 'Chemistry',
+		physSubject: 'Physics',
+		compSciSubject: 'Computer Science'
+	},
+	th: {
+		// Navigation
+		home: 'หน้าแรก',
+		quiz: 'แบบทดสอบ',
+		marketplace: 'ตลาดการเรียนรู้',
+		login: 'เข้าสู่ระบบ',
+		search: 'ค้นหา',
+		
+		// Hero Section
+		heroTitle: 'ExamTie',
+		heroDescription: 'เปลี่ยนประสบการณ์การเรียนของคุณด้วยคำถามฝึกหัดที่ขับเคลื่อนด้วย AI ฟีดแบ็กทันที และเส้นทางการเรียนรู้ส่วนบุคคลที่ปรับให้เหมาะกับความสำเร็จของคุณ',
+		heroSubtitle: 'เชี่ยวชาญการสอบของคุณด้วยการฝึกฝนที่ขับเคลื่อนด้วย AI',
+		heroStatusBadge: '🚀 แพลตฟอร์มการเรียนรู้ที่ขับเคลื่อนด้วย AI',
+		masterYour: 'เชี่ยวชาญ',
+		examsWith: 'การสอบของคุณด้วย',
+		examTie: 'ExamTie',
+		transformStudy: 'เปลี่ยนประสบการณ์การเรียนของคุณด้วยคำถามฝึกหัดที่ขับเคลื่อนด้วย AI ฟีดแบ็กทันที และเส้นทางการเรียนรู้ส่วนบุคคลที่ปรับให้เหมาะกับความสำเร็จของคุณ',
+		startLearningNow: 'เริ่มเรียนรู้ตอนนี้',
+		tryDemo: 'ลองใช้เดโม',
+		loginNow: 'เข้าสู่ระบบตอนนี้',
+		exploreExams: 'สำรวจการสอบ',
+		exams: 'การสอบ',
+		
+		// Hero Stats
+		questions: 'คำถาม',
+		successRate: 'อัตราความสำเร็จ',
+		students: 'นักเรียน',
+		
+		// Subjects
+		mathematics: 'คณิตศาสตร์',
+		chemistry: 'เคมี',
+		physics: 'ฟิสิกส์',
+		biology: 'ชีววิทยา',
+		english: 'ภาษาอังกฤษ',
+		geography: 'ภูมิศาสตร์',
+		history: 'ประวัติศาสตร์',
+		computerScience: 'วิทยาการคอมพิวเตอร์',
+		questionsCount: 'คำถาม',
+		
+		// Quiz Demo Section
+		quizDemoTitle: 'สัมผัสแพลตฟอร์มแบบทดสอบของเรา',
+		quizDemoDescription: 'ลองใช้อินเทอร์เฟซแบบทดสอบแบบโต้ตอบพร้อมฟีดแบ็กแบบเรียลไทม์และคำอธิบายโดยละเอียด ดูว่า AI ของเราปรับตัวให้เข้ากับรูปแบบการเรียนรู้ของคุณอย่างไร',
+		interactiveDemo: 'เดโมแบบโต้ตอบ',
+		experienceOur: 'สัมผัส',
+		quizPlatform: 'แพลตฟอร์มแบบทดสอบของเรา',
+		tryInteractive: 'ลองใช้อินเทอร์เฟซแบบทดสอบแบบโต้ตอบพร้อมฟีดแบ็กแบบเรียลไทม์และคำอธิบายโดยละเอียด',
+		
+		// Features Section
+		featuresTitle: 'ทำไมต้องเลือก ExamTie?',
+		featuresDescription: 'คุณสมบัติอันทรงพลังที่ออกแบบมาเพื่อเร่งการเรียนรู้และเพิ่มความสำเร็จในการสอบของคุณให้สูงสุด',
+		powerfulFeatures: 'คุณสมบัติอันทรงพลัง',
+		whyChoose: 'ทำไมต้องเลือก',
+		accelerateJourney: 'คุณสมบัติอันทรงพลังที่ออกแบบมาเพื่อเร่งการเรียนรู้ของคุณ',
+		maximizeSuccess: 'และเพิ่มความสำเร็จในการสอบของคุณให้สูงสุด',
+		aiPoweredLearning: 'การเรียนรู้ที่ขับเคลื่อนด้วย AI',
+		aiPoweredLearningDesc: 'รับคำแนะนำคำถามส่วนบุคคลและฟีดแบ็กอัจฉริยะที่ปรับให้เหมาะกับรูปแบบการเรียนรู้และความคืบหน้าของคุณ AI ของเราปรับตัวเพื่อช่วยให้คุณพัฒนาได้เร็วขึ้น',
+		progressTracking: 'การติดตามความคืบหน้า',
+		progressTrackingDesc: 'ตรวจสอบการพัฒนาของคุณด้วยการวิเคราะห์โดยละเอียด ข้อมูลเชิงลึกด้านประสิทธิภาพ และเป้าหมายความสำเร็จ แสดงภาพเส้นทางการเรียนรู้ของคุณอย่างชัดเจน',
+		vastQuestionBank: 'คลังคำถามมากมาย',
+		vastQuestionBankDesc: 'เข้าถึงคำถามที่คัดสรรมาอย่างดีหลายพันข้อในหลายวิชาและระดับความยาก เนื้อหาใหม่ที่อัปเดตเป็นประจำ',
+		instantFeedback: 'ฟีดแบ็กทันที',
+		instantFeedbackDesc: 'รับคำอธิบายทันทีและเรียนรู้จากข้อผิดพลาดของคุณด้วยการแยกแยะวิธีแก้ไขโดยละเอียด',
+		adaptiveDifficulty: 'ระดับความยากที่ปรับตัวได้',
+		adaptiveDifficultyDesc: 'คำถามปรับระดับตามทักษะของคุณโดยอัตโนมัติ ทำให้คุณได้รับความท้าทายแต่ไม่ล้นหลาม',
+		learnMore: 'เรียนรู้เพิ่มเติม',
+		
+		// Stats Section
+		statsTitle: 'ได้รับความไว้วางใจจากนักเรียนทั่วโลก',
+		statsDescription: 'เข้าร่วมกับนักเรียนที่ประสบความสำเร็จหลายพันคนที่ได้ปรับปรุงคะแนนสอบด้วย ExamTie',
+		ourImpact: 'ผลกระทบของเรา',
+		trustedBy: 'ได้รับความไว้วางใจจากนักเรียน',
+		worldwide: 'ทั่วโลก',
+		joinThousands: 'เข้าร่วมกับนักเรียนที่ประสบความสำเร็จหลายพันคนที่ได้ปรับปรุงคะแนนสอบด้วย ExamTie',
+		problems: 'ปัญหา',
+		activeStudents: 'นักเรียนที่กำลังใช้งาน',
+		questionsSolved: 'คำถามที่ได้รับการแก้ไข',
+		support: 'การสนับสนุน',
+		
+		// Testimonials Section
+		testimonialsTitle: 'นักเรียนของเราพูดว่าอย่างไร',
+		testimonialsDescription: 'เรื่องราวจริงจากนักเรียนที่เปลี่ยนแปลงผลการเรียนทางวิชาการด้วย ExamTie',
+		whatStudentsSay: 'นักเรียนของเราพูดว่าอย่างไร',
+		realStories: 'เรื่องราวจริงจากนักเรียนที่เปลี่ยนแปลงผลการเรียนทางวิชาการด้วย ExamTie',
+		transformedPerformance: 'เปลี่ยนแปลงผลการเรียนทางวิชาการของพวกเขา',
+		
+		// Call to Action
+		ctaTitle: 'พร้อมที่จะเปลี่ยนแปลงการเรียนรู้ของคุณแล้วหรือยัง?',
+		ctaDescription: 'เข้าร่วมกับนักเรียนหลายพันคนที่กำลังปรับปรุงคะแนนสอบด้วยแพลตฟอร์มที่ขับเคลื่อนด้วย AI ของเรา เริ่มต้นเส้นทางสู่ความสำเร็จของคุณวันนี้',
+		startYourJourney: 'เริ่มต้นเส้นทางของคุณ',
+		readyToTransform: 'พร้อมที่จะเปลี่ยนแปลง',
+		yourLearning: 'การเรียนรู้ของคุณแล้วหรือยัง?',
+		joinStudents: 'เข้าร่วมกับนักเรียนหลายพันคนที่กำลังปรับปรุงคะแนนสอบด้วย',
+		improvingScores: 'แพลตฟอร์มที่ขับเคลื่อนด้วย AI ของเรา',
+		aiPoweredPlatform: ' เริ่มต้นเส้นทางสู่ความสำเร็จของคุณวันนี้',
+		startSuccessJourney: 'เริ่มต้นเส้นทางสู่ความสำเร็จของคุณวันนี้',
+		startFreeTrial: 'เริ่มทดลองใช้ฟรี',
+		viewPricing: 'ดูราคา',
+		
+		// Common UI Elements
+		aiPowered: 'ขับเคลื่อนด้วย AI',
+		progressTrackingShort: 'ติดตามความคืบหน้า',
+		fiveKQuestions: '50K+ คำถาม',
+		interactiveDemoShort: 'เดโมแบบโต้ตอบ',
+		
+		// Footer
+		aboutUs: 'เกี่ยวกับเรา',
+		contactUs: 'ติดต่อเรา',
+		privacyPolicy: 'นโยบายความเป็นส่วนตัว',
+		termsOfService: 'ข้อกำหนดการใช้บริการ',
+		
+		// Meta Information
+		pageTitle: 'ExamTie - เชี่ยวชาญการสอบของคุณด้วยการฝึกฝนที่ขับเคลื่อนด้วย AI',
+		pageDescription: 'ยกระดับการเรียนรู้ของคุณขึ้นไปอีกระดับด้วย ExamTie ฝึกฝนด้วยคำถามหลายพันข้อ รับฟีดแบ็กอัจฉริยะ และติดตามความคืบหน้าของคุณในหลายวิชา',
+		
+		// Floating Subject Cards  
+		mathSubject: 'คณิตศาสตร์',
+		chemSubject: 'เคมี',
+		physSubject: 'ฟิสิกส์',
+		compSciSubject: 'วิทยาการคอมพิวเตอร์'
+	}
+};
