@@ -21,6 +21,16 @@ export interface Translations {
 	exploreExams: string;
 	exams: string;
 	
+	// New Exciting Hero Translations
+	revolutionize: string;
+	studyMethod: string;
+	freeForever: string;
+	builtByDevelopers: string;
+	powerfulAI: string;
+	joinRevolution: string;
+	nextGenLearning: string;
+	joinCommunity: string;
+	
 	// Hero Stats
 	questions: string;
 	successRate: string;
@@ -154,12 +164,20 @@ export const translations: Record<'en' | 'th', Translations> = {
 		masterYour: 'Master Your',
 		examsWith: 'Exams with',
 		examTie: 'ExamTie',
-		transformStudy: 'Transform your study experience with AI-powered practice questions, instant feedback, and personalized learning paths tailored to your success.',
+		transformStudy: 'Experience the future of exam preparation with our completely free, open source learning platform. AI-powered questions, personalized feedback, and progress tracking - all available to everyone, forever.',
 		startLearningNow: 'Start Learning Now',
 		tryDemo: 'Try Demo',
 		loginNow: 'Login Now',
 		exploreExams: 'Explore Exams',
 		exams: 'Exams',
+		joinCommunity: 'Join the Community',
+		freeForever: 'Free Forever',
+		builtByDevelopers: 'Built by learners, for learners',
+		powerfulAI: 'Powered by AI',
+		revolutionize: 'Revolutionize',
+		studyMethod: 'Your Study Method',
+		joinRevolution: 'Join the Revolution',
+		nextGenLearning: 'Next-Gen Learning',
 		
 		// Hero Stats
 		questions: 'Questions',
@@ -205,16 +223,16 @@ export const translations: Record<'en' | 'th', Translations> = {
 		learnMore: 'Learn more',
 		
 		// Stats Section
-		statsTitle: 'Trusted by Students Worldwide',
-		statsDescription: 'Join thousands of successful learners who have improved their exam scores with ExamTie',
-		ourImpact: 'Our Impact',
-		trustedBy: 'Trusted by Students',
-		worldwide: 'Worldwide',
-		joinThousands: 'Join thousands of successful learners who have improved their exam scores with ExamTie',
-		problems: 'Problems',
-		activeStudents: 'Active Students',
+		statsTitle: 'Free & Open Source Learning Platform',
+		statsDescription: 'Built by the community, for the community. Always free, forever open.',
+		ourImpact: 'Community Impact',
+		trustedBy: 'Free & Open Source',
+		worldwide: 'Learning Platform',
+		joinThousands: 'Join the open source community building the future of education. No subscriptions, no premium tiers - just quality learning for everyone.',
+		problems: 'Practice Questions',
+		activeStudents: 'Users',
 		questionsSolved: 'Questions Solved',
-		support: 'Support',
+		support: 'GIthub Stars',
 		
 		// Testimonials Section
 		testimonialsTitle: 'What Our Students Say',
@@ -225,7 +243,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		
 		// Call to Action
 		ctaTitle: 'Ready to Transform Your Learning?',
-		ctaDescription: 'Join thousands of students who are already improving their exam scores with our AI-powered platform. Start your success journey today.',
+		ctaDescription: 'Join our open source community building the future of education. Start learning with our completely free platform - no subscriptions, no premium tiers, just quality education for everyone.',
 		startYourJourney: 'Start Your Journey',
 		readyToTransform: 'Ready to Transform Your',
 		yourLearning: 'Learning?',
@@ -298,6 +316,14 @@ export const translations: Record<'en' | 'th', Translations> = {
 		loginNow: 'เข้าสู่ระบบตอนนี้',
 		exploreExams: 'สำรวจการสอบ',
 		exams: 'การสอบ',
+		joinCommunity: 'เข้าร่วมชุมชน',
+		freeForever: 'ฟรีตลอดกาล',
+		builtByDevelopers: 'สร้างโดยนักพัฒนา เพื่อผู้เรียน',
+		powerfulAI: 'ขับเคลื่อนด้วย AI',
+		revolutionize: 'ปฏิวัติ',
+		studyMethod: 'วิธีการเรียนของคุณ',
+		joinRevolution: 'เข้าร่วมการปฏิวัติ',
+		nextGenLearning: 'การเรียนรู้ยุคหน้า',
 		
 		// Hero Stats
 		questions: 'คำถาม',

@@ -138,7 +138,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		examTie: 'ExamTie',
 		transformStudy: 'Transform your study experience with AI-powered practice questions, instant feedback, and personalized learning paths tailored to your success.',
 		startLearningNow: 'Start Learning Now',
-		tryDemo: 'Try Demo',
+		tryDemo: 'Login',
 		loginNow: 'Login Now',
 		exploreExams: 'Explore Exams',
 		exams: 'Exams',

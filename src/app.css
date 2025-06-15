@@ -13,23 +13,92 @@
 /* Apply Inter Thai Looped as default font */
 body {
   font-family: 'Inter Thai Looped', system-ui, sans-serif;
+  /* Improve mobile performance */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+/* Mobile-first responsive design improvements */
+@media (max-width: 768px) {
+  /* Better touch targets */
+  button, a, .interactive {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improved text readability on mobile */
+  .hero-title { font-size: 2.5rem !important; line-height: 1.2; }
+  .section-title { font-size: 2rem !important; line-height: 1.3; }
+  .card-title { font-size: 1.5rem !important; line-height: 1.4; }
+  
+  /* Better spacing on mobile */
+  .section-padding { padding: 3rem 1rem; }
+  .container-mobile { padding-left: 1rem; padding-right: 1rem; }
+  
+  /* Optimize feature cards for mobile */
+  .feature-card {
+    padding: 1.5rem !important;
+    margin-bottom: 1rem;
+  }
+  
+    /* Better CTA buttons on mobile */
+  .cta-button {
+    width: 100%;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Optimize hero section for mobile */
+  .hero-section {
+    min-height: 70vh;
+    padding: 2rem 1rem;
+  }
+  
+  /* Better stats display on mobile */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+  
+  /* Reduce motion for better mobile performance */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
-::-webkit-scrollbar-track {
-  @apply bg-slate-100 dark:bg-slate-800;
+@media (max-width: 480px) {
+  /* Extra small screens */
+  .hero-title { font-size: 2rem !important; }
+  .section-title { font-size: 1.75rem !important; }
+  
+  /* Single column stats on very small screens */
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Better book visual positioning */
+  .hero-book {
+    width: 250px !important;
+    height: auto;
+  }
 }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-gradient-to-b from-blue-400 to-purple-500 rounded-full;
+/* Improved scroll behavior */
+html {
+  scroll-behavior: smooth;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gradient-to-b from-blue-500 to-purple-600;
+/* Better focus states for accessibility */
+.focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 /* Enhanced animations with modern easing */
@@ -123,37 +192,21 @@ body {
   }
 }
 
-@keyframes float-gentle {
+@keyframes float-mobile {
   0%, 100% { 
-    transform: translateY(0px) rotate(0deg);
-  }
-  33% {
-    transform: translateY(-10px) rotate(1deg);
-  }
-  66% {
-    transform: translateY(-5px) rotate(-1deg);
-  }
-}
-
-@keyframes pulse-slow {
-  0%, 100% { 
-    opacity: 0.8;
-    transform: scale(1);
+    transform: translateY(0px) scale(1);
   }
   50% { 
-    opacity: 0.4;
-    transform: scale(1.05);
+    transform: translateY(-8px) scale(1.02);
   }
 }
 
-@keyframes slide-up {
-  0% {
-    opacity: 0;
-    transform: translateY(100px) scale(0.9);
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
   }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  50% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.6), 0 0 40px rgba(139, 92, 246, 0.4);
   }
 }
 
@@ -208,7 +261,7 @@ body {
 }
 
 .animate-float-gentle {
-  animation: float-gentle 6s ease-in-out infinite;
+  animation: float-gentle 4s ease-in-out infinite;
 }
 
 .animate-pulse-slow {
@@ -575,15 +628,15 @@ body {
 }
 
 /* Enhanced radial gradient utilities */
-.bg-radial-[at_20%_30%] {
+.bg-radial-20-30 {
   background-image: radial-gradient(circle at 20% 30%, var(--tw-gradient-stops));
 }
 
-.bg-radial-[at_80%_70%] {
+.bg-radial-80-70 {
   background-image: radial-gradient(circle at 80% 70%, var(--tw-gradient-stops));
 }
 
-.bg-radial-[at_50%_50%] {
+.bg-radial-50-50 {
   background-image: radial-gradient(circle at 50% 50%, var(--tw-gradient-stops));
 }
 

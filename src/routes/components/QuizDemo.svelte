@@ -27,20 +27,20 @@
 <div class="relative mx-auto max-w-2xl {className}">
 	<!-- Background glow effect -->
 	<div
-		class="absolute -inset-4 rounded-3xl bg-gradient-to-r from-blue-600/20 to-purple-600/20 blur-xl"
+		class="absolute -inset-2 lg:-inset-4 rounded-2xl lg:rounded-3xl bg-gradient-to-r from-blue-600/20 to-purple-600/20 blur-xl"
 	></div>
 
 	<div
-		class="relative rounded-2xl border border-white/30 bg-gradient-to-br from-sky-400/20 to-purple-500/20 p-8 shadow-2xl backdrop-blur-xl"
+		class="relative rounded-xl lg:rounded-2xl border border-white/30 bg-gradient-to-br from-sky-400/20 to-purple-500/20 p-4 lg:p-8 shadow-2xl backdrop-blur-xl"
 	>
 		<!-- Quiz title and progress -->
-		<div class="mb-8">
-			<div class="mb-4 flex items-center justify-between">
-				<div class="flex items-center space-x-3">
+		<div class="mb-6 lg:mb-8">
+			<div class="mb-3 lg:mb-4 flex items-center justify-between">
+				<div class="flex items-center space-x-2 lg:space-x-3">
 					<div
-						class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-400 to-emerald-500"
+						class="flex h-6 w-6 lg:h-8 lg:w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-400 to-emerald-500"
 					>
-						<svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="h-3 w-3 lg:h-4 lg:w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -49,10 +49,10 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-white">{quizData.title}</h3>
+					<h3 class="text-lg lg:text-xl font-bold text-white">{quizData.title}</h3>
 				</div>
-				<div class="rounded-full bg-white/20 px-4 py-2 backdrop-blur-sm">
-					<span class="text-sm font-bold text-white"
+				<div class="rounded-full bg-white/20 px-2 py-1 lg:px-4 lg:py-2 backdrop-blur-sm">
+					<span class="text-xs lg:text-sm font-bold text-white"
 						>{quizData.currentQuestion} / {quizData.totalQuestions}</span
 					>
 				</div>
@@ -60,28 +60,28 @@
 
 			<!-- Enhanced progress bar -->
 			<div class="relative">
-				<div class="h-2 w-full overflow-hidden rounded-full bg-white/20">
+				<div class="h-1.5 lg:h-2 w-full overflow-hidden rounded-full bg-white/20">
 					<div
 						class="h-full rounded-full bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 shadow-lg transition-all duration-700 ease-out"
 						style="width: 15%"
 					></div>
 				</div>
 				<div
-					class="absolute -top-1 left-[15%] h-4 w-4 -translate-x-1/2 transform rounded-full border-2 border-purple-400 bg-white shadow-lg"
+					class="absolute -top-1 lg:-top-1 left-[15%] h-3 w-3 lg:h-4 lg:w-4 -translate-x-1/2 transform rounded-full border-2 border-purple-400 bg-white shadow-lg"
 				></div>
 			</div>
 		</div>
 
 		<!-- Question section with better styling -->
-		<div class="mb-8">
-			<div class="rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-sm">
-				<div class="flex items-start space-x-3">
+		<div class="mb-6 lg:mb-8">
+			<div class="rounded-lg lg:rounded-xl border border-white/20 bg-white/10 p-4 lg:p-6 backdrop-blur-sm">
+				<div class="flex items-start space-x-2 lg:space-x-3">
 					<div
-						class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-sm font-bold text-white"
+						class="flex h-6 w-6 lg:h-8 lg:w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs lg:text-sm font-bold text-white"
 					>
 						Q
 					</div>
-					<p class="text-lg font-medium leading-relaxed text-white">
+					<p class="text-sm lg:text-lg font-medium leading-relaxed text-white">
 						{quizData.question}
 					</p>
 				</div>
@@ -89,32 +89,32 @@
 		</div>
 
 		<!-- Answer options with enhanced design -->
-		<div class="mb-8 space-y-4">
+		<div class="mb-6 lg:mb-8 space-y-3 lg:space-y-4">
 			{#each quizData.options as option, index}
 				<button
 					class="group w-full transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
 					onclick={() => handleOptionSelect(option.id)}
 				>
 					<div
-						class="flex items-center rounded-xl border-2 p-5 transition-all duration-300 {option.selected
+						class="flex items-center rounded-lg lg:rounded-xl border-2 p-3 lg:p-5 transition-all duration-300 {option.selected
 							? 'border-white/60 bg-gradient-to-r from-white/20 to-white/10 shadow-xl shadow-white/10'
 							: 'border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/15'}"
 					>
 						<span
-							class="mr-5 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-base font-bold transition-all duration-300 {option.selected
+							class="mr-3 lg:mr-5 flex h-8 w-8 lg:h-12 lg:w-12 flex-shrink-0 items-center justify-center rounded-lg lg:rounded-xl text-sm lg:text-base font-bold transition-all duration-300 {option.selected
 								? 'bg-gradient-to-br from-orange-300 to-orange-500 text-white shadow-lg shadow-orange-500/30'
 								: 'bg-white/80 text-slate-800 group-hover:scale-110 group-hover:bg-white/90'}"
 						>
 							{option.id.toUpperCase()}
 						</span>
-						<span class="flex-1 text-left text-base font-medium text-white">
+						<span class="flex-1 text-left text-sm lg:text-base font-medium text-white">
 							{option.text}
 						</span>
 						{#if option.selected}
 							<div
-								class="ml-3 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500"
+								class="ml-2 lg:ml-3 flex h-6 w-6 lg:h-8 lg:w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500"
 							>
-								<svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+								<svg class="h-3 w-3 lg:h-5 lg:w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
 									<path
 										fill-rule="evenodd"
 										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -129,18 +129,18 @@
 		</div>
 
 		<!-- Action buttons with improved design -->
-		<div class="flex items-center justify-between">
+		<div class="flex flex-col sm:flex-row items-center justify-between gap-3 lg:gap-0">
 			<button
-				class="flex items-center rounded-lg px-6 py-3 text-base font-medium text-white/80 transition-all duration-300 hover:bg-white/10 hover:text-white"
+				class="flex items-center rounded-lg px-4 lg:px-6 py-2 lg:py-3 text-sm lg:text-base font-medium text-white/80 transition-all duration-300 hover:bg-white/10 hover:text-white w-full sm:w-auto justify-center sm:justify-start"
 			>
-				<svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<svg class="mr-2 h-4 w-4 lg:h-5 lg:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"
 					></path>
 				</svg>
 				Previous
 			</button>
-			<div class="flex items-center text-white/70">
-				<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<div class="flex items-center text-white/70 text-sm lg:text-base">
+				<svg class="mr-2 h-3 w-3 lg:h-4 lg:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"
