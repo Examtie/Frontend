@@ -10,29 +10,33 @@
     let isLogin = true; // To toggle between login and register forms
 
     let loading = false;
+    let successMessage = ''; // Added for success messages
 
     async function handleSubmit() {
         if (loading) return;
         loading = true;
         auth.clearError();
+        successMessage = ''; // Clear previous success messages
 
         let success = false;
         if (isLogin) {
             success = await auth.login(username, password);
+            if (success) successMessage = $t('loginSuccess');
         } else {
-            success = await auth.register({ email, password, full_name, username });
+            success = await auth.register({ email, password, full_name: full_name, username }); // Ensure full_name is passed
+            if (success) successMessage = $t('registrationSuccess');
         }
 
         if (success) {
-            goto('/'); // Redirect to homepage on successful login/registration
+            setTimeout(() => goto('/'), 1500); // Redirect after a short delay
         } 
-        // Error will be displayed from the auth store if not successful
         loading = false;
     }
 
     function toggleForm() {
         isLogin = !isLogin;
-        auth.clearError(); // Clear errors when switching forms
+        auth.clearError();
+        successMessage = ''; // Clear success message on form toggle
     }
 </script>
 
@@ -61,6 +65,11 @@
                     <p>{$auth.error}</p>
                 </div>
             {/if}
+            {#if successMessage}
+                <div class="bg-green-500/20 border border-green-700 text-green-300 px-4 py-3 rounded-lg" role="alert">
+                    <p>{successMessage}</p>
+                </div>
+            {/if}
 
             {#if !isLogin}
                 <div class="rounded-md shadow-sm -space-y-px">
@@ -69,8 +78,8 @@
                         <input id="full_name" name="full_name" type="text" bind:value={full_name} required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-700 bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm rounded-t-md" placeholder={$t('fullNamePlaceholder')}>
                     </div>
                     <div>
-                        <label for="email-address" class="sr-only">{$t('emailAddress')}</label>
-                        <input id="email-address" name="email" type="email" autocomplete="email" bind:value={email} required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-700 bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" placeholder={$t('emailPlaceholder')}>
+                        <label for="email" class="sr-only">{$t('emailAddress')}</label>
+                        <input id="email" name="email" type="email" bind:value={email} required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-700 bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" placeholder={$t('emailAddress')}> 
                     </div>
                 </div>
             {/if}
@@ -78,7 +87,7 @@
             <div class="rounded-md shadow-sm -space-y-px">
                 <div>
                     <label for="username" class="sr-only">{$t('username')}</label>
-                    <input id="username" name="username" type="text" autocomplete="username" bind:value={username} required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-700 bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm {isLogin ? 'rounded-t-md' : ''}" placeholder={$t('usernamePlaceholder')}>
+                    <input id="username" name="username" type="text" autocomplete="username" bind:value={username} required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-700 bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm {isLogin && !isLogin ? 'rounded-t-md' : (isLogin ? 'rounded-t-md' : '')}" placeholder={$t('usernamePlaceholder')}>
                 </div>
                 <div>
                     <label for="password" class="sr-only">{$t('password')}</label>

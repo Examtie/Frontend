@@ -145,6 +145,29 @@ export interface Translations {
 	chemSubject: string;
 	physSubject: string;
 	compSciSubject: string;
+
+	// Auth
+	register: string;
+	signInToYourAccount: string;
+	createNewAccount: string;
+	fullName: string;
+	fullNamePlaceholder: string;
+	username: string;
+	usernamePlaceholder: string;
+	password: string;
+	passwordPlaceholder: string;
+	processing: string;
+	signIn: string;
+	createAccount: string;
+	needAnAccount: string;
+	alreadyHaveAccount: string;
+	loginSuccess: string;
+	registrationSuccess: string;
+	profileUpdatedSuccessfully: string;
+	loadingProfile: string;
+	emailAddress: string;
+	bio: string;
+	bioPlaceholder: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -292,7 +315,30 @@ export const translations: Record<'en' | 'th', Translations> = {
 		mathSubject: 'Mathematics',
 		chemSubject: 'Chemistry',
 		physSubject: 'Physics',
-		compSciSubject: 'Computer Science'
+		compSciSubject: 'Computer Science',
+
+		// Auth
+		register: 'Register',
+		signInToYourAccount: 'Sign in to your account',
+		createNewAccount: 'Create a new account',
+		fullName: 'Full Name',
+		fullNamePlaceholder: 'Enter your full name',
+		username: 'Username',
+		usernamePlaceholder: 'Enter your username',
+		password: 'Password',
+		passwordPlaceholder: 'Enter your password',
+		processing: 'Processing...',
+		signIn: 'Sign In',
+		createAccount: 'Create Account',
+		needAnAccount: 'Need an account? Register',
+		alreadyHaveAccount: 'Already have an account? Sign in',
+		loginSuccess: 'Login successful! Redirecting...',
+		registrationSuccess: 'Registration successful! Redirecting...',
+		profileUpdatedSuccessfully: 'Profile updated successfully!',
+		loadingProfile: 'Loading profile',
+		emailAddress: 'Email Address',
+		bio: 'Bio',
+		bioPlaceholder: 'Tell us a little about yourself',
 	},
 	th: {
 		// Navigation
