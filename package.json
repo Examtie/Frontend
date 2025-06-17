@@ -13,6 +13,7 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check .",
 		"deploy": "pnpm run build && wrangler deploy",
+		"docker:deploy": "docker build -t frontend . && docker run -d -p 6666:6666 frontend",
 		"cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
 	},
 	"devDependencies": {

@@ -2,7 +2,9 @@
 	import { currentLanguage } from '../../lib/stores/language.js';
 	import { switchLanguage } from '../../lib/i18n.js';
 	import { t } from '../../lib/i18n.js';
-	
+	import { auth } from '../../lib/stores/auth'; // Import the auth store
+	import ThemeToggle from './ThemeToggle.svelte'; // Assuming you have this or similar
+
 	let { class: className = '' } = $props();
 	let isMenuOpen = $state(false);
 	let isLanguageDropdownOpen = $state(false);
@@ -14,22 +16,28 @@
 	function closeMenu() {
 		isMenuOpen = false;
 	}
-	
+
 	function toggleLanguageDropdown() {
 		isLanguageDropdownOpen = !isLanguageDropdownOpen;
 	}
-	
+
 	function selectLanguage(lang: 'en' | 'th') {
 		switchLanguage(lang);
 		isLanguageDropdownOpen = false;
+		closeMenu(); // Close mobile menu if language is changed from there
 	}
-	
+
 	// Close dropdown when clicking outside
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 		if (!target.closest('.language-dropdown')) {
 			isLanguageDropdownOpen = false;
 		}
+	}
+
+	function handleLogout() {
+		auth.logout();
+		closeMenu();
 	}
 </script>
 
@@ -60,9 +68,14 @@
 				<a href="/marketplace" class="text-gray-300 hover:text-white transition-colors">
 					{$t('marketplace')}
 				</a>
+				{#if $auth.isAuthenticated && $auth.user?.roles.includes('admin')}
+					<a href="/admin" class="text-gray-300 hover:text-white transition-colors">
+						{$t('admin')}
+					</a>
+				{/if}
 			</div>
 
-			<!-- Right side - Search, Language, Login -->
+			<!-- Right side - Search, Language, Login/User -->
 			<div class="flex items-center space-x-4">
 				<!-- Search Bar -->
 				<div class="hidden md:flex items-center bg-stone-800 border border-gray-600/60 rounded-2xl px-4 py-2 min-w-[200px]">
@@ -83,11 +96,7 @@
 						class="flex items-center space-x-1 text-gray-300 hover:text-white transition-colors cursor-pointer px-3 py-2 rounded-lg hover:bg-stone-700/50"
 					>
 						<span class="text-sm">
-							{#if $currentLanguage === 'th'}
-								🇹🇭 ไทย
-							{:else}
-								🇬🇧 English
-							{/if}
+							{$currentLanguage === 'en' ? '🇬🇧' : '🇹🇭'} {$currentLanguage.toUpperCase()}
 						</span>
 						<svg class="w-4 h-4 transition-transform duration-200 {isLanguageDropdownOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -95,41 +104,45 @@
 					</button>
 					
 					{#if isLanguageDropdownOpen}
-						<div class="absolute right-0 top-full mt-2 w-40 bg-stone-800 border border-gray-600/60 rounded-lg shadow-lg py-2 z-50">
-							<button 
-								onclick={() => selectLanguage('en')}
-								class="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-stone-700/50 transition-colors {$currentLanguage === 'en' ? 'bg-stone-700/30 text-white' : ''}"
-							>
-								<span class="mr-3">🇬🇧</span>
-								English
-							</button>
-							<button 
-								onclick={() => selectLanguage('th')}
-								class="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-stone-700/50 transition-colors {$currentLanguage === 'th' ? 'bg-stone-700/30 text-white' : ''}"
-							>
-								<span class="mr-3">🇹🇭</span>
-								ไทย
-							</button>
+						<div class="absolute right-0 mt-2 w-36 bg-stone-800 border border-gray-700 rounded-lg shadow-xl py-1">
+							<button onclick={() => selectLanguage('en')} class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-stone-700 hover:text-white transition-colors">🇬🇧 English</button>
+							<button onclick={() => selectLanguage('th')} class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-stone-700 hover:text-white transition-colors">🇹🇭 ไทย</button>
 						</div>
 					{/if}
 				</div>
 
-				<!-- Login Button -->
-				<button class="hidden md:flex items-center bg-black border border-gray-600 text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors">
-					<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-					</svg>
-					{$t('login')}
-				</button>
+				<!-- Login/User Button -->
+				{#if $auth.isAuthenticated && $auth.user}
+					<div class="hidden md:flex items-center space-x-2">
+						<a href="/profile" class="flex items-center text-gray-300 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-stone-700/50">
+							{#if $auth.user.profile_image}
+								<img src={$auth.user.profile_image} alt="User" class="w-6 h-6 rounded-full mr-2" />
+							{:else}
+								<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+							{/if}
+							<span class="text-sm">{$auth.user.username}</span>
+						</a>
+						<button 
+							onclick={handleLogout}
+							class="flex items-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+						>
+							<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+							{$t('logout')}
+						</button>
+					</div>
+				{:else}
+					<a href="/login" class="hidden md:flex items-center bg-black border border-gray-600 text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+						</svg>
+						{$t('login')}
+					</a>
+				{/if}
 
 				<!-- Mobile menu button -->
 				<button onclick={toggleMenu} class="md:hidden p-2 rounded-lg text-gray-300 hover:text-white transition-colors">
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						{#if isMenuOpen}
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-						{:else}
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-						{/if}
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
 					</svg>
 				</button>
 			</div>
@@ -142,42 +155,38 @@
 					<a href="/" onclick={closeMenu} class="block text-white hover:text-blue-300 transition-colors py-2">{$t('home')}</a>
 					<a href="/quiz" onclick={closeMenu} class="block text-gray-300 hover:text-white transition-colors py-2">{$t('quiz')}</a>
 					<a href="/marketplace" onclick={closeMenu} class="block text-gray-300 hover:text-white transition-colors py-2">{$t('marketplace')}</a>
+					{#if $auth.isAuthenticated && $auth.user?.roles.includes('admin')}
+						<a href="/admin" onclick={closeMenu} class="block text-gray-300 hover:text-white transition-colors py-2">{$t('admin')}</a>
+					{/if}
 					
 					<!-- Mobile Language Switcher -->
 					<div class="pt-2">
-						<div class="text-gray-400 text-sm mb-2">Language / ภาษา</div>
-						<div class="flex gap-2">
-							<button 
-								onclick={() => selectLanguage('en')}
-								class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {$currentLanguage === 'en' ? 'bg-stone-700/50 text-white' : 'text-gray-300 hover:text-white hover:bg-stone-700/30'}"
-							>
-								<span class="mr-2">🇬🇧</span>
-								English
-							</button>
-							<button 
-								onclick={() => selectLanguage('th')}
-								class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {$currentLanguage === 'th' ? 'bg-stone-700/50 text-white' : 'text-gray-300 hover:text-white hover:bg-stone-700/30'}"
-							>
-								<span class="mr-2">🇹🇭</span>
-								ไทย
-							</button>
-						</div>
+						<h3 class="text-sm font-semibold text-gray-400 mb-2">{$t('language')}</h3>
+						<button onclick={() => selectLanguage('en')} class="w-full text-left py-2 text-gray-300 hover:text-white transition-colors">🇬🇧 English</button>
+						<button onclick={() => selectLanguage('th')} class="w-full text-left py-2 text-gray-300 hover:text-white transition-colors">🇹🇭 ไทย</button>
 					</div>
 					
 					<div class="pt-4 border-t border-gray-700 space-y-3">
-						<div class="flex items-center bg-stone-700 border border-gray-600/60 rounded-2xl px-4 py-2">
-							<svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-							</svg>
-							<input 
-								type="text" 
-								placeholder={$t('search')}
-								class="bg-transparent text-gray-300 text-sm placeholder-gray-500 flex-1 outline-none"
-							/>
-						</div>
-						<button class="w-full bg-black border border-gray-600 text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors">
-							{$t('login')}
-						</button>
+						{#if $auth.isAuthenticated && $auth.user}
+							<a href="/profile" onclick={closeMenu} class="flex items-center text-gray-300 hover:text-white transition-colors py-2">
+								{#if $auth.user.profile_image}
+									<img src={$auth.user.profile_image} alt="User" class="w-6 h-6 rounded-full mr-2" />
+								{:else}
+									<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+								{/if}
+								{$auth.user.username}
+							</a>
+							<button 
+								onclick={handleLogout} 
+								class="w-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg transition-colors text-sm"
+							>
+								<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+								{$t('logout')}
+							</button>
+						{:else}
+							<a href="/login" onclick={closeMenu} class="block w-full text-center bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg transition-colors">{$t('login')}</a>
+							<a href="/register" onclick={closeMenu} class="block w-full text-center bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg transition-colors mt-2">{$t('register')}</a>
+						{/if}
 					</div>
 				</div>
 			</div>
