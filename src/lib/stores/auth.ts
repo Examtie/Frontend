@@ -64,7 +64,10 @@ async function fetchUserProfile(token: string): Promise<User | null> {
     const userData = await response.json() as User;
     
     // Check if we have saved roles for this user
-    const savedRoles = getSavedUserRoles(userData.id || '');
+    let savedRoles: string[] | null = null;
+    if (userData.id) {
+      savedRoles = getSavedUserRoles(userData.id);
+    }
     
     // Use backend roles if they exist and are different from saved ones, otherwise use saved roles
     if (userData.roles && userData.roles.length > 0) {
