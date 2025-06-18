@@ -198,6 +198,40 @@ export interface Translations {
 	admin: string;
 	language: string;
 	logout: string;
+	userProfile: string;
+	
+	// Admin Dashboard
+	adminDashboard: string;
+	manageUsers: string;
+	systemSettings: string;
+	totalUsers: string;
+	totalQuizzes: string;
+	activeSessions: string;
+	totalQuestions: string;
+	userManagement: string;
+	searchUsers: string;
+	allRoles: string;
+	user: string;
+	staff: string;
+	role: string;
+	status: string;
+	actions: string;
+	view: string;
+	delete: string;
+	active: string;
+	userDetails: string;
+	changeRole: string;
+	deleteUser: string;
+	deleteConfirmMessage: string;
+	cancel: string;
+	refresh: string;
+	loadingDashboard: string;
+	previous: string;
+	next: string;
+	showing: string;
+	to: string;
+	of: string;
+	results: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -399,6 +433,40 @@ export const translations: Record<'en' | 'th', Translations> = {
 		admin: 'Admin',
 		language: 'Language',
 		logout: 'Logout',
+		userProfile: 'User Profile',
+		
+		// Admin Dashboard
+		adminDashboard: 'Admin Dashboard',
+		manageUsers: 'Manage users and system settings',
+		systemSettings: 'System Settings',
+		totalUsers: 'Total Users',
+		totalQuizzes: 'Total Quizzes',
+		activeSessions: 'Active Sessions',
+		totalQuestions: 'Total Questions',
+		userManagement: 'User Management',
+		searchUsers: 'Search users...',
+		allRoles: 'All Roles',
+		user: 'User',
+		staff: 'Staff',
+		role: 'Role',
+		status: 'Status',
+		actions: 'Actions',
+		view: 'View',
+		delete: 'Delete',
+		active: 'Active',
+		userDetails: 'User Details',
+		changeRole: 'Change Role',
+		deleteUser: 'Delete User',
+		deleteConfirmMessage: 'Are you sure you want to delete this user? This action cannot be undone.',
+		cancel: 'Cancel',
+		refresh: 'Refresh',
+		loadingDashboard: 'Loading admin dashboard...',
+		previous: 'Previous',
+		next: 'Next',
+		showing: 'Showing',
+		to: 'to',
+		of: 'of',
+		results: 'results',
 	},
 	th: {
 		// Navigation
@@ -598,5 +666,39 @@ export const translations: Record<'en' | 'th', Translations> = {
 		admin: 'ผู้ดูแลระบบ',
 		language: 'ภาษา',
 		logout: 'ออกจากระบบ',
+		userProfile: 'โปรไฟล์ผู้ใช้',
+		
+		// Admin Dashboard
+		adminDashboard: 'แดชบอร์ดผู้ดูแลระบบ',
+		manageUsers: 'จัดการผู้ใช้และการตั้งค่าระบบ',
+		systemSettings: 'การตั้งค่าระบบ',
+		totalUsers: 'ผู้ใช้ทั้งหมด',
+		totalQuizzes: 'แบบทดสอบทั้งหมด',
+		activeSessions: 'เซสชันที่ใช้งาน',
+		totalQuestions: 'คำถามทั้งหมด',
+		userManagement: 'การจัดการผู้ใช้',
+		searchUsers: 'ค้นหาผู้ใช้...',
+		allRoles: 'บทบาททั้งหมด',
+		user: 'ผู้ใช้',
+		staff: 'เจ้าหน้าที่',
+		role: 'บทบาท',
+		status: 'สถานะ',
+		actions: 'การดำเนินการ',
+		view: 'ดู',
+		delete: 'ลบ',
+		active: 'ใช้งานอยู่',
+		userDetails: 'รายละเอียดผู้ใช้',
+		changeRole: 'เปลี่ยนบทบาท',
+		deleteUser: 'ลบผู้ใช้',
+		deleteConfirmMessage: 'คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้นี้? การดำเนินการนี้ไม่สามารถยกเลิกได้',
+		cancel: 'ยกเลิก',
+		refresh: 'รีเฟรช',
+		loadingDashboard: 'กำลังโหลดแดชบอร์ดผู้ดูแลระบบ...',
+		previous: 'ก่อนหน้า',
+		next: 'ถัดไป',
+		showing: 'แสดง',
+		to: 'ถึง',
+		of: 'จาก',
+		results: 'ผลลัพธ์',
 	}
 };
