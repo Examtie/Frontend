@@ -8,19 +8,57 @@
     let full_name = '';
     let username = '';
     let isLogin = true; // To toggle between login and register forms
+    let showPassword = false;
 
     let loading = false;
     let successMessage = ''; // Added for success messages
+    let formErrors: { [key: string]: string } = {};
+
+    // Form validation
+    function validateForm() {
+        formErrors = {};
+        
+        if (!email.trim()) {
+            formErrors.email = $t('emailRequired');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            formErrors.email = $t('invalidEmail');
+        }
+
+        if (!password.trim()) {
+            formErrors.password = $t('passwordRequired');
+        } else if (password.length < 8) {
+            formErrors.password = $t('passwordLength');
+        }
+
+        if (!isLogin) {
+            if (!full_name.trim()) {
+                formErrors.full_name = $t('fullNameRequired');
+            }
+            
+            if (!username.trim()) {
+                formErrors.username = $t('usernameRequired');
+            } else if (username.length < 3 || username.length > 30) {
+                formErrors.username = $t('usernameLength');
+            }
+        }
+
+        return Object.keys(formErrors).length === 0;
+    }
 
     async function handleSubmit() {
         if (loading) return;
+        
+        if (!validateForm()) {
+            return;
+        }
+
         loading = true;
         auth.clearError();
         successMessage = ''; // Clear previous success messages
 
         let success = false;
         if (isLogin) {
-            success = await auth.login(username, password);
+            success = await auth.login(email, password);
             if (success) successMessage = $t('loginSuccess');
         } else {
             success = await auth.register({ email, password, full_name: full_name, username }); // Ensure full_name is passed
@@ -37,6 +75,16 @@
         isLogin = !isLogin;
         auth.clearError();
         successMessage = ''; // Clear success message on form toggle
+        formErrors = {}; // Clear form errors
+        // Clear form fields when switching modes
+        email = '';
+        password = '';
+        full_name = '';
+        username = '';
+    }
+
+    function togglePasswordVisibility() {
+        showPassword = !showPassword;
     }
 </script>
 
@@ -161,7 +209,7 @@
                                     type="text" 
                                     bind:value={full_name} 
                                     required 
-                                    class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
+                                    class="w-full px-4 py-3 border {formErrors.full_name ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
                                     placeholder={$t('fullNamePlaceholder')}
                                 >
                                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -170,54 +218,65 @@
                                     </svg>
                                 </div>
                             </div>
+                            {#if formErrors.full_name}
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.full_name}</p>
+                            {/if}
                         </div>
 
-                        <!-- Email (Signup only) -->
+                        <!-- Username (Signup only) -->
                         <div>
-                            <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                {$t('emailAddress')}
+                            <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                {$t('username')}
                             </label>
                             <div class="relative">
                                 <input 
-                                    id="email" 
-                                    name="email" 
-                                    type="email" 
-                                    bind:value={email} 
+                                    id="username" 
+                                    name="username" 
+                                    type="text" 
+                                    bind:value={username} 
                                     required 
-                                    class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
-                                    placeholder={$t('emailAddress')}
+                                    class="w-full px-4 py-3 border {formErrors.username ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
+                                    placeholder={$t('usernamePlaceholder')}
                                 >
                                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                     <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                     </svg>
                                 </div>
                             </div>
+                            {#if formErrors.username}
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.username}</p>
+                            {:else if username.length > 0 && (username.length < 3 || username.length > 30)}
+                                <p class="mt-1 text-sm text-amber-600 dark:text-amber-400">{$t('usernameLength')}</p>
+                            {/if}
                         </div>
                     {/if}
 
-                    <!-- Username -->
+                    <!-- Email (Login and Signup) -->
                     <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {$t('username')}
+                        <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            {$t('emailAddress')}
                         </label>
                         <div class="relative">
                             <input 
-                                id="username" 
-                                name="username" 
-                                type="text" 
-                                autocomplete="username" 
-                                bind:value={username} 
+                                id="email" 
+                                name="email" 
+                                type="email" 
+                                autocomplete="email" 
+                                bind:value={email} 
                                 required 
-                                class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
-                                placeholder={$t('usernamePlaceholder')}
+                                class="w-full px-4 py-3 border {formErrors.email ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
+                                placeholder={$t('emailAddress')}
                             >
                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
                                 </svg>
                             </div>
                         </div>
+                        {#if formErrors.email}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.email}</p>
+                        {/if}
                     </div>
 
                     <!-- Password -->
@@ -229,19 +288,37 @@
                             <input 
                                 id="password" 
                                 name="password" 
-                                type="password" 
+                                type={showPassword ? 'text' : 'password'}
                                 autocomplete="current-password" 
                                 bind:value={password} 
                                 required 
-                                class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
+                                class="w-full px-4 py-3 pr-12 border {formErrors.password ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-xl transition-all duration-200"
                                 placeholder={$t('passwordPlaceholder')}
                             >
-                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                </svg>
+                            <div class="absolute inset-y-0 right-0 flex items-center">
+                                <button 
+                                    type="button"
+                                    on:click={togglePasswordVisibility}
+                                    class="px-3 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:text-gray-600 dark:focus:text-gray-300 transition-colors"
+                                >
+                                    {#if showPassword}
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L8.464 8.464M9.878 9.878a3 3 0 000 4.243m4.242-4.243L16.536 8.464M14.12 14.12l1.414 1.414M14.12 14.12a3 3 0 01-4.243 0"></path>
+                                        </svg>
+                                    {:else}
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    {/if}
+                                </button>
                             </div>
                         </div>
+                        {#if formErrors.password}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.password}</p>
+                        {:else if !isLogin && password.length > 0 && password.length < 8}
+                            <p class="mt-1 text-sm text-amber-600 dark:text-amber-400">{$t('passwordRequirements')}</p>
+                        {/if}
                     </div>
 
                     {#if isLogin}
@@ -258,8 +335,8 @@
                     <!-- Submit Button -->
                     <button 
                         type="submit" 
-                        class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        disabled={loading}
+                        class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:from-blue-600 disabled:hover:to-purple-600"
+                        disabled={loading || (!isLogin && (!email || !password || !full_name || !username)) || (isLogin && (!email || !password))}
                     >
                         {#if loading}
                             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -281,7 +358,7 @@
                         </div>
                         <div class="relative flex justify-center text-sm">
                             <span class="px-2 bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400">
-                                {isLogin ? 'Or continue with' : 'Or sign up with'}
+                                {$t('orContinueWith')}
                             </span>
                         </div>
                     </div>
@@ -291,7 +368,7 @@
                 <div class="mt-6">
                     <button 
                         type="button"
-                        class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-xl shadow-sm bg-white dark:bg-slate-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-all duration-200"
+                        class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-xl shadow-sm bg-white dark:bg-slate-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-all duration-200 transform hover:scale-[1.02]"
                     >
                         <svg class="w-5 h-5 mr-3" viewBox="0 0 24 24">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -299,7 +376,7 @@
                             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                         </svg>
-                        Continue with Google
+                        {$t('loginWithGoogle')}
                     </button>
                 </div>
 

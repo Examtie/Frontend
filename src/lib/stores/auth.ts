@@ -83,7 +83,7 @@ export const auth = {
       }
     }
   },
-  login: async (usernameInput: string, passwordInput: string) => {
+  login: async (emailInput: string, passwordInput: string) => {
     update(state => ({ ...state, error: null })); // Clear previous errors
     try {
       const response = await fetch(`${API_BASE_URL}/auth/api/v1/login`, {
@@ -92,7 +92,7 @@ export const auth = {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          username: usernameInput,
+          username: emailInput, // API expects 'username' field but we pass email
           password: passwordInput,
         }),
       });

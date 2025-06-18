@@ -80,10 +80,10 @@
 			</div>
 
 			<!-- Enhanced Right side - Search, Language, Login/User -->
-			<div class="flex items-center space-x-3">
+			<div class="flex items-center space-x-4">
 				<!-- Enhanced Search Bar -->
-				<div class="hidden lg:flex items-center bg-slate-800/50 border border-gray-600/40 rounded-xl px-4 py-2.5 min-w-[240px] backdrop-blur-sm hover:border-gray-500/60 transition-all duration-300 group">
-					<svg class="w-4 h-4 text-gray-400 mr-3 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div class="hidden lg:flex items-center bg-slate-800/60 border border-gray-600/40 rounded-xl px-4 py-2.5 min-w-[280px] backdrop-blur-sm hover:border-gray-500/60 focus-within:border-blue-500/50 transition-all duration-300 group">
+					<svg class="w-4 h-4 text-gray-400 mr-3 group-focus-within:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
 					</svg>
 					<input 
@@ -91,7 +91,7 @@
 						placeholder={$t('search')}
 						class="bg-transparent text-gray-200 placeholder-gray-400 text-sm flex-1 outline-none border-0 focus:placeholder-gray-500 transition-colors"
 					/>
-					<kbd class="hidden sm:inline-flex items-center px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-700/50 border border-gray-600/50 rounded-md">⌘K</kbd>
+					<kbd class="hidden sm:inline-flex items-center px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-700/50 border border-gray-600/50 rounded-md ml-2">⌘K</kbd>
 				</div>
 
 				<!-- Enhanced Language Dropdown -->
@@ -135,10 +135,10 @@
 						</a>
 						<button 
 							onclick={handleLogout}
-							class="flex items-center bg-stone-500/10 hover:bg-stone-500/30 border border-stone-500/30 hover:border-stone-500/20 text-stone-300 hover:text-stone-200 px-3 py-2.5 rounded-xl transition-all duration-300 text-sm backdrop-blur-sm group"
+							class="flex items-center bg-transparent hover:bg-gray-700/20 border border-gray-600/20 hover:border-gray-500/30 text-gray-400 hover:text-gray-200 px-3 py-2 rounded-lg transition-all duration-300 text-sm backdrop-blur-sm group"
 						>
-							<svg class="w-4 h-4 mr-1.5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-							{$t('logout')}
+							<svg class="w-3.5 h-3.5 mr-1.5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+							<span class="font-normal text-xs">{$t('logout')}</span>
 						</button>
 					</div>
 				{:else}
@@ -249,10 +249,10 @@
 							</a>
 							<button 
 								onclick={handleLogout} 
-								class="w-full flex items-center justify-center bg-stone-500/20 hover:bg-stone-500/30 border border-stone-500/30 hover:border-stone-500/50 text-stone-300 hover:text-stone-200 px-4 py-3 rounded-xl transition-all duration-300 backdrop-blur-sm group"
+								class="w-full flex items-center justify-center bg-gray-700/30 hover:bg-gray-600/40 border border-gray-600/30 hover:border-gray-500/40 text-gray-300 hover:text-gray-100 px-4 py-3 rounded-xl transition-all duration-300 backdrop-blur-sm group"
 							>
 								<svg class="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-								<span class="font-medium">{$t('logout')}</span>
+								<span class="font-normal">{$t('logout')}</span>
 							</button>
 						{:else}
 							<a href="/login" onclick={closeMenu} class="block w-full text-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3.5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 backdrop-blur-sm">
