@@ -153,6 +153,11 @@
 			if (selectedUser && selectedUser.id === userId) {
 				await loadUserDetail(userId);
 			}
+
+			// If the current user's role was changed, update the auth store
+			if ($auth.user && $auth.user.id === userId) {
+				auth.updateUserRoles(userId, [newRole]);
+			}
 		} catch (err: any) {
 			error = err.message;
 		}

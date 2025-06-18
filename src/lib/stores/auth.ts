@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 
 export interface User {
   id: string | null;
@@ -20,6 +20,27 @@ export interface AuthState {
 
 const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
 
+// Helper functions for localStorage role management
+function saveUserRoles(userId: string, roles: string[]) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`userRoles_${userId}`, JSON.stringify(roles));
+  }
+}
+
+function getSavedUserRoles(userId: string): string[] | null {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(`userRoles_${userId}`);
+    return saved ? JSON.parse(saved) : null;
+  }
+  return null;
+}
+
+function clearSavedUserRoles(userId: string) {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(`userRoles_${userId}`);
+  }
+}
+
 const initialAuthState: AuthState = {
   isAuthenticated: false,
   user: null,
@@ -37,11 +58,26 @@ async function fetchUserProfile(token: string): Promise<User | null> {
       },
     });
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json() as any;
       throw new Error(errorData.detail || 'Failed to fetch user profile');
     }
-    const userData = await response.json();
-    return userData as User;
+    const userData = await response.json() as User;
+    
+    // Check if we have saved roles for this user
+    const savedRoles = getSavedUserRoles(userData.id || '');
+    
+    // Use backend roles if they exist and are different from saved ones, otherwise use saved roles
+    if (userData.roles && userData.roles.length > 0) {
+      // Backend provided roles - save them and use them
+      if (userData.id) {
+        saveUserRoles(userData.id, userData.roles);
+      }
+    } else if (savedRoles) {
+      // No roles from backend but we have saved ones - use saved roles
+      userData.roles = savedRoles;
+    }
+    
+    return userData;
   } catch (err: any) {
     console.error("Error fetching user profile:", err);
     update(state => ({ ...state, error: err.message }));
@@ -65,6 +101,11 @@ export const auth = {
     update((state) => ({ ...state, user, isAuthenticated: !!user, error: null }));
   },
   logout: () => {
+    // Clear saved roles for the current user before logging out
+    const currentState = get({ subscribe });
+    if (currentState.user?.id) {
+      clearSavedUserRoles(currentState.user.id);
+    }
     localStorage.removeItem('authToken');
     set(initialAuthState);
   },
@@ -97,10 +138,10 @@ export const auth = {
         }),
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as any;
         throw new Error(errorData.detail || 'Login failed');
       }
-      const tokenData = await response.json();
+      const tokenData = await response.json() as any;
       await auth.setToken(tokenData.access_token);
       return true;
     } catch (err: any) {
@@ -120,14 +161,14 @@ export const auth = {
         body: JSON.stringify(userData),
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as any;
         // API might return an array of validation errors
         const message = errorData.detail && Array.isArray(errorData.detail) ?
                         errorData.detail.map((d: any) => `${d.loc.join('.')} - ${d.msg}`).join(', ') :
                         (errorData.detail || 'Registration failed');
         throw new Error(message);
       }
-      const newUser = await response.json();
+      const newUser = await response.json() as any;
       // Assuming registration returns a user object similar to UserOut, but might not include a token directly.
       // Or it might return a token, in which case we can log the user in.
       // For now, let's assume it returns the user and we might need to login separately or the API auto-logs in.
@@ -137,7 +178,7 @@ export const auth = {
          // The setToken function will fetch the full user profile
       } else {
         // If no token, just update with basic user info, but this scenario needs clarification from API spec
-         update(state => ({ ...state, user: newUser, isAuthenticated: false, error: "Registration successful, but no token returned."}));
+         update(state => ({ ...state, user: newUser as User, isAuthenticated: false, error: "Registration successful, but no token returned."}));
       }
       return true;
     } catch (err: any) {
@@ -148,6 +189,26 @@ export const auth = {
   },
   clearError: () => {
     update(state => ({ ...state, error: null }));
+  },
+  updateUserRoles: (userId: string, newRoles: string[]) => {
+    // Update roles both in store and localStorage
+    saveUserRoles(userId, newRoles);
+    update(state => {
+      if (state.user && state.user.id === userId) {
+        return { ...state, user: { ...state.user, roles: newRoles } };
+      }
+      return state;
+    });
+  },
+  refreshUserProfile: async () => {
+    // Force refresh the user profile from the backend
+    const currentState = get({ subscribe });
+    if (currentState.token) {
+      const user = await fetchUserProfile(currentState.token);
+      if (user) {
+        update(state => ({ ...state, user, error: null }));
+      }
+    }
   }
 };
 
