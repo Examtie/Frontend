@@ -145,6 +145,59 @@ export interface Translations {
 	chemSubject: string;
 	physSubject: string;
 	compSciSubject: string;
+
+	// Auth
+	register: string;
+	signInToYourAccount: string;
+	createNewAccount: string;
+	fullName: string;
+	fullNamePlaceholder: string;
+	username: string;
+	usernamePlaceholder: string;
+	password: string;
+	passwordPlaceholder: string;
+	processing: string;
+	signIn: string;
+	createAccount: string;
+	needAnAccount: string;
+	alreadyHaveAccount: string;
+	loginSuccess: string;
+	registrationSuccess: string;
+	profileUpdatedSuccessfully: string;
+	loadingProfile: string;
+	emailAddress: string;
+	bio: string;
+	bioPlaceholder: string;
+	forgotPassword: string;
+	welcomeBack: string;
+	joinToday: string;
+	secureLogin: string;
+	getStarted: string;
+	
+	// Auth Modal & Validation
+	loginTitle: string;
+	signupTitle: string;
+	loginDescriptionModal: string;
+	signupDescriptionModal: string;
+	loginWithGoogle: string;
+	orContinueWith: string;
+	email: string;
+	confirmPassword: string;
+	passwordRequirements: string;
+	emailRequired: string;
+	invalidEmail: string;
+	passwordRequired: string;
+	passwordLength: string;
+	fullNameRequired: string;
+	usernameRequired: string;
+	usernameLength: string;
+	confirmPasswordRequired: string;
+	passwordsDoNotMatch: string;
+	
+	// Additional Navigation & UI
+	admin: string;
+	language: string;
+	logout: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -292,7 +345,60 @@ export const translations: Record<'en' | 'th', Translations> = {
 		mathSubject: 'Mathematics',
 		chemSubject: 'Chemistry',
 		physSubject: 'Physics',
-		compSciSubject: 'Computer Science'
+		compSciSubject: 'Computer Science',
+
+		// Auth
+		register: 'Register',
+		signInToYourAccount: 'Sign in to your account',
+		createNewAccount: 'Create a new account',
+		fullName: 'Full Name',
+		fullNamePlaceholder: 'Enter your full name',
+		username: 'Username',
+		usernamePlaceholder: 'Enter your username',
+		password: 'Password',
+		passwordPlaceholder: 'Enter your password',
+		processing: 'Processing...',
+		signIn: 'Sign In',
+		createAccount: 'Create Account',
+		needAnAccount: 'Need an account? Register',
+		alreadyHaveAccount: 'Already have an account? Sign in',
+		loginSuccess: 'Login successful! Redirecting...',
+		registrationSuccess: 'Registration successful! Redirecting...',
+		profileUpdatedSuccessfully: 'Profile updated successfully!',
+		loadingProfile: 'Loading profile',
+		emailAddress: 'Email Address',
+		bio: 'Bio',
+		bioPlaceholder: 'Tell us a little about yourself',
+		forgotPassword: 'Forgot your password?',
+		welcomeBack: 'Welcome back!',
+		joinToday: 'Join us today',
+		secureLogin: 'Secure & Fast',
+		getStarted: 'Get Started',
+		
+		// Auth Modal & Validation
+		loginTitle: 'Welcome Back',
+		signupTitle: 'Create Account',
+		loginDescriptionModal: 'Sign in to access your personalized learning dashboard',
+		signupDescriptionModal: 'Join thousands of students improving their exam scores',
+		loginWithGoogle: 'Continue with Google',
+		orContinueWith: 'Or continue with',
+		email: 'Email',
+		confirmPassword: 'Confirm Password',
+		passwordRequirements: 'Password must be at least 8 characters',
+		emailRequired: 'Email is required',
+		invalidEmail: 'Please enter a valid email address',
+		passwordRequired: 'Password is required',
+		passwordLength: 'Password must be at least 8 characters',
+		fullNameRequired: 'Full name is required',
+		usernameRequired: 'Username is required',
+		usernameLength: 'Username must be between 3 and 30 characters',
+		confirmPasswordRequired: 'Please confirm your password',
+		passwordsDoNotMatch: 'Passwords do not match',
+		
+		// Additional Navigation & UI
+		admin: 'Admin',
+		language: 'Language',
+		logout: 'Logout',
 	},
 	th: {
 		// Navigation
@@ -438,6 +544,59 @@ export const translations: Record<'en' | 'th', Translations> = {
 		mathSubject: 'คณิตศาสตร์',
 		chemSubject: 'เคมี',
 		physSubject: 'ฟิสิกส์',
-		compSciSubject: 'วิทยาการคอมพิวเตอร์'
+		compSciSubject: 'วิทยาการคอมพิวเตอร์',
+
+		// Auth
+		register: 'สมัครสมาชิก',
+		signInToYourAccount: 'เข้าสู่บัญชีของคุณ',
+		createNewAccount: 'สร้างบัญชีใหม่',
+		fullName: 'ชื่อเต็ม',
+		fullNamePlaceholder: 'กรอกชื่อเต็มของคุณ',
+		username: 'ชื่อผู้ใช้',
+		usernamePlaceholder: 'กรอกชื่อผู้ใช้ของคุณ',
+		password: 'รหัสผ่าน',
+		passwordPlaceholder: 'กรอกรหัสผ่านของคุณ',
+		processing: 'กำลังดำเนินการ...',
+		signIn: 'เข้าสู่ระบบ',
+		createAccount: 'สร้างบัญชี',
+		needAnAccount: 'ต้องการบัญชี? สมัครสมาชิก',
+		alreadyHaveAccount: 'มีบัญชีแล้ว? เข้าสู่ระบบ',
+		loginSuccess: 'เข้าสู่ระบบสำเร็จ! กำลังเปลี่ยนหน้า...',
+		registrationSuccess: 'สมัครสมาชิกสำเร็จ! กำลังเปลี่ยนหน้า...',
+		profileUpdatedSuccessfully: 'อัปเดตโปรไฟล์สำเร็จ!',
+		loadingProfile: 'กำลังโหลดโปรไฟล์',
+		emailAddress: 'ที่อยู่อีเมล',
+		bio: 'ประวัติย่อ',
+		bioPlaceholder: 'เล่าเกี่ยวกับตัวคุณสักหน่อย',
+		forgotPassword: 'ลืมรหัสผ่าน?',
+		welcomeBack: 'ยินดีต้อนรับกลับ!',
+		joinToday: 'เข้าร่วมกับเราวันนี้',
+		secureLogin: 'ปลอดภัย & รวดเร็ว',
+		getStarted: 'เริ่มต้น',
+		
+		// Auth Modal & Validation
+		loginTitle: 'ยินดีต้อนรับกลับ',
+		signupTitle: 'สร้างบัญชี',
+		loginDescriptionModal: 'เข้าสู่ระบบเพื่อเข้าถึงแดชบอร์ดการเรียนรู้ส่วนบุคคลของคุณ',
+		signupDescriptionModal: 'เข้าร่วมกับนักเรียนหลายพันคนที่กำลังปรับปรุงคะแนนสอบ',
+		loginWithGoogle: 'ดำเนินการต่อด้วย Google',
+		orContinueWith: 'หรือดำเนินการต่อด้วย',
+		email: 'อีเมล',
+		confirmPassword: 'ยืนยันรหัสผ่าน',
+		passwordRequirements: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
+		emailRequired: 'จำเป็นต้องกรอกอีเมล',
+		invalidEmail: 'กรุณากรอกที่อยู่อีเมลที่ถูกต้อง',
+		passwordRequired: 'จำเป็นต้องกรอกรหัสผ่าน',
+		passwordLength: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
+		fullNameRequired: 'จำเป็นต้องกรอกชื่อเต็ม',
+		usernameRequired: 'จำเป็นต้องกรอกชื่อผู้ใช้',
+		usernameLength: 'ชื่อผู้ใช้ต้องมีความยาวระหว่าง 3 ถึง 30 ตัวอักษร',
+		confirmPasswordRequired: 'กรุณายืนยันรหัสผ่านของคุณ',
+		passwordsDoNotMatch: 'รหัสผ่านไม่ตรงกัน',
+		
+		// Additional Navigation & UI
+		admin: 'ผู้ดูแลระบบ',
+		language: 'ภาษา',
+		logout: 'ออกจากระบบ',
 	}
 };
