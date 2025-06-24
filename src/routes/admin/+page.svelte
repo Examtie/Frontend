@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { t } from '$lib/i18n';
+    import Header from '../components/Header.svelte';
 
     type AdminUser = {
         id: string;
@@ -94,7 +95,7 @@
         await loadData();
     });
 
-    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}) {
+    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
         const token = $auth.token;
         if (!token) {
             throw new Error('No authentication token');
@@ -110,7 +111,7 @@
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ detail: 'Request failed' }));
+            const errorData = await response.json().catch(() => ({ detail: 'Request failed' })) as any;
             throw new Error(errorData.detail || `HTTP ${response.status}`);
         }
 
@@ -143,7 +144,7 @@
         if (userSearch) params.append('search', userSearch);
         if (userRoleFilter) params.append('role', userRoleFilter);
 
-        users = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
+        users = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`) as AdminUser[];
     }
 
     async function loadExamFiles() {
@@ -152,11 +153,11 @@
             limit: examFileLimit.toString(),
         });
 
-        examFiles = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
+        examFiles = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`) as ExamFile[];
     }
 
     async function loadStats() {
-        stats = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`);
+        stats = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`) as SystemStats;
     }
 
     async function getUserDetail(userId: string) {
@@ -339,7 +340,7 @@
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+                const errorData = await response.json().catch(() => ({ detail: 'Upload failed' })) as any;
                 throw new Error(errorData.detail || `HTTP ${response.status}`);
             }
 
@@ -400,7 +401,7 @@
     }
 
     // Debounced search function
-    let searchTimeout: NodeJS.Timeout;
+    let searchTimeout: ReturnType<typeof setTimeout>;
     function debounceSearch() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(handleSearch, 300);
@@ -408,10 +409,10 @@
 
     function getRoleColor(role: string): string {
         switch (role) {
-            case 'admin': return 'bg-red-100 text-red-800';
-            case 'staff': return 'bg-yellow-100 text-yellow-800';
-            case 'seller': return 'bg-green-100 text-green-800';
-            default: return 'bg-blue-100 text-blue-800';
+            case 'admin': return 'bg-red-500/20 text-red-300 border border-red-500/30';
+            case 'staff': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+            case 'seller': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+            default: return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
         }
     }
 </script>
@@ -421,36 +422,44 @@
     <meta name="description" content="Administrative dashboard for ExamTie" />
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+<Header />
+
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 relative overflow-hidden">
+    <!-- Background decoration -->
+    <div class="absolute inset-0">
+        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95"></div>
+        <!-- Floating particles -->
+        {#each Array.from({length: 30}) as _, i}
+            <div 
+                class="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-float-gentle"
+                style="left: {Math.random() * 100}%; top: {Math.random() * 100}%; animation-delay: {Math.random() * 4}s;"
+            ></div>
+        {/each}
+        <!-- Geometric shapes -->
+        <div class="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-green-400/10 rounded-full blur-xl animate-float-gentle"></div>
+        <div class="absolute bottom-32 right-16 w-24 h-24 bg-gradient-to-br from-purple-500/20 to-pink-400/10 rounded-full blur-lg animate-float" style="animation-delay: 1s"></div>
+    </div>
+
     <!-- Header -->
-    <div class="bg-white shadow-lg border-b border-gray-100">
+    <div class="relative z-10 bg-gradient-to-r from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-lg shadow-2xl border-b border-gray-700/30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-8">
                 <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                         </svg>
                     </div>
                     <div>
-                        <h1 class="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">Admin Dashboard</h1>
-                        <p class="mt-1 text-sm text-gray-600">Manage users, exam files, and system settings with ease</p>
+                        <h1 class="text-3xl font-bold text-gradient bg-gradient-to-r from-blue-300 via-purple-300 to-blue-300 bg-clip-text text-transparent">Admin Dashboard</h1>
+                        <p class="mt-1 text-sm text-gray-300">Manage users, exam files, and system settings with ease</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <div class="flex items-center space-x-2 text-sm text-gray-300">
                         <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                         <span>Online</span>
                     </div>
-                    <button
-                        on:click={() => goto('/')}
-                        class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                        </svg>
-                        <span>Back to Home</span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -458,24 +467,24 @@
 
     <!-- Error Message -->
     {#if error}
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-            <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-red-900/20 backdrop-blur-lg border border-red-500/30 rounded-xl p-4 shadow-lg animate-in slide-in-from-top-2 duration-300">
                 <div class="flex">
                     <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                            <svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+                            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
                         </div>
                     </div>
                     <div class="ml-3">
-                        <h3 class="text-sm font-medium text-red-800">Error</h3>
-                        <p class="mt-1 text-sm text-red-700">{error}</p>
+                        <h3 class="text-sm font-medium text-red-300">Error</h3>
+                        <p class="mt-1 text-sm text-red-200">{error}</p>
                     </div>
                     <div class="ml-auto pl-3">
                         <button
                             on:click={() => error = ''}
-                            class="inline-flex text-red-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-100"
+                            class="inline-flex text-red-400 hover:text-red-300 transition-colors p-1 rounded-md hover:bg-red-500/20"
                         >
                             <span class="sr-only">Dismiss</span>
                             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -490,24 +499,24 @@
 
     <!-- Success Message -->
     {#if successMessage}
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-            <div class="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-green-900/20 backdrop-blur-lg border border-green-500/30 rounded-xl p-4 shadow-lg animate-in slide-in-from-top-2 duration-300">
                 <div class="flex">
                     <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                            <svg class="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                            <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
                         </div>
                     </div>
                     <div class="ml-3">
-                        <h3 class="text-sm font-medium text-green-800">Success</h3>
-                        <p class="mt-1 text-sm text-green-700">{successMessage}</p>
+                        <h3 class="text-sm font-medium text-green-300">Success</h3>
+                        <p class="mt-1 text-sm text-green-200">{successMessage}</p>
                     </div>
                     <div class="ml-auto pl-3">
                         <button
                             on:click={() => successMessage = ''}
-                            class="inline-flex text-green-400 hover:text-green-600 transition-colors p-1 rounded-md hover:bg-green-100"
+                            class="inline-flex text-green-400 hover:text-green-300 transition-colors p-1 rounded-md hover:bg-green-500/20"
                         >
                             <span class="sr-only">Dismiss</span>
                             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -520,12 +529,12 @@
         </div>
     {/if}
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Stats Cards -->
         {#if stats}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Total Users Card -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-blue-500/50">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -535,18 +544,18 @@
                             </div>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600 mb-1">Total Users</p>
-                            <p class="text-3xl font-bold text-gray-900">{stats.users.total.toLocaleString()}</p>
+                            <p class="text-sm font-medium text-gray-300 mb-1">Total Users</p>
+                            <p class="text-3xl font-bold text-white">{stats.users.total.toLocaleString()}</p>
                             <div class="flex items-center mt-2">
-                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
-                                <span class="text-xs text-green-600 font-medium">Active</span>
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-green-400 font-medium">Active</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Admins Card -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-red-500/50">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -556,18 +565,18 @@
                             </div>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600 mb-1">Admins</p>
-                            <p class="text-3xl font-bold text-gray-900">{(stats.users.by_role.admin || 0).toLocaleString()}</p>
+                            <p class="text-sm font-medium text-gray-300 mb-1">Admins</p>
+                            <p class="text-3xl font-bold text-white">{(stats.users.by_role.admin || 0).toLocaleString()}</p>
                             <div class="flex items-center mt-2">
-                                <div class="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
-                                <span class="text-xs text-red-600 font-medium">Privileged</span>
+                                <div class="w-2 h-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-red-400 font-medium">Privileged</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Staff Card -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-yellow-500/50">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -577,18 +586,18 @@
                             </div>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600 mb-1">Staff</p>
-                            <p class="text-3xl font-bold text-gray-900">{(stats.users.by_role.staff || 0).toLocaleString()}</p>
+                            <p class="text-sm font-medium text-gray-300 mb-1">Staff</p>
+                            <p class="text-3xl font-bold text-white">{(stats.users.by_role.staff || 0).toLocaleString()}</p>
                             <div class="flex items-center mt-2">
-                                <div class="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
-                                <span class="text-xs text-yellow-600 font-medium">Moderators</span>
+                                <div class="w-2 h-2 bg-yellow-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-yellow-400 font-medium">Moderators</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Exam Files Card -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-green-500/50">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -598,11 +607,11 @@
                             </div>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600 mb-1">Exam Files</p>
-                            <p class="text-3xl font-bold text-gray-900">{(stats.exam_files?.total || 0).toLocaleString()}</p>
+                            <p class="text-sm font-medium text-gray-300 mb-1">Exam Files</p>
+                            <p class="text-3xl font-bold text-white">{(stats.exam_files?.total || 0).toLocaleString()}</p>
                             <div class="flex items-center mt-2">
-                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
-                                <span class="text-xs text-green-600 font-medium">Available</span>
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-green-400 font-medium">Available</span>
                             </div>
                         </div>
                     </div>
@@ -611,11 +620,11 @@
         {/if}
 
         <!-- Modern Tabs -->
-        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div class="border-b border-gray-200 bg-gray-50">
+        <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl shadow-2xl overflow-hidden">
+            <div class="border-b border-gray-700/30 bg-slate-800/30 backdrop-blur-lg">
                 <nav class="flex space-x-1 p-2">
                     <button
-                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 {activeTab === 'users' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}"
+                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
                         on:click={() => activeTab = 'users'}
                     >
                         <div class="flex items-center space-x-2">
@@ -625,11 +634,11 @@
                             <span>Users</span>
                         </div>
                         {#if activeTab === 'users'}
-                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full"></div>
+                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
                         {/if}
                     </button>
                     <button
-                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 {activeTab === 'exam-files' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}"
+                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'exam-files' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
                         on:click={() => activeTab = 'exam-files'}
                     >
                         <div class="flex items-center space-x-2">
@@ -639,7 +648,7 @@
                             <span>Exam Files</span>
                         </div>
                         {#if activeTab === 'exam-files'}
-                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full"></div>
+                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
                         {/if}
                     </button>
                 </nav>
@@ -647,7 +656,7 @@
 
             <!-- Users Tab -->
             {#if activeTab === 'users'}
-                <div class="p-6">
+                <div class="p-6 bg-slate-800/10 backdrop-blur-lg">
                     <!-- Enhanced Search and Filters -->
                     <div class="mb-8 flex flex-col lg:flex-row gap-4">
                         <div class="flex-1">
@@ -664,7 +673,7 @@
                                     on:input={debounceSearch}
                                     type="text"
                                     placeholder="Search by email, username, or full name..."
-                                    class="block w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                                    class="block w-full pl-12 pr-4 py-3 bg-slate-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:bg-slate-700/70 backdrop-blur-sm"
                                 />
                             </div>
                         </div>
@@ -672,7 +681,7 @@
                             <select
                                 bind:value={userRoleFilter}
                                 on:change={handleRoleFilter}
-                                class="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-all duration-200"
+                                class="px-4 py-3 bg-slate-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-slate-700/70 transition-all duration-300 backdrop-blur-sm"
                             >
                                 <option value="">All Roles</option>
                                 <option value="user">User</option>
@@ -682,8 +691,9 @@
                             </select>
                             <button
                                 on:click={loadUsers}
-                                class="px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                                class="px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105"
                                 title="Refresh users"
+                                aria-label="Refresh users list"
                             >
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -694,7 +704,7 @@
 
                     <!-- Enhanced Bulk Actions -->
                     {#if selectedUsers.length > 0}
-                        <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 shadow-sm">
+                        <div class="mb-6 p-4 bg-blue-900/20 backdrop-blur-lg rounded-2xl border border-blue-500/30 shadow-lg">
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <div class="flex items-center space-x-3">
                                     <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -703,16 +713,16 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <span class="text-sm font-semibold text-blue-900">
+                                        <span class="text-sm font-semibold text-blue-200">
                                             {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
                                         </span>
-                                        <p class="text-xs text-blue-700 mt-1">Choose an action to apply to selected users</p>
+                                        <p class="text-xs text-blue-300 mt-1">Choose an action to apply to selected users</p>
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
                                     <select
                                         bind:value={bulkAction}
-                                        class="text-sm border border-blue-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        class="text-sm border border-blue-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm"
                                     >
                                         <option value="">Select Action</option>
                                         <option value="user">Set as User</option>
@@ -740,52 +750,52 @@
 
                     <!-- Enhanced Users Table -->
                     {#if users.length > 0}
-                        <div class="overflow-hidden shadow-xl ring-1 ring-black ring-opacity-5 rounded-2xl">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+                        <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
+                            <table class="min-w-full divide-y divide-slate-700/50">
+                                <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
                                     <tr>
                                         <th scope="col" class="relative px-6 py-4">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedUsers.length === users.length && users.length > 0}
                                                 on:change={selectAllUsers}
-                                                class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                                class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
                                             />
                                         </th>
-                                        <th scope="col" class="min-w-[12rem] py-4 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="min-w-[12rem] py-4 pl-4 pr-3 text-left text-sm font-semibold text-gray-200">
                                             User Information
                                         </th>
-                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
                                             Role & Status
                                         </th>
-                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
                                             Created Date
                                         </th>
-                                        <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-200">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-200 bg-white">
+                                <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
                                     {#each users as user (user.id)}
-                                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                        <tr class="hover:bg-slate-700/30 transition-colors duration-150">
                                             <td class="relative px-6 py-4">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedUsers.includes(user.id)}
                                                     on:change={() => toggleUserSelection(user.id)}
-                                                    class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                                    class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
                                                 />
                                             </td>
                                             <td class="py-4 pl-4 pr-3 text-sm">
                                                 <div class="flex items-center">
                                                     <div class="h-12 w-12 flex-shrink-0">
-                                                        <img class="h-12 w-12 rounded-full object-cover ring-2 ring-gray-200" src={user.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`} alt={user.full_name} />
+                                                        <img class="h-12 w-12 rounded-full object-cover ring-2 ring-gray-600" src={user.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`} alt={user.full_name} />
                                                     </div>
                                                     <div class="ml-4">
-                                                        <div class="font-semibold text-gray-900">{user.full_name}</div>
-                                                        <div class="text-gray-500 text-sm">{user.email}</div>
-                                                        <div class="text-gray-400 text-xs">@{user.username}</div>
+                                                        <div class="font-semibold text-gray-200">{user.full_name}</div>
+                                                        <div class="text-gray-400 text-sm">{user.email}</div>
+                                                        <div class="text-gray-500 text-xs">@{user.username}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -798,23 +808,29 @@
                                                     {/each}
                                                 </div>
                                             </td>
-                                            <td class="px-3 py-4 text-sm text-gray-500">
+                                            <td class="px-3 py-4 text-sm text-gray-400">
                                                 <div class="flex flex-col">
                                                     <span>{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span>
-                                                    <span class="text-xs text-gray-400">{user.created_at ? new Date(user.created_at).toLocaleTimeString() : ''}</span>
+                                                    <span class="text-xs text-gray-500">{user.created_at ? new Date(user.created_at).toLocaleTimeString() : ''}</span>
                                                 </div>
                                             </td>
                                             <td class="px-3 py-4 text-sm font-medium">
                                                 <div class="flex items-center justify-center gap-2">
                                                     <button
                                                         on:click={() => openUserModal(user)}
-                                                        class="text-blue-600 hover:text-blue-900 hover:bg-blue-50 px-3 py-1 rounded-lg transition-all duration-200"
+                                                        class="text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 px-3 py-1 rounded-lg transition-all duration-200"
                                                     >
                                                         Edit
                                                     </button>
                                                     <select
-                                                        on:change={(e) => updateUserRole(user.id, e.target.value)}
-                                                        class="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        on:change={(e) => {
+                                                            const target = e.target as HTMLSelectElement;
+                                                            if (target.value) {
+                                                                updateUserRole(user.id, target.value);
+                                                                target.value = ''; // Reset selection
+                                                            }
+                                                        }}
+                                                        class="text-xs border border-gray-600 bg-slate-700 text-white rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     >
                                                         <option value="">Change Role</option>
                                                         <option value="user">User</option>
@@ -824,7 +840,7 @@
                                                     </select>
                                                     <button
                                                         on:click={() => deleteUser(user.id)}
-                                                        class="text-red-600 hover:text-red-900 hover:bg-red-50 px-3 py-1 rounded-lg transition-all duration-200"
+                                                        class="text-red-400 hover:text-red-300 hover:bg-red-500/20 px-3 py-1 rounded-lg transition-all duration-200"
                                                     >
                                                         Delete
                                                     </button>
@@ -836,14 +852,14 @@
                             </table>
                         </div>
                     {:else}
-                        <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
-                            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-6">
+                        <div class="text-center py-16 bg-slate-800/20 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-700/30">
+                            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center mb-6">
                                 <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
                                 </svg>
                             </div>
-                            <h3 class="text-xl font-semibold text-gray-900 mb-2">No users found</h3>
-                            <p class="text-gray-500 mb-6">No users match your current search and filter criteria.</p>
+                            <h3 class="text-xl font-semibold text-gray-200 mb-2">No users found</h3>
+                            <p class="text-gray-400 mb-6">No users match your current search and filter criteria.</p>
                             <button
                                 on:click={() => { userSearch = ''; userRoleFilter = ''; loadUsers(); }}
                                 class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
@@ -854,30 +870,30 @@
                     {/if}
 
                     <!-- Enhanced Pagination -->
-                    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                        <div class="flex items-center text-sm text-gray-700 mb-4 sm:mb-0">
+                    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-slate-800/20 backdrop-blur-lg rounded-xl p-4 shadow-sm border border-gray-700/30">
+                        <div class="flex items-center text-sm text-gray-300 mb-4 sm:mb-0">
                             <span class="font-medium">Showing page {userPage}</span>
-                            <span class="mx-2 text-gray-400">•</span>
+                            <span class="mx-2 text-gray-500">•</span>
                             <span>{userLimit} items per page</span>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button
                                 on:click={() => { userPage = Math.max(1, userPage - 1); loadUsers(); }}
                                 disabled={userPage === 1}
-                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                                class="px-4 py-2 text-sm bg-slate-700/50 border border-gray-600/50 text-gray-300 rounded-lg hover:bg-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
                                 <span>Previous</span>
                             </button>
-                            <div class="px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200">
+                            <div class="px-4 py-2 bg-blue-600/20 text-blue-300 text-sm font-medium rounded-lg border border-blue-500/30">
                                 {userPage}
                             </div>
                             <button
                                 on:click={() => { userPage += 1; loadUsers(); }}
                                 disabled={users.length < userLimit}
-                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                                class="px-4 py-2 text-sm bg-slate-700/50 border border-gray-600/50 text-gray-300 rounded-lg hover:bg-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
                             >
                                 <span>Next</span>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -891,18 +907,19 @@
 
             <!-- Enhanced Exam Files Tab -->
             {#if activeTab === 'exam-files'}
-                <div class="p-8">
+                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
                     <!-- Upload Button Header -->
                     <div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Exam Files Management</h3>
-                            <p class="text-gray-600">Upload, organize, and manage exam files for your platform</p>
+                            <h3 class="text-2xl font-bold text-gray-200 mb-2">Exam Files Management</h3>
+                            <p class="text-gray-400">Upload, organize, and manage exam files for your platform</p>
                         </div>
                         <div class="flex gap-3">
                             <button
                                 on:click={loadExamFiles}
-                                class="px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                                class="px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:from-slate-700 hover:to-slate-800 transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
                                 title="Refresh exam files"
+                                aria-label="Refresh exam files list"
                             >
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -921,59 +938,59 @@
                     </div>
                     <!-- Enhanced Exam Files Table -->
                     {#if examFiles.length > 0}
-                        <div class="overflow-hidden shadow-xl ring-1 ring-black ring-opacity-5 rounded-2xl">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+                        <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
+                            <table class="min-w-full divide-y divide-slate-700/50">
+                                <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
                                     <tr>
-                                        <th scope="col" class="py-4 pl-6 pr-3 text-left text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="py-4 pl-6 pr-3 text-left text-sm font-semibold text-gray-200">
                                             <div class="flex items-center space-x-2">
-                                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                                 </svg>
                                                 <span>File Information</span>
                                             </div>
                                         </th>
-                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
                                             <div class="flex items-center space-x-2">
-                                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
                                                 </svg>
                                                 <span>Tags</span>
                                             </div>
                                         </th>
-                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
                                             <div class="flex items-center space-x-2">
-                                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                                 </svg>
                                                 <span>Uploaded By</span>
                                             </div>
                                         </th>
-                                        <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-900">
+                                        <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-200">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-200 bg-white">
+                                <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
                                     {#each examFiles as examFile (examFile.id)}
-                                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                        <tr class="hover:bg-slate-700/30 transition-colors duration-150">
                                             <td class="py-6 pl-6 pr-3 text-sm">
                                                 <div class="flex items-center">
-                                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                                                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-500/30">
+                                                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                                         </svg>
                                                     </div>
                                                     <div class="ml-4">
-                                                        <div class="font-semibold text-gray-900 text-base">{examFile.title}</div>
-                                                        <div class="text-gray-500 text-sm mt-1">{examFile.description}</div>
+                                                        <div class="font-semibold text-gray-200 text-base">{examFile.title}</div>
+                                                        <div class="text-gray-400 text-sm mt-1">{examFile.description}</div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-3 py-6 text-sm">
                                                 <div class="flex flex-wrap gap-2">
                                                     {#each examFile.tags as tag}
-                                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 shadow-sm">
+                                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-gray-600/50 to-gray-700/50 text-gray-300 shadow-sm border border-gray-600/50">
                                                             {tag}
                                                         </span>
                                                     {/each}
@@ -981,12 +998,12 @@
                                             </td>
                                             <td class="px-3 py-6 text-sm">
                                                 <div class="flex items-center">
-                                                    <div class="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mr-3">
-                                                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <div class="w-8 h-8 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-full flex items-center justify-center mr-3 border border-green-500/30">
+                                                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                                         </svg>
                                                     </div>
-                                                    <span class="text-gray-700 font-medium">{examFile.uploaded_by}</span>
+                                                    <span class="text-gray-300 font-medium">{examFile.uploaded_by}</span>
                                                 </div>
                                             </td>
                                             <td class="px-3 py-6 text-sm font-medium">
@@ -995,7 +1012,7 @@
                                                         href={examFile.url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        class="inline-flex items-center px-3 py-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-all duration-200 space-x-1"
+                                                        class="inline-flex items-center px-3 py-2 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded-lg transition-all duration-200 space-x-1"
                                                     >
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -1004,7 +1021,7 @@
                                                     </a>
                                                     <button
                                                         on:click={() => openExamFileModal(examFile)}
-                                                        class="inline-flex items-center px-3 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200 space-x-1"
+                                                        class="inline-flex items-center px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded-lg transition-all duration-200 space-x-1"
                                                     >
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -1013,7 +1030,7 @@
                                                     </button>
                                                     <button
                                                         on:click={() => deleteExamFile(examFile.id)}
-                                                        class="inline-flex items-center px-3 py-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-all duration-200 space-x-1"
+                                                        class="inline-flex items-center px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-lg transition-all duration-200 space-x-1"
                                                     >
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -1028,14 +1045,14 @@
                             </table>
                         </div>
                     {:else}
-                        <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
-                            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-200 rounded-full flex items-center justify-center mb-6">
-                                <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="text-center py-16 bg-slate-800/20 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-700/30">
+                            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-green-600/20 to-emerald-600/20 rounded-full flex items-center justify-center mb-6 border border-green-500/30">
+                                <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                 </svg>
                             </div>
-                            <h3 class="text-xl font-semibold text-gray-900 mb-2">No exam files yet</h3>
-                            <p class="text-gray-500 mb-8">Get started by uploading your first exam file to help students prepare for their exams.</p>
+                            <h3 class="text-xl font-semibold text-gray-200 mb-2">No exam files yet</h3>
+                            <p class="text-gray-400 mb-8">Get started by uploading your first exam file to help students prepare for their exams.</p>
                             <button
                                 on:click={() => showUploadModal = true}
                                 class="inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 space-x-3"
@@ -1049,30 +1066,30 @@
                     {/if}
 
                     <!-- Enhanced Pagination for Exam Files -->
-                    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                        <div class="flex items-center text-sm text-gray-700 mb-4 sm:mb-0">
+                    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-slate-800/20 backdrop-blur-lg rounded-xl p-4 shadow-sm border border-gray-700/30">
+                        <div class="flex items-center text-sm text-gray-300 mb-4 sm:mb-0">
                             <span class="font-medium">Showing page {examFilePage}</span>
-                            <span class="mx-2 text-gray-400">•</span>
+                            <span class="mx-2 text-gray-500">•</span>
                             <span>{examFileLimit} items per page</span>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button
                                 on:click={() => { examFilePage = Math.max(1, examFilePage - 1); loadExamFiles(); }}
                                 disabled={examFilePage === 1}
-                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                                class="px-4 py-2 text-sm bg-slate-700/50 border border-gray-600/50 text-gray-300 rounded-lg hover:bg-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
                                 <span>Previous</span>
                             </button>
-                            <div class="px-4 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg border border-green-200">
+                            <div class="px-4 py-2 bg-green-600/20 text-green-300 text-sm font-medium rounded-lg border border-green-500/30">
                                 {examFilePage}
                             </div>
                             <button
                                 on:click={() => { examFilePage += 1; loadExamFiles(); }}
                                 disabled={examFiles.length < examFileLimit}
-                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                                class="px-4 py-2 text-sm bg-slate-700/50 border border-gray-600/50 text-gray-300 rounded-lg hover:bg-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
                             >
                                 <span>Next</span>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1090,7 +1107,7 @@
 <!-- Enhanced User Edit Modal -->
 {#if showUserModal && editingUser}
     <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all duration-300 scale-100">
+        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center space-x-3">
@@ -1100,13 +1117,14 @@
                             </svg>
                         </div>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Edit User Profile</h3>
-                            <p class="text-sm text-gray-600">Update user information</p>
+                            <h3 class="text-lg font-semibold text-gray-200">Edit User Profile</h3>
+                            <p class="text-sm text-gray-400">Update user information</p>
                         </div>
                     </div>
                     <button
                         on:click={() => showUserModal = false}
-                        class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-200"
+                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
+                        aria-label="Close user edit modal"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -1116,32 +1134,32 @@
                 
                 <form on:submit|preventDefault={updateUserProfile} class="space-y-4">
                     <div>
-                        <label for="full_name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                        <label for="full_name" class="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
                         <input
                             id="full_name"
                             type="text"
                             bind:value={userForm.full_name}
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="Enter full name"
                         />
                     </div>
                     <div>
-                        <label for="bio" class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                        <label for="bio" class="block text-sm font-medium text-gray-300 mb-2">Bio</label>
                         <textarea
                             id="bio"
                             bind:value={userForm.bio}
                             rows="3"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="Tell us about yourself..."
                         ></textarea>
                     </div>
                     <div>
-                        <label for="profile_image" class="block text-sm font-medium text-gray-700 mb-2">Profile Image URL</label>
+                        <label for="profile_image" class="block text-sm font-medium text-gray-300 mb-2">Profile Image URL</label>
                         <input
                             id="profile_image"
                             type="url"
                             bind:value={userForm.profile_image}
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="https://example.com/image.jpg"
                         />
                     </div>
@@ -1155,7 +1173,7 @@
                         <button
                             type="button"
                             on:click={() => showUserModal = false}
-                            class="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
                         >
                             Cancel
                         </button>
@@ -1169,7 +1187,7 @@
 <!-- Enhanced Exam File Edit Modal -->
 {#if showExamFileModal && editingExamFile}
     <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all duration-300 scale-100">
+        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center space-x-3">
@@ -1179,13 +1197,14 @@
                             </svg>
                         </div>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Edit Exam File</h3>
-                            <p class="text-sm text-gray-600">Update file information</p>
+                            <h3 class="text-lg font-semibold text-gray-200">Edit Exam File</h3>
+                            <p class="text-sm text-gray-400">Update file information</p>
                         </div>
                     </div>
                     <button
                         on:click={() => showExamFileModal = false}
-                        class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-200"
+                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
+                        aria-label="Close exam file edit modal"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -1195,35 +1214,35 @@
                 
                 <form on:submit|preventDefault={updateExamFile} class="space-y-4">
                     <div>
-                        <label for="title" class="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                        <label for="title" class="block text-sm font-medium text-gray-300 mb-2">Title</label>
                         <input
                             id="title"
                             type="text"
                             bind:value={examFileForm.title}
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                             placeholder="Enter file title"
                         />
                     </div>
                     <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <label for="description" class="block text-sm font-medium text-gray-300 mb-2">Description</label>
                         <textarea
                             id="description"
                             bind:value={examFileForm.description}
                             rows="3"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                             placeholder="Describe the exam file..."
                         ></textarea>
                     </div>
                     <div>
-                        <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
+                        <label for="tags" class="block text-sm font-medium text-gray-300 mb-2">Tags (comma separated)</label>
                         <input
                             id="tags"
                             type="text"
                             bind:value={examFileForm.tags}
                             placeholder="math, grade10, final"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                         />
-                        <p class="text-xs text-gray-500 mt-1">Separate tags with commas</p>
+                        <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
                     </div>
                     <div class="flex gap-3 pt-4">
                         <button
@@ -1235,7 +1254,7 @@
                         <button
                             type="button"
                             on:click={() => showExamFileModal = false}
-                            class="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
                         >
                             Cancel
                         </button>
@@ -1249,7 +1268,7 @@
 <!-- Enhanced File Upload Modal -->
 {#if showUploadModal}
     <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all duration-300 scale-100">
+        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center space-x-3">
@@ -1259,13 +1278,14 @@
                             </svg>
                         </div>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Upload Exam File</h3>
-                            <p class="text-sm text-gray-600">Add a new exam file to the platform</p>
+                            <h3 class="text-lg font-semibold text-gray-200">Upload Exam File</h3>
+                            <p class="text-sm text-gray-400">Add a new exam file to the platform</p>
                         </div>
                     </div>
                     <button
                         on:click={() => showUploadModal = false}
-                        class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-200"
+                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
+                        aria-label="Close upload modal"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -1275,62 +1295,65 @@
                 
                 <form on:submit|preventDefault={uploadExamFile} class="space-y-4">
                     <div>
-                        <label for="upload_title" class="block text-sm font-medium text-gray-700 mb-2">
-                            Title <span class="text-red-500">*</span>
+                        <label for="upload_title" class="block text-sm font-medium text-gray-300 mb-2">
+                            Title <span class="text-red-400">*</span>
                         </label>
                         <input
                             id="upload_title"
                             type="text"
                             bind:value={uploadForm.title}
                             required
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                             placeholder="Enter file title"
                         />
                     </div>
                     <div>
-                        <label for="upload_description" class="block text-sm font-medium text-gray-700 mb-2">
-                            Description <span class="text-red-500">*</span>
+                        <label for="upload_description" class="block text-sm font-medium text-gray-300 mb-2">
+                            Description <span class="text-red-400">*</span>
                         </label>
                         <textarea
                             id="upload_description"
                             bind:value={uploadForm.description}
                             required
                             rows="3"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                             placeholder="Describe the exam file..."
                         ></textarea>
                     </div>
                     <div>
-                        <label for="upload_tags" class="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
+                        <label for="upload_tags" class="block text-sm font-medium text-gray-300 mb-2">Tags (comma separated)</label>
                         <input
                             id="upload_tags"
                             type="text"
                             bind:value={uploadForm.tags}
                             placeholder="math, grade10, final"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                         />
-                        <p class="text-xs text-gray-500 mt-1">Separate tags with commas</p>
+                        <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
                     </div>
                     <div>
-                        <label for="upload_file" class="block text-sm font-medium text-gray-700 mb-2">
-                            File <span class="text-red-500">*</span>
+                        <label for="upload_file" class="block text-sm font-medium text-gray-300 mb-2">
+                            File <span class="text-red-400">*</span>
                         </label>
                         <div class="relative">
                             <input
                                 id="upload_file"
                                 type="file"
-                                on:change={(e) => uploadForm.file = e.target.files?.[0] || null}
+                                on:change={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.file = target.files?.[0] || null;
+                                }}
                                 required
-                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-500/20 file:text-purple-300 hover:file:bg-purple-500/30"
                             />
                         </div>
                         {#if uploadForm.file}
-                            <div class="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                            <div class="mt-2 p-3 bg-green-500/20 rounded-lg border border-green-500/30">
                                 <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
-                                    <span class="text-sm text-green-700 font-medium">Selected: {uploadForm.file.name}</span>
+                                    <span class="text-sm text-green-300 font-medium">Selected: {uploadForm.file.name}</span>
                                 </div>
                             </div>
                         {/if}
@@ -1345,7 +1368,7 @@
                         <button
                             type="button"
                             on:click={() => showUploadModal = false}
-                            class="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
                         >
                             Cancel
                         </button>
@@ -1357,22 +1380,135 @@
 {/if}
 
 {#if loading}
-    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-white rounded-2xl p-8 flex flex-col items-center shadow-2xl border border-gray-100">
+    <div class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-8 flex flex-col items-center shadow-2xl">
             <div class="relative">
                 <div class="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-spin">
-                    <div class="absolute top-1 left-1 w-14 h-14 bg-white rounded-full"></div>
+                    <div class="absolute top-1 left-1 w-14 h-14 bg-slate-800/50 rounded-full backdrop-blur-sm"></div>
                 </div>
                 <div class="absolute inset-0 flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    <svg class="w-6 h-6 text-blue-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                     </svg>
                 </div>
             </div>
             <div class="mt-6 text-center">
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">Loading Admin Dashboard</h3>
-                <p class="text-gray-600">Please wait while we fetch the latest data...</p>
+                <h3 class="text-lg font-semibold text-white mb-2">Loading Admin Dashboard</h3>
+                <p class="text-gray-300">Please wait while we fetch the latest data...</p>
             </div>
         </div>
     </div>
 {/if}
+
+<style>
+    /* Custom animation keyframes for the admin dashboard */
+    @keyframes float-gentle {
+        0%, 100% { 
+            transform: translateY(0px) translateX(0px); 
+            opacity: 0.3;
+        }
+        25% { 
+            transform: translateY(-6px) translateX(2px); 
+            opacity: 0.5;
+        }
+        50% { 
+            transform: translateY(-12px) translateX(-1px); 
+            opacity: 0.7;
+        }
+        75% { 
+            transform: translateY(-6px) translateX(1px); 
+            opacity: 0.5;
+        }
+    }
+    
+    @keyframes float {
+        0%, 100% { 
+            transform: translateY(0px); 
+        }
+        50% { 
+            transform: translateY(-8px); 
+        }
+    }
+
+    @keyframes glow {
+        0%, 100% { 
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); 
+        }
+        50% { 
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); 
+        }
+    }
+
+    .animate-float-gentle {
+        animation: float-gentle 6s ease-in-out infinite;
+    }
+
+    .animate-float {
+        animation: float 4s ease-in-out infinite;
+    }
+
+    .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+    }
+
+    /* Glassmorphism effects for the admin dashboard */
+    .glass-card {
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: rgba(51, 65, 85, 0.3);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.5);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.7);
+    }
+
+    /* Enhanced focus states for accessibility */
+    .focus-ring:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.6);
+        outline-offset: 2px;
+    }
+
+    /* Smooth transitions for all interactive elements */
+    button, select, input {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Loading spinner animation */
+    .animate-spin-slow {
+        animation: spin 3s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Dark theme select option styling */
+    select option {
+        background-color: rgb(51, 65, 85);
+        color: white;
+    }
+
+    /* Enhanced backdrop blur support */
+    @supports not (backdrop-filter: blur(16px)) {
+        .glass-card {
+            background-color: rgba(51, 65, 85, 0.8);
+        }
+    }
+</style>
