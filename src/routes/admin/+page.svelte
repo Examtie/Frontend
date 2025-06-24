@@ -1,881 +1,1378 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { auth } from '$lib/stores/auth';
-	import { goto } from '$app/navigation';
-	import { t } from '$lib/i18n';
-    import Header from '../components/Header.svelte';
+    import { auth } from '$lib/stores/auth';
+    import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
+    import { t } from '$lib/i18n';
 
-	type User = {
-		id: string;
-		email: string;
-		full_name: string;
-		username: string;
-		roles: string[];
-		bio?: string;
-		profile_image?: string;
-		token?: string;
-	};
+    type AdminUser = {
+        id: string;
+        email: string;
+        full_name: string;
+        username: string;
+        roles: string[];
+        bio?: string;
+        profile_image?: string;
+        created_at?: string;
+    };
 
-	type SystemStats = {
-		total_users: number;
-		total_quizzes: number;
-		active_sessions: number;
-		total_questions: number;
-	};
+    type ExamFile = {
+        id: string;
+        title: string;
+        description: string;
+        tags: string[];
+        url: string;
+        uploaded_by: string;
+    };
 
-	type UserDetail = {
-		id: string;
-		email: string;
-		full_name: string;
-		username: string;
-		roles: string[];
-		bio?: string;
-		profile_image?: string;
-		created_at?: string;
-		last_login?: string;
-		is_active?: boolean;
-	};
+    type SystemStats = {
+        users: {
+            total: number;
+            by_role: Record<string, number>;
+        };
+        exam_files: {
+            total: number;
+        };
+    };
 
-	let users: User[] = [];
-	let stats: SystemStats | null = null;
-	let loading = true;
-	let error: string | null = null;
-	let selectedUser: UserDetail | null = null;
-	let showUserModal = false;
-	let showDeleteConfirm = false;
-	let showEditUserModal = false;
-	let userToDelete: User | null = null;
-	let isLoadingUserDetail = false;
-	let isUpdatingUser = false;
+    const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
 
-	// Edit user form
-	let editUserForm = {
-		full_name: '',
-		bio: '',
-		profile_image: ''
-	};
+    let activeTab = 'users';
+    let users: AdminUser[] = [];
+    let examFiles: ExamFile[] = [];
+    let stats: SystemStats | null = null;
+    let loading = false;
+    let error = '';
+    let successMessage = '';
 
-	// Pagination
-	let currentPage = 1;
-	let usersPerPage = 10;
-	let totalUsers = 0;
+    // User management
+    let userPage = 1;
+    let userLimit = 10;
+    let userSearch = '';
+    let userRoleFilter = '';
+    let selectedUsers: string[] = [];
+    let bulkAction = '';
 
-	// Search and filters
-	let searchTerm = '';
-	let roleFilter = 'all';
+    // Exam file management
+    let examFilePage = 1;
+    let examFileLimit = 10;
 
-	// Dashboard tabs
-	let activeTab = 'overview';
+    // Modals
+    let showUserModal = false;
+    let showExamFileModal = false;
+    let showUploadModal = false;
+    let editingUser: AdminUser | null = null;
+    let editingExamFile: ExamFile | null = null;
 
-	onMount(async () => {
-		// Check if user is admin
-		if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
-			goto('/');
-			return;
-		}
+    // Form data
+    let userForm = {
+        full_name: '',
+        bio: '',
+        profile_image: ''
+    };
 
-		await Promise.all([loadUsers(), loadStats()]);
-		loading = false;
-	});
+    let examFileForm = {
+        title: '',
+        description: '',
+        tags: ''
+    };
 
-	async function loadUsers() {
-		try {
-			const response = await fetch('https://examtieapi.breadtm.xyz/admin/api/v1/users', {
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+    // Upload form
+    let uploadForm = {
+        title: '',
+        description: '',
+        tags: '',
+        file: null as File | null
+    };
 
-			if (!response.ok) {
-				throw new Error('Failed to load users');
-			}
+    onMount(async () => {
+        // Check if user is admin
+        if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
+            goto('/');
+            return;
+        }
 
-			users = await response.json();
-			totalUsers = users.length;
-		} catch (err: any) {
-			error = err.message;
-		}
-	}
+        await loadData();
+    });
 
-	async function loadStats() {
-		try {
-			const response = await fetch('https://examtieapi.breadtm.xyz/admin/api/v1/stats', {
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}) {
+        const token = $auth.token;
+        if (!token) {
+            throw new Error('No authentication token');
+        }
 
-			if (!response.ok) {
-				throw new Error('Failed to load stats');
-			}
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+        });
 
-			stats = await response.json();
-		} catch (err: any) {
-			console.error('Failed to load stats:', err.message);
-		}
-	}
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Request failed' }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
 
-	async function loadUserDetail(userId: string) {
-		isLoadingUserDetail = true;
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/@data?user_id=${userId}`, {
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+        return response.json();
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to load user details');
-			}
+    async function loadData() {
+        loading = true;
+        error = '';
+        
+        try {
+            await Promise.all([
+                loadUsers(),
+                loadExamFiles(),
+                loadStats()
+            ]);
+        } catch (err: any) {
+            error = err.message;
+        } finally {
+            loading = false;
+        }
+    }
 
-			selectedUser = await response.json();
-		} catch (err: any) {
-			error = err.message;
-		} finally {
-			isLoadingUserDetail = false;
-		}
-	}
+    async function loadUsers() {
+        const params = new URLSearchParams({
+            page: userPage.toString(),
+            limit: userLimit.toString(),
+        });
+        
+        if (userSearch) params.append('search', userSearch);
+        if (userRoleFilter) params.append('role', userRoleFilter);
 
-	async function updateUserRole(userId: string, newRole: string) {
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/${userId}/role?role=${newRole}`, {
-				method: 'PATCH',
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+        users = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to update user role');
-			}
+    async function loadExamFiles() {
+        const params = new URLSearchParams({
+            page: examFilePage.toString(),
+            limit: examFileLimit.toString(),
+        });
 
-			await loadUsers();
-			if (selectedUser && selectedUser.id === userId) {
-				await loadUserDetail(userId);
-			}
+        examFiles = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
+    }
 
-			// If the current user's role was changed, update the auth store
-			if ($auth.user && $auth.user.id === userId) {
-				auth.updateUserRoles(userId, [newRole]);
-			}
-		} catch (err: any) {
-			error = err.message;
-		}
-	}
+    async function loadStats() {
+        stats = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`);
+    }
 
-	async function updateUserProfile(userId: string) {
-		isUpdatingUser = true;
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/${userId}`, {
-				method: 'PATCH',
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(editUserForm)
-			});
+    async function getUserDetail(userId: string) {
+        try {
+            const userDetail = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/@data?user_id=${userId}`);
+            return userDetail;
+        } catch (err: any) {
+            error = err.message;
+            return null;
+        }
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to update user profile');
-			}
+    async function updateUserRole(userId: string, role: string) {
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/${userId}/role`, {
+                method: 'PATCH',
+                body: JSON.stringify({ role }),
+            });
+            successMessage = `User role updated to ${role} successfully`;
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-			await loadUsers();
-			await loadUserDetail(userId);
-			showEditUserModal = false;
-		} catch (err: any) {
-			error = err.message;
-		} finally {
-			isUpdatingUser = false;
-		}
-	}
+    async function deleteUser(userId: string) {
+        const user = users.find(u => u.id === userId);
+        const userName = user ? `${user.full_name} (${user.email})` : 'this user';
+        
+        if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) return;
 
-	async function deleteUser(userId: string) {
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/${userId}`, {
-				method: 'DELETE',
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/${userId}`, {
+                method: 'DELETE',
+            });
+            successMessage = 'User deleted successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to delete user');
-			}
+    async function bulkUpdateUserRoles() {
+        if (selectedUsers.length === 0 || !bulkAction) return;
 
-			await loadUsers();
-			showDeleteConfirm = false;
-			userToDelete = null;
-			if (showUserModal) {
-				closeUserModal();
-			}
-		} catch (err: any) {
-			error = err.message;
-		}
-	}
+        if (!confirm(`Are you sure you want to update the role of ${selectedUsers.length} user(s) to "${bulkAction}"?`)) return;
 
-	async function openUserModal(user: User) {
-		showUserModal = true;
-		await loadUserDetail(user.id);
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/bulk/role`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    user_ids: selectedUsers,
+                    role: bulkAction
+                }),
+            });
+            selectedUsers = [];
+            bulkAction = '';
+            successMessage = 'User roles updated successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function closeUserModal() {
-		selectedUser = null;
-		showUserModal = false;
-	}
+    async function bulkDeleteUsers() {
+        if (selectedUsers.length === 0) return;
+        if (!confirm(`Are you sure you want to delete ${selectedUsers.length} users? This action cannot be undone.`)) return;
 
-	function openEditUserModal() {
-		if (selectedUser) {
-			editUserForm = {
-				full_name: selectedUser.full_name || '',
-				bio: selectedUser.bio || '',
-				profile_image: selectedUser.profile_image || ''
-			};
-			showEditUserModal = true;
-		}
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/bulk`, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    user_ids: selectedUsers
+                }),
+            });
+            selectedUsers = [];
+            successMessage = 'Users deleted successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function confirmDelete(user: User) {
-		userToDelete = user;
-		showDeleteConfirm = true;
-	}
+    async function updateUserProfile() {
+        if (!editingUser) return;
 
-	function clearError() {
-		error = null;
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/${editingUser.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(userForm),
+            });
+            showUserModal = false;
+            editingUser = null;
+            successMessage = 'User profile updated successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	// Computed properties
-	$: filteredUsers = users.filter(user => {
-		const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.email.toLowerCase().includes(searchTerm.toLowerCase());
-		
-		const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter);
-		
-		return matchesSearch && matchesRole;
-	});
+    async function deleteExamFile(fileId: string) {
+        const examFile = examFiles.find(f => f.id === fileId);
+        const fileName = examFile ? examFile.title : 'this file';
+        
+        if (!confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) return;
 
-	$: paginatedUsers = filteredUsers.slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage);
-	$: totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${fileId}`, {
+                method: 'DELETE',
+            });
+            successMessage = 'Exam file deleted successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadExamFiles();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function nextPage() {
-		if (currentPage < totalPages) currentPage++;
-	}
+    async function updateExamFile() {
+        if (!editingExamFile) return;
 
-	function prevPage() {
-		if (currentPage > 1) currentPage--;
-	}
+        try {
+            const tags = examFileForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${editingExamFile.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    title: examFileForm.title,
+                    description: examFileForm.description,
+                    tags: tags
+                }),
+            });
+            showExamFileModal = false;
+            editingExamFile = null;
+            successMessage = 'Exam file updated successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadExamFiles();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function getRoleColor(roles: string[]) {
-		if (roles.includes('admin')) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-		if (roles.includes('staff')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-		return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-	}
+    async function uploadExamFile() {
+        if (!uploadForm.file || !uploadForm.title || !uploadForm.description) {
+            error = 'Please fill in all required fields and select a file';
+            return;
+        }
+
+        try {
+            const token = $auth.token;
+            if (!token) {
+                throw new Error('No authentication token');
+            }
+
+            const formData = new FormData();
+            formData.append('file', uploadForm.file);
+            const tags = uploadForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            tags.forEach(tag => formData.append('tags', tag));
+
+            const params = new URLSearchParams({
+                title: uploadForm.title,
+                description: uploadForm.description
+            });
+
+            const response = await fetch(`${API_BASE_URL}/admin/api/v1/upload?${params}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+                throw new Error(errorData.detail || `HTTP ${response.status}`);
+            }
+
+            showUploadModal = false;
+            uploadForm = { title: '', description: '', tags: '', file: null };
+            successMessage = 'File uploaded successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadExamFiles();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
+
+    function openUserModal(user: AdminUser) {
+        editingUser = user;
+        userForm = {
+            full_name: user.full_name,
+            bio: user.bio || '',
+            profile_image: user.profile_image || ''
+        };
+        showUserModal = true;
+    }
+
+    function openExamFileModal(examFile: ExamFile) {
+        editingExamFile = examFile;
+        examFileForm = {
+            title: examFile.title,
+            description: examFile.description,
+            tags: examFile.tags.join(', ')
+        };
+        showExamFileModal = true;
+    }
+
+    function toggleUserSelection(userId: string) {
+        if (selectedUsers.includes(userId)) {
+            selectedUsers = selectedUsers.filter(id => id !== userId);
+        } else {
+            selectedUsers = [...selectedUsers, userId];
+        }
+    }
+
+    function selectAllUsers() {
+        if (selectedUsers.length === users.length) {
+            selectedUsers = [];
+        } else {
+            selectedUsers = users.map(user => user.id);
+        }
+    }
+
+    async function handleSearch() {
+        userPage = 1;
+        await loadUsers();
+    }
+
+    async function handleRoleFilter() {
+        userPage = 1;
+        await loadUsers();
+    }
+
+    // Debounced search function
+    let searchTimeout: NodeJS.Timeout;
+    function debounceSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(handleSearch, 300);
+    }
+
+    function getRoleColor(role: string): string {
+        switch (role) {
+            case 'admin': return 'bg-red-100 text-red-800';
+            case 'staff': return 'bg-yellow-100 text-yellow-800';
+            case 'seller': return 'bg-green-100 text-green-800';
+            default: return 'bg-blue-100 text-blue-800';
+        }
+    }
 </script>
 
 <svelte:head>
-	<title>{$t('adminDashboard')} - Examtie</title>
+    <title>Admin Dashboard - ExamTie</title>
+    <meta name="description" content="Administrative dashboard for ExamTie" />
 </svelte:head>
 
-<Header></Header>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <!-- Header -->
+    <div class="bg-white shadow-lg border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-8">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">Admin Dashboard</h1>
+                        <p class="mt-1 text-sm text-gray-600">Manage users, exam files, and system settings with ease</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Online</span>
+                    </div>
+                    <button
+                        on:click={() => goto('/')}
+                        class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                        <span>Back to Home</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-	{#if loading}
-		<div class="flex items-center justify-center min-h-screen">
-			<div class="flex flex-col items-center space-y-4">
-				<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-				<p class="text-gray-600 dark:text-gray-400">{$t('loadingDashboard')}</p>
-			</div>
-		</div>
-	{:else}
-		<!-- Enhanced Header with gradient background -->
-		<div class="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 shadow-xl">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex justify-between items-center py-8">
-					<div>
-						<h1 class="text-3xl font-bold text-white flex items-center">
-							<svg class="w-8 h-8 mr-3 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-							</svg>
-							{$t('adminDashboard')}
-						</h1>
-						<p class="text-blue-100 mt-1">{$t('manageUsers')}</p>
-					</div>
-					<div class="flex items-center space-x-4">
-						<button
-							on:click={() => { loadUsers(); loadStats(); }}
-							class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white focus:ring-offset-blue-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-						>
-							<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-							</svg>
-							{$t('refresh')}
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
+    <!-- Error Message -->
+    {#if error}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Error</h3>
+                        <p class="mt-1 text-sm text-red-700">{error}</p>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <button
+                            on:click={() => error = ''}
+                            class="inline-flex text-red-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-100"
+                        >
+                            <span class="sr-only">Dismiss</span>
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/if}
 
-		<!-- Error Banner -->
-		{#if error}
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-				<div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
-					<div class="flex">
-						<div class="flex-shrink-0">
-							<svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
-							</svg>
-						</div>
-						<div class="ml-3 flex-1">
-							<p class="text-sm text-red-700">{error}</p>
-						</div>
-						<div class="ml-auto pl-3">
-							<button on:click={clearError} class="text-red-400 hover:text-red-600" aria-label="Close error message">
-								<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-								</svg>
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
+    <!-- Success Message -->
+    {#if successMessage}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-green-800">Success</h3>
+                        <p class="mt-1 text-sm text-green-700">{successMessage}</p>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <button
+                            on:click={() => successMessage = ''}
+                            class="inline-flex text-green-400 hover:text-green-600 transition-colors p-1 rounded-md hover:bg-green-100"
+                        >
+                            <span class="sr-only">Dismiss</span>
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/if}
 
-		<!-- Main Content -->
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-			<!-- Navigation Tabs -->
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 mb-8">
-				<div class="border-b border-gray-200 dark:border-slate-700">
-					<nav class="flex space-x-8 px-6" aria-label="Tabs">
-						<button
-							on:click={() => activeTab = 'overview'}
-							class="py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 {activeTab === 'overview' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
-						>
-							<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-							</svg>
-							Overview
-						</button>
-						<button
-							on:click={() => activeTab = 'users'}
-							class="py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 {activeTab === 'users' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
-						>
-							<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-							</svg>
-							{$t('userManagement')}
-						</button>
-					</nav>
-				</div>
-			</div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Stats Cards -->
+        {#if stats}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Users Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600 mb-1">Total Users</p>
+                            <p class="text-3xl font-bold text-gray-900">{stats.users.total.toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                <span class="text-xs text-green-600 font-medium">Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-			<!-- Tab Content -->
-			{#if activeTab === 'overview'}
-				<!-- Stats Cards -->
-				{#if stats}
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-						<div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-blue-600 dark:text-blue-400">{$t('totalUsers')}</p>
-									<p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.total_users.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
+                <!-- Admins Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600 mb-1">Admins</p>
+                            <p class="text-3xl font-bold text-gray-900">{(stats.users.by_role.admin || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+                                <span class="text-xs text-red-600 font-medium">Privileged</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-						<div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-green-600 dark:text-green-400">{$t('totalQuizzes')}</p>
-									<p class="text-2xl font-bold text-green-900 dark:text-green-100">{stats.total_quizzes.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
+                <!-- Staff Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2V6"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600 mb-1">Staff</p>
+                            <p class="text-3xl font-bold text-gray-900">{(stats.users.by_role.staff || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
+                                <span class="text-xs text-yellow-600 font-medium">Moderators</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-						<div class="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-yellow-600 dark:text-yellow-400">{$t('activeSessions')}</p>
-									<p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{stats.active_sessions.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
+                <!-- Exam Files Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600 mb-1">Exam Files</p>
+                            <p class="text-3xl font-bold text-gray-900">{(stats.exam_files?.total || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                <span class="text-xs text-green-600 font-medium">Available</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {/if}
 
-						<div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-purple-600 dark:text-purple-400">{$t('totalQuestions')}</p>
-									<p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.total_questions.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
-			{:else if activeTab === 'users'}
-				<!-- User Management Section -->
-				<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-					<!-- Search and Filter Header -->
-					<div class="p-6 border-b border-gray-200 dark:border-slate-700">
-						<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-							<div class="flex-1 max-w-lg">
-								<div class="relative">
-									<svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-									</svg>
-									<input
-										bind:value={searchTerm}
-										type="text"
-										placeholder={$t('searchUsers')}
-										class="pl-10 pr-4 py-2.5 w-full border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-									/>
-								</div>
-							</div>
-							<div class="flex items-center space-x-3">
-								<select
-									bind:value={roleFilter}
-									class="px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-								>
-									<option value="all">{$t('allRoles')}</option>
-									<option value="admin">Admin</option>
-									<option value="staff">Staff</option>
-									<option value="user">{$t('user')}</option>
-								</select>
-							</div>
-						</div>
-					</div>
+        <!-- Modern Tabs -->
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-200 bg-gray-50">
+                <nav class="flex space-x-1 p-2">
+                    <button
+                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 {activeTab === 'users' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}"
+                        on:click={() => activeTab = 'users'}
+                    >
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                            </svg>
+                            <span>Users</span>
+                        </div>
+                        {#if activeTab === 'users'}
+                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full"></div>
+                        {/if}
+                    </button>
+                    <button
+                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 {activeTab === 'exam-files' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}"
+                        on:click={() => activeTab = 'exam-files'}
+                    >
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span>Exam Files</span>
+                        </div>
+                        {#if activeTab === 'exam-files'}
+                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full"></div>
+                        {/if}
+                    </button>
+                </nav>
+            </div>
 
-					<!-- Users Table -->
-					<div class="overflow-hidden">
-						<div class="overflow-x-auto">
-							<table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-								<thead class="bg-gray-50 dark:bg-slate-800/50">
-									<tr>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('user')}
-										</th>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											Email
-										</th>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('role')}
-										</th>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('status')}
-										</th>
-										<th class="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('actions')}
-										</th>
-									</tr>
-								</thead>
-								<tbody class="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
-									{#each paginatedUsers as user (user.id)}
-										<tr class="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors duration-150">
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="flex items-center">
-													<div class="flex-shrink-0 h-10 w-10">
-														{#if user.profile_image}
-															<img src={user.profile_image} alt={user.full_name} class="h-10 w-10 rounded-full object-cover" />
-														{:else}
-															<div class="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-																<span class="text-white text-sm font-medium">{user.username.charAt(0).toUpperCase()}</span>
-															</div>
-														{/if}
-													</div>
-													<div class="ml-4">
-														<div class="text-sm font-medium text-gray-900 dark:text-white">
-															{user.full_name}
-														</div>
-														<div class="text-sm text-gray-500 dark:text-gray-400">
-															@{user.username}
-														</div>
-													</div>
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-												{user.email}
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="flex flex-wrap gap-1">
-													{#each user.roles as role}
-														<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getRoleColor(user.roles)}">
-															{role}
-														</span>
-													{/each}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-													{$t('active')}
-												</span>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-												<div class="flex items-center justify-end space-x-2">
-													<button
-														on:click={() => openUserModal(user)}
-														class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-150"
-													>
-														{$t('view')}
-													</button>
-													<button
-														on:click={() => confirmDelete(user)}
-														class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-150"
-													>
-														{$t('delete')}
-													</button>
-												</div>
-											</td>
-										</tr>
-									{:else}
-										<tr>
-											<td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-												<svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-												</svg>
-												<p class="mt-4 text-sm">No users found matching your criteria.</p>
-											</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					</div>
+            <!-- Users Tab -->
+            {#if activeTab === 'users'}
+                <div class="p-6">
+                    <!-- Enhanced Search and Filters -->
+                    <div class="mb-8 flex flex-col lg:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="search" class="sr-only">Search users</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                                <input
+                                    id="search"
+                                    bind:value={userSearch}
+                                    on:input={debounceSearch}
+                                    type="text"
+                                    placeholder="Search by email, username, or full name..."
+                                    class="block w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                                />
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <select
+                                bind:value={userRoleFilter}
+                                on:change={handleRoleFilter}
+                                class="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-all duration-200"
+                            >
+                                <option value="">All Roles</option>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                                <option value="staff">Staff</option>
+                                <option value="seller">Seller</option>
+                            </select>
+                            <button
+                                on:click={loadUsers}
+                                class="px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                                title="Refresh users"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
-					<!-- Pagination -->
-					{#if totalPages > 1}
-						<div class="bg-white dark:bg-slate-800 px-6 py-4 border-t border-gray-200 dark:border-slate-700">
-							<div class="flex items-center justify-between">
-								<div class="text-sm text-gray-700 dark:text-gray-300">
-									{$t('showing')} <span class="font-medium">{((currentPage - 1) * usersPerPage) + 1}</span>
-									{$t('to')} <span class="font-medium">{Math.min(currentPage * usersPerPage, filteredUsers.length)}</span>
-									{$t('of')} <span class="font-medium">{filteredUsers.length}</span> {$t('results')}
-								</div>
-								<div class="flex items-center space-x-2">
-									<button
-										on:click={prevPage}
-										disabled={currentPage === 1}
-										class="relative inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-									>
-										{$t('previous')}
-									</button>
-									<div class="flex space-x-1">
-										{#each Array(totalPages) as _, i}
-											<button
-												on:click={() => currentPage = i + 1}
-												class="relative inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md transition-all duration-150 {currentPage === i + 1 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600'}"
-											>
-												{i + 1}
-											</button>
-										{/each}
-									</div>
-									<button
-										on:click={nextPage}
-										disabled={currentPage === totalPages}
-										class="relative inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-									>
-										{$t('next')}
-									</button>
-								</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	{/if}
+                    <!-- Enhanced Bulk Actions -->
+                    {#if selectedUsers.length > 0}
+                        <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 shadow-sm">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold text-blue-900">
+                                            {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
+                                        </span>
+                                        <p class="text-xs text-blue-700 mt-1">Choose an action to apply to selected users</p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <select
+                                        bind:value={bulkAction}
+                                        class="text-sm border border-blue-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                        <option value="">Select Action</option>
+                                        <option value="user">Set as User</option>
+                                        <option value="staff">Set as Staff</option>
+                                        <option value="admin">Set as Admin</option>
+                                        <option value="seller">Set as Seller</option>
+                                    </select>
+                                    <button
+                                        on:click={bulkUpdateUserRoles}
+                                        disabled={!bulkAction}
+                                        class="text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                                    >
+                                        Update Roles
+                                    </button>
+                                    <button
+                                        on:click={bulkDeleteUsers}
+                                        class="text-sm bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-sm hover:shadow-md"
+                                    >
+                                        Delete Users
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- Enhanced Users Table -->
+                    {#if users.length > 0}
+                        <div class="overflow-hidden shadow-xl ring-1 ring-black ring-opacity-5 rounded-2xl">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+                                    <tr>
+                                        <th scope="col" class="relative px-6 py-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedUsers.length === users.length && users.length > 0}
+                                                on:change={selectAllUsers}
+                                                class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                            />
+                                        </th>
+                                        <th scope="col" class="min-w-[12rem] py-4 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                                            User Information
+                                        </th>
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                            Role & Status
+                                        </th>
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                            Created Date
+                                        </th>
+                                        <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-900">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    {#each users as user (user.id)}
+                                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                            <td class="relative px-6 py-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedUsers.includes(user.id)}
+                                                    on:change={() => toggleUserSelection(user.id)}
+                                                    class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                                />
+                                            </td>
+                                            <td class="py-4 pl-4 pr-3 text-sm">
+                                                <div class="flex items-center">
+                                                    <div class="h-12 w-12 flex-shrink-0">
+                                                        <img class="h-12 w-12 rounded-full object-cover ring-2 ring-gray-200" src={user.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`} alt={user.full_name} />
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="font-semibold text-gray-900">{user.full_name}</div>
+                                                        <div class="text-gray-500 text-sm">{user.email}</div>
+                                                        <div class="text-gray-400 text-xs">@{user.username}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-4 text-sm">
+                                                <div class="flex flex-wrap gap-2">
+                                                    {#each user.roles as role}
+                                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium shadow-sm {getRoleColor(role)}">
+                                                            {role}
+                                                        </span>
+                                                    {/each}
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-4 text-sm text-gray-500">
+                                                <div class="flex flex-col">
+                                                    <span>{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span>
+                                                    <span class="text-xs text-gray-400">{user.created_at ? new Date(user.created_at).toLocaleTimeString() : ''}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-4 text-sm font-medium">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <button
+                                                        on:click={() => openUserModal(user)}
+                                                        class="text-blue-600 hover:text-blue-900 hover:bg-blue-50 px-3 py-1 rounded-lg transition-all duration-200"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <select
+                                                        on:change={(e) => updateUserRole(user.id, e.target.value)}
+                                                        class="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    >
+                                                        <option value="">Change Role</option>
+                                                        <option value="user">User</option>
+                                                        <option value="staff">Staff</option>
+                                                        <option value="admin">Admin</option>
+                                                        <option value="seller">Seller</option>
+                                                    </select>
+                                                    <button
+                                                        on:click={() => deleteUser(user.id)}
+                                                        class="text-red-600 hover:text-red-900 hover:bg-red-50 px-3 py-1 rounded-lg transition-all duration-200"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
+                        </div>
+                    {:else}
+                        <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
+                            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-6">
+                                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-2">No users found</h3>
+                            <p class="text-gray-500 mb-6">No users match your current search and filter criteria.</p>
+                            <button
+                                on:click={() => { userSearch = ''; userRoleFilter = ''; loadUsers(); }}
+                                class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                            >
+                                Clear Filters
+                            </button>
+                        </div>
+                    {/if}
+
+                    <!-- Enhanced Pagination -->
+                    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center text-sm text-gray-700 mb-4 sm:mb-0">
+                            <span class="font-medium">Showing page {userPage}</span>
+                            <span class="mx-2 text-gray-400">•</span>
+                            <span>{userLimit} items per page</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button
+                                on:click={() => { userPage = Math.max(1, userPage - 1); loadUsers(); }}
+                                disabled={userPage === 1}
+                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                <span>Previous</span>
+                            </button>
+                            <div class="px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200">
+                                {userPage}
+                            </div>
+                            <button
+                                on:click={() => { userPage += 1; loadUsers(); }}
+                                disabled={users.length < userLimit}
+                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                            >
+                                <span>Next</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Enhanced Exam Files Tab -->
+            {#if activeTab === 'exam-files'}
+                <div class="p-8">
+                    <!-- Upload Button Header -->
+                    <div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Exam Files Management</h3>
+                            <p class="text-gray-600">Upload, organize, and manage exam files for your platform</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button
+                                on:click={loadExamFiles}
+                                class="px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                                title="Refresh exam files"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </button>
+                            <button
+                                on:click={() => showUploadModal = true}
+                                class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                <span>Upload New File</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Enhanced Exam Files Table -->
+                    {#if examFiles.length > 0}
+                        <div class="overflow-hidden shadow-xl ring-1 ring-black ring-opacity-5 rounded-2xl">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+                                    <tr>
+                                        <th scope="col" class="py-4 pl-6 pr-3 text-left text-sm font-semibold text-gray-900">
+                                            <div class="flex items-center space-x-2">
+                                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                </svg>
+                                                <span>File Information</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                            <div class="flex items-center space-x-2">
+                                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                                </svg>
+                                                <span>Tags</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-900">
+                                            <div class="flex items-center space-x-2">
+                                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                </svg>
+                                                <span>Uploaded By</span>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-900">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    {#each examFiles as examFile (examFile.id)}
+                                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                            <td class="py-6 pl-6 pr-3 text-sm">
+                                                <div class="flex items-center">
+                                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="font-semibold text-gray-900 text-base">{examFile.title}</div>
+                                                        <div class="text-gray-500 text-sm mt-1">{examFile.description}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-6 text-sm">
+                                                <div class="flex flex-wrap gap-2">
+                                                    {#each examFile.tags as tag}
+                                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 shadow-sm">
+                                                            {tag}
+                                                        </span>
+                                                    {/each}
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-6 text-sm">
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mr-3">
+                                                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                        </svg>
+                                                    </div>
+                                                    <span class="text-gray-700 font-medium">{examFile.uploaded_by}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-6 text-sm font-medium">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <a
+                                                        href={examFile.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        class="inline-flex items-center px-3 py-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-all duration-200 space-x-1"
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                        </svg>
+                                                        <span>Download</span>
+                                                    </a>
+                                                    <button
+                                                        on:click={() => openExamFileModal(examFile)}
+                                                        class="inline-flex items-center px-3 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200 space-x-1"
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                        </svg>
+                                                        <span>Edit</span>
+                                                    </button>
+                                                    <button
+                                                        on:click={() => deleteExamFile(examFile.id)}
+                                                        class="inline-flex items-center px-3 py-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-all duration-200 space-x-1"
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                        </svg>
+                                                        <span>Delete</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
+                        </div>
+                    {:else}
+                        <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
+                            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-200 rounded-full flex items-center justify-center mb-6">
+                                <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-2">No exam files yet</h3>
+                            <p class="text-gray-500 mb-8">Get started by uploading your first exam file to help students prepare for their exams.</p>
+                            <button
+                                on:click={() => showUploadModal = true}
+                                class="inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 space-x-3"
+                            >
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                <span class="font-semibold">Upload Your First File</span>
+                            </button>
+                        </div>
+                    {/if}
+
+                    <!-- Enhanced Pagination for Exam Files -->
+                    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center text-sm text-gray-700 mb-4 sm:mb-0">
+                            <span class="font-medium">Showing page {examFilePage}</span>
+                            <span class="mx-2 text-gray-400">•</span>
+                            <span>{examFileLimit} items per page</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button
+                                on:click={() => { examFilePage = Math.max(1, examFilePage - 1); loadExamFiles(); }}
+                                disabled={examFilePage === 1}
+                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                <span>Previous</span>
+                            </button>
+                            <div class="px-4 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg border border-green-200">
+                                {examFilePage}
+                            </div>
+                            <button
+                                on:click={() => { examFilePage += 1; loadExamFiles(); }}
+                                disabled={examFiles.length < examFileLimit}
+                                class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+                            >
+                                <span>Next</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+        </div>
+    </div>
 </div>
 
-<!-- User Detail Modal -->
-{#if showUserModal && selectedUser}
-	<div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-		<div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-			<div class="p-6">
-				{#if isLoadingUserDetail}
-					<div class="flex items-center justify-center py-8">
-						<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-						<p class="ml-3 text-gray-600 dark:text-gray-400">Loading user details...</p>
-					</div>
-				{:else}
-					<!-- Modal Header -->
-					<div class="flex items-center justify-between mb-6">
-						<h3 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-							<svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-							</svg>
-							{$t('userDetails')}
-						</h3>					<button 
-						on:click={closeUserModal}
-						class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
-						aria-label="Close modal"
-					>
-							<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-					</div>
-
-					<!-- User Profile Card -->
-					<div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 mb-6">
-						<div class="flex items-start space-x-4">
-							<div class="flex-shrink-0">
-								{#if selectedUser.profile_image}
-									<img src={selectedUser.profile_image} alt={selectedUser.full_name} class="h-20 w-20 rounded-full object-cover ring-4 ring-white dark:ring-slate-700" />
-								{:else}
-									<div class="h-20 w-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-700">
-										<span class="text-white font-bold text-2xl">{selectedUser.full_name.charAt(0).toUpperCase()}</span>
-									</div>
-								{/if}
-							</div>
-							<div class="flex-1">
-								<h4 class="text-xl font-semibold text-gray-900 dark:text-white">{selectedUser.full_name}</h4>
-								<p class="text-blue-600 dark:text-blue-400 font-medium">@{selectedUser.username}</p>
-								<p class="text-gray-600 dark:text-gray-400 mt-1">{selectedUser.email}</p>
-								<div class="flex flex-wrap gap-2 mt-3">
-									{#each selectedUser.roles as role}
-										<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {getRoleColor(selectedUser.roles)}">
-											{role}
-										</span>
-									{/each}
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- User Information -->
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-						<div class="space-y-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-								<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg">
-									{selectedUser.email}
-								</div>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
-								<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg">
-									@{selectedUser.username}
-								</div>
-							</div>
-						</div>
-						<div class="space-y-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID</label>
-								<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg font-mono">
-									{selectedUser.id}
-								</div>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-								<div class="flex items-center">
-									<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-										<svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-											<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-										</svg>
-										{$t('active')}
-									</span>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					{#if selectedUser.bio}
-						<div class="mb-6">
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bio</label>
-							<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-4 py-3 rounded-lg">
-								{selectedUser.bio}
-							</div>
-						</div>
-					{/if}
-
-					<!-- Role Management -->
-					<div class="border-t border-gray-200 dark:border-slate-700 pt-6 mb-6">
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-							<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-							</svg>
-							{$t('changeRole')}
-						</label>
-						<select
-							on:change={(e) => selectedUser && updateUserRole(selectedUser.id, (e.target as HTMLSelectElement).value)}
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-						>
-							<option value="user" selected={selectedUser.roles.includes('user')}>{$t('user')}</option>
-							<option value="staff" selected={selectedUser.roles.includes('staff')}>Staff</option>
-							<option value="admin" selected={selectedUser.roles.includes('admin')}>Admin</option>
-						</select>
-					</div>
-
-					<!-- Action Buttons -->
-					<div class="flex justify-between pt-6 border-t border-gray-200 dark:border-slate-700">
-						<button
-							on:click={() => selectedUser && confirmDelete({ id: selectedUser.id, email: selectedUser.email, full_name: selectedUser.full_name, username: selectedUser.username, roles: selectedUser.roles })}
-							class="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30 transition-all duration-200"
-						>
-							<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-							</svg>
-							{$t('deleteUser')}
-						</button>
-						<div class="flex space-x-3">
-							<button
-								on:click={openEditUserModal}
-								class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-							>
-								<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-								</svg>
-								Edit Profile
-							</button>
-							<button
-								on:click={closeUserModal}
-								class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-							>
-								Close
-							</button>
-						</div>
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
+<!-- Enhanced User Edit Modal -->
+{#if showUserModal && editingUser}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all duration-300 scale-100">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Edit User Profile</h3>
+                            <p class="text-sm text-gray-600">Update user information</p>
+                        </div>
+                    </div>
+                    <button
+                        on:click={() => showUserModal = false}
+                        class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-200"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form on:submit|preventDefault={updateUserProfile} class="space-y-4">
+                    <div>
+                        <label for="full_name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                        <input
+                            id="full_name"
+                            type="text"
+                            bind:value={userForm.full_name}
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter full name"
+                        />
+                    </div>
+                    <div>
+                        <label for="bio" class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                        <textarea
+                            id="bio"
+                            bind:value={userForm.bio}
+                            rows="3"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Tell us about yourself..."
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="profile_image" class="block text-sm font-medium text-gray-700 mb-2">Profile Image URL</label>
+                        <input
+                            id="profile_image"
+                            type="url"
+                            bind:value={userForm.profile_image}
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="https://example.com/image.jpg"
+                        />
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                        >
+                            Save Changes
+                        </button>
+                        <button
+                            type="button"
+                            on:click={() => showUserModal = false}
+                            class="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {/if}
 
-<!-- Edit User Modal -->
-{#if showEditUserModal && selectedUser}
-	<div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-		<div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4">
-			<div class="p-6">
-				<div class="flex items-center justify-between mb-6">
-					<h3 class="text-xl font-bold text-gray-900 dark:text-white">Edit User Profile</h3>				<button 
-					on:click={() => showEditUserModal = false}
-					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
-					aria-label="Close edit modal"
-				>
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				</div>
-
-				<form on:submit|preventDefault={() => selectedUser && updateUserProfile(selectedUser.id)} class="space-y-4">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
-						<input
-							bind:value={editUserForm.full_name}
-							type="text"
-							required
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-						/>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bio</label>
-						<textarea
-							bind:value={editUserForm.bio}
-							rows="3"
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-							placeholder="Tell us about yourself..."
-						></textarea>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profile Image URL</label>
-						<input
-							bind:value={editUserForm.profile_image}
-							type="url"
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-							placeholder="https://example.com/image.jpg"
-						/>
-					</div>
-
-					<div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-slate-700">
-						<button
-							type="button"
-							on:click={() => showEditUserModal = false}
-							class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-						>
-							{$t('cancel')}
-						</button>
-						<button
-							type="submit"
-							disabled={isUpdatingUser}
-							class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-						>
-							{#if isUpdatingUser}
-								<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-							{/if}
-							Save Changes
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
-	</div>
+<!-- Enhanced Exam File Edit Modal -->
+{#if showExamFileModal && editingExamFile}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all duration-300 scale-100">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Edit Exam File</h3>
+                            <p class="text-sm text-gray-600">Update file information</p>
+                        </div>
+                    </div>
+                    <button
+                        on:click={() => showExamFileModal = false}
+                        class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-200"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form on:submit|preventDefault={updateExamFile} class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                        <input
+                            id="title"
+                            type="text"
+                            bind:value={examFileForm.title}
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter file title"
+                        />
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea
+                            id="description"
+                            bind:value={examFileForm.description}
+                            rows="3"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Describe the exam file..."
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
+                        <input
+                            id="tags"
+                            type="text"
+                            bind:value={examFileForm.tags}
+                            placeholder="math, grade10, final"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Separate tags with commas</p>
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                        >
+                            Save Changes
+                        </button>
+                        <button
+                            type="button"
+                            on:click={() => showExamFileModal = false}
+                            class="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {/if}
 
-<!-- Delete Confirmation Modal -->
-{#if showDeleteConfirm && userToDelete}
-	<div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-		<div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4">
-			<div class="p-6">
-				<div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/20 rounded-full mb-4">
-					<svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.112 16.5c-.77.833.192 2.5 1.732 2.5z" />
-					</svg>
-				</div>
-				
-				<h3 class="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">{$t('deleteUser')}</h3>
-				<p class="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-					{$t('deleteConfirmMessage')}
-				</p>
-				<p class="text-sm font-medium text-gray-900 dark:text-white text-center mb-6">
-					<strong>{userToDelete.full_name}</strong> (@{userToDelete.username})
-				</p>
-				
-				<div class="flex justify-center space-x-4">
-					<button
-						on:click={() => { showDeleteConfirm = false; userToDelete = null; }}
-						class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-					>
-						{$t('cancel')}
-					</button>
-					<button
-						on:click={() => userToDelete && deleteUser(userToDelete.id)}
-						class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
-					>
-						{$t('delete')}
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
+<!-- Enhanced File Upload Modal -->
+{#if showUploadModal}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all duration-300 scale-100">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Upload Exam File</h3>
+                            <p class="text-sm text-gray-600">Add a new exam file to the platform</p>
+                        </div>
+                    </div>
+                    <button
+                        on:click={() => showUploadModal = false}
+                        class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-200"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form on:submit|preventDefault={uploadExamFile} class="space-y-4">
+                    <div>
+                        <label for="upload_title" class="block text-sm font-medium text-gray-700 mb-2">
+                            Title <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            id="upload_title"
+                            type="text"
+                            bind:value={uploadForm.title}
+                            required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter file title"
+                        />
+                    </div>
+                    <div>
+                        <label for="upload_description" class="block text-sm font-medium text-gray-700 mb-2">
+                            Description <span class="text-red-500">*</span>
+                        </label>
+                        <textarea
+                            id="upload_description"
+                            bind:value={uploadForm.description}
+                            required
+                            rows="3"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Describe the exam file..."
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="upload_tags" class="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
+                        <input
+                            id="upload_tags"
+                            type="text"
+                            bind:value={uploadForm.tags}
+                            placeholder="math, grade10, final"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Separate tags with commas</p>
+                    </div>
+                    <div>
+                        <label for="upload_file" class="block text-sm font-medium text-gray-700 mb-2">
+                            File <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="upload_file"
+                                type="file"
+                                on:change={(e) => uploadForm.file = e.target.files?.[0] || null}
+                                required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                            />
+                        </div>
+                        {#if uploadForm.file}
+                            <div class="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div class="flex items-center space-x-2">
+                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span class="text-sm text-green-700 font-medium">Selected: {uploadForm.file.name}</span>
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                        >
+                            Upload File
+                        </button>
+                        <button
+                            type="button"
+                            on:click={() => showUploadModal = false}
+                            class="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{/if}
+
+{#if loading}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 flex flex-col items-center shadow-2xl border border-gray-100">
+            <div class="relative">
+                <div class="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-spin">
+                    <div class="absolute top-1 left-1 w-14 h-14 bg-white rounded-full"></div>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-6 text-center">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Loading Admin Dashboard</h3>
+                <p class="text-gray-600">Please wait while we fetch the latest data...</p>
+            </div>
+        </div>
+    </div>
 {/if}

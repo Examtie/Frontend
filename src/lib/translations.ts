@@ -213,10 +213,12 @@ export interface Translations {
 	allRoles: string;
 	user: string;
 	staff: string;
+	seller: string;
 	role: string;
 	status: string;
 	actions: string;
 	view: string;
+	edit: string;
 	delete: string;
 	active: string;
 	userDetails: string;
@@ -232,6 +234,33 @@ export interface Translations {
 	to: string;
 	of: string;
 	results: string;
+	users: string;
+	examFiles: string;
+	admins: string;
+	created: string;
+	backToHome: string;
+	bulkActions: string;
+	selectAction: string;
+	setAsUser: string;
+	setAsStaff: string;
+	setAsAdmin: string;
+	setAsSeller: string;
+	updateRoles: string;
+	deleteUsers: string;
+	usersSelected: string;
+	userSelected: string;
+	editUserProfile: string;
+	saveChanges: string;
+	profileImageUrl: string;
+	editExamFile: string;
+	title: string;
+	description: string;
+	tags: string;
+	tagsPlaceholder: string;
+	uploadedBy: string;
+	download: string;
+	file: string;
+	loading: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -448,10 +477,12 @@ export const translations: Record<'en' | 'th', Translations> = {
 		allRoles: 'All Roles',
 		user: 'User',
 		staff: 'Staff',
+		seller: 'Seller',
 		role: 'Role',
 		status: 'Status',
 		actions: 'Actions',
 		view: 'View',
+		edit: 'Edit',
 		delete: 'Delete',
 		active: 'Active',
 		userDetails: 'User Details',
@@ -467,6 +498,33 @@ export const translations: Record<'en' | 'th', Translations> = {
 		to: 'to',
 		of: 'of',
 		results: 'results',
+		users: 'Users',
+		examFiles: 'Exam Files',
+		admins: 'Admins',
+		created: 'Created',
+		backToHome: 'Back to Home',
+		bulkActions: 'Bulk Actions',
+		selectAction: 'Select Action',
+		setAsUser: 'Set as User',
+		setAsStaff: 'Set as Staff',
+		setAsAdmin: 'Set as Admin',
+		setAsSeller: 'Set as Seller',
+		updateRoles: 'Update Roles',
+		deleteUsers: 'Delete Users',
+		usersSelected: 'users selected',
+		userSelected: 'user selected',
+		editUserProfile: 'Edit User Profile',
+		saveChanges: 'Save Changes',
+		profileImageUrl: 'Profile Image URL',
+		editExamFile: 'Edit Exam File',
+		title: 'Title',
+		description: 'Description',
+		tags: 'Tags',
+		tagsPlaceholder: 'math, grade10, final',
+		uploadedBy: 'Uploaded By',
+		download: 'Download',
+		file: 'File',
+		loading: 'Loading...',
 	},
 	th: {
 		// Navigation
@@ -669,6 +727,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		userProfile: 'โปรไฟล์ผู้ใช้',
 		
 		// Admin Dashboard
+		admin: 'ผู้ดูแลระบบ',
 		adminDashboard: 'แดชบอร์ดผู้ดูแลระบบ',
 		manageUsers: 'จัดการผู้ใช้และการตั้งค่าระบบ',
 		systemSettings: 'การตั้งค่าระบบ',
@@ -681,10 +740,12 @@ export const translations: Record<'en' | 'th', Translations> = {
 		allRoles: 'บทบาททั้งหมด',
 		user: 'ผู้ใช้',
 		staff: 'เจ้าหน้าที่',
+		seller: 'ผู้ขาย',
 		role: 'บทบาท',
 		status: 'สถานะ',
 		actions: 'การดำเนินการ',
 		view: 'ดู',
+		edit: 'แก้ไข',
 		delete: 'ลบ',
 		active: 'ใช้งานอยู่',
 		userDetails: 'รายละเอียดผู้ใช้',
@@ -700,5 +761,33 @@ export const translations: Record<'en' | 'th', Translations> = {
 		to: 'ถึง',
 		of: 'จาก',
 		results: 'ผลลัพธ์',
+		users: 'ผู้ใช้',
+		examFiles: 'ไฟล์ข้อสอบ',
+		admins: 'ผู้ดูแลระบบ',
+		created: 'สร้างเมื่อ',
+		backToHome: 'กลับหน้าหลัก',
+		bulkActions: 'การดำเนินการแบบกลุ่ม',
+		selectAction: 'เลือกการดำเนินการ',
+		setAsUser: 'ตั้งเป็นผู้ใช้',
+		setAsStaff: 'ตั้งเป็นเจ้าหน้าที่',
+		setAsAdmin: 'ตั้งเป็นผู้ดูแลระบบ',
+		setAsSeller: 'ตั้งเป็นผู้ขาย',
+		updateRoles: 'อัปเดตบทบาท',
+		deleteUsers: 'ลบผู้ใช้',
+		usersSelected: 'ผู้ใช้ที่เลือก',
+		userSelected: 'ผู้ใช้ที่เลือก',
+		editUserProfile: 'แก้ไขโปรไฟล์ผู้ใช้',
+		saveChanges: 'บันทึกการเปลี่ยนแปลง',
+		bio: 'ประวัติย่อ',
+		profileImageUrl: 'URL รูปโปรไฟล์',
+		editExamFile: 'แก้ไขไฟล์ข้อสอบ',
+		title: 'ชื่อเรื่อง',
+		description: 'คำอธิบาย',
+		tags: 'แท็ก',
+		tagsPlaceholder: 'คณิตศาสตร์, ม.4, ปลายภาค',
+		uploadedBy: 'อัปโหลดโดย',
+		download: 'ดาวน์โหลด',
+		file: 'ไฟล์',
+		loading: 'กำลังโหลด...',
 	}
 };
