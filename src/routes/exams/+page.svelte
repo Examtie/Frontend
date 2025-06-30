@@ -1,0 +1,612 @@
+<script lang="ts">
+    import { auth } from '$lib/stores/auth';
+    import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
+    import { t } from '$lib/i18n';
+    import Header from '../components/Header.svelte';
+
+    type ExamFile = {
+        id: string;
+        title: string;
+        description: string;
+        tags: string[];
+        url: string;
+        uploaded_by: string;
+        essay_count: number;
+        choice_count: number;
+    };
+
+    type ExamCategory = {
+        id: string;
+        name: string;
+        description: string | null;
+    };
+
+    type Bookmark = {
+        id: string;
+        user_id: string;
+        exam_id: string;
+        created_at: string;
+    };
+
+    const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
+
+    let exams: ExamFile[] = [];
+    let categories: ExamCategory[] = [];
+    let bookmarks: Bookmark[] = [];
+    let loading = false;
+    let skeletonLoading = true;
+    let error = '';
+    let successMessage = '';
+
+    // Pagination and filters
+    let page = 1;
+    let limit = 12;
+    let selectedCategory = '';
+    let searchQuery = '';
+    let totalExams = 0;
+    let totalPages = 0;
+
+    // UI state
+    let viewMode: 'grid' | 'list' = 'grid';
+    let sortBy: 'title' | 'created_at' | 'popularity' = 'title';
+    let sortOrder: 'asc' | 'desc' = 'asc';
+
+    onMount(async () => {
+        // Check if user is authenticated
+        if (!$auth.isAuthenticated) {
+            goto('/login');
+            return;
+        }
+
+        await loadData();
+    });
+
+    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
+        const token = $auth.token;
+        if (!token) {
+            throw new Error('No authentication token');
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Request failed' })) as any;
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+
+        return response.json();
+    }
+
+    async function loadData() {
+        loading = true;
+        if (exams.length === 0) {
+            skeletonLoading = true;
+        }
+        error = '';
+        
+        try {
+            await Promise.all([
+                loadExams(),
+                loadCategories(),
+                loadBookmarks()
+            ]);
+        } catch (err: any) {
+            error = err.message;
+        } finally {
+            loading = false;
+            skeletonLoading = false;
+        }
+    }
+
+    async function loadCategories() {
+        try {
+            categories = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-categories`);
+        } catch (err: any) {
+            console.warn('Failed to load categories:', err.message);
+            categories = [];
+        }
+    }
+
+    async function loadExams() {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+
+        let endpoint = `${API_BASE_URL}/user/api/v1/exams`;
+        if (selectedCategory) {
+            endpoint = `${API_BASE_URL}/user/api/v1/exams/by-category/${selectedCategory}`;
+        }
+
+        const response = await makeAuthenticatedRequest(`${endpoint}?${params}`);
+        exams = Array.isArray(response) ? response : response.exams || [];
+        totalExams = response.total || exams.length;
+        totalPages = Math.ceil(totalExams / limit);
+    }
+
+    async function loadBookmarks() {
+        try {
+            bookmarks = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/bookmarks`);
+        } catch (err: any) {
+            console.warn('Failed to load bookmarks:', err.message);
+            bookmarks = [];
+        }
+    }
+
+    async function toggleBookmark(examId: string) {
+        try {
+            const isBookmarked = bookmarks.some(b => b.exam_id === examId);
+            
+            if (isBookmarked) {
+                await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/bookmarks/${examId}`, {
+                    method: 'DELETE',
+                });
+                bookmarks = bookmarks.filter(b => b.exam_id !== examId);
+                successMessage = 'Bookmark removed';
+            } else {
+                const newBookmark = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/bookmarks`, {
+                    method: 'POST',
+                    body: JSON.stringify({ exam_id: examId }),
+                });
+                bookmarks = [...bookmarks, newBookmark];
+                successMessage = 'Bookmark added';
+            }
+            
+            setTimeout(() => successMessage = '', 3000);
+        } catch (err: any) {
+            error = err.message;
+            setTimeout(() => error = '', 3000);
+        }
+    }
+
+    function isBookmarked(examId: string): boolean {
+        return bookmarks.some(b => b.exam_id === examId);
+    }
+
+    async function handleCategoryFilter() {
+        page = 1;
+        await loadExams();
+    }
+
+    async function handleSearch() {
+        page = 1;
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+        // Debounce search
+        searchTimeout = setTimeout(async () => {
+            await loadExams();
+        }, 300);
+    }
+
+    // Search timeout for debouncing
+    let searchTimeout: ReturnType<typeof setTimeout>;
+
+    function goToPage(newPage: number) {
+        page = newPage;
+        loadExams();
+    }
+
+    function handleExamClick(exam: ExamFile) {
+        // Navigate to exam detail/quiz page
+        goto(`/quiz/${exam.id}`);
+    }
+
+    function getTagColor(index: number): string {
+        const colors = [
+            'bg-blue-500/20 text-blue-300 border-blue-500/30',
+            'bg-green-500/20 text-green-300 border-green-500/30',
+            'bg-purple-500/20 text-purple-300 border-purple-500/30',
+            'bg-pink-500/20 text-pink-300 border-pink-500/30',
+            'bg-orange-500/20 text-orange-300 border-orange-500/30'
+        ];
+        return colors[index % colors.length];
+    }
+
+    // Filter exams based on search query (client-side)
+    $: filteredExams = searchQuery 
+        ? exams.filter(exam => 
+            exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            exam.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            exam.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+        : exams;
+</script>
+
+<svelte:head>
+    <title>Exams - ExamTie</title>
+    <meta name="description" content="Browse and practice with our extensive collection of exam papers" />
+</svelte:head>
+
+<Header />
+
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 relative overflow-hidden">
+    <!-- Background decoration -->
+    <div class="absolute inset-0">
+        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95"></div>
+        <!-- Floating particles -->
+        {#each Array.from({length: 30}) as _, i}
+            <div 
+                class="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-float-gentle"
+                style="left: {Math.random() * 100}%; top: {Math.random() * 100}%; animation-delay: {Math.random() * 4}s;"
+            ></div>
+        {/each}
+    </div>
+
+    <div class="relative z-10 pt-8 pb-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header Section -->
+            <div class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    {$t('exams')} Collection
+                </h1>
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                    Browse our extensive collection of exam papers and practice questions
+                </p>
+            </div>
+
+            <!-- Success/Error Messages -->
+            {#if successMessage}
+                <div class="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-lg text-green-300 text-center">
+                    {successMessage}
+                </div>
+            {/if}
+
+            {#if error}
+                <div class="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-center">
+                    {error}
+                </div>
+            {/if}
+
+            <!-- Filters and Search -->
+            <div class="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 mb-8">
+                <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                    <!-- Search -->
+                    <div class="relative flex-1 max-w-md">
+                        <input
+                            type="text"
+                            bind:value={searchQuery}
+                            on:input={handleSearch}
+                            placeholder="Search exams..."
+                            class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <svg class="absolute right-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div class="relative">
+                        <select
+                            bind:value={selectedCategory}
+                            on:change={handleCategoryFilter}
+                            class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
+                        >
+                            <option value="">All Categories</option>
+                            {#each categories as category}
+                                <option value={category.id} class="bg-slate-800 text-white">
+                                    {category.name}
+                                </option>
+                            {/each}
+                        </select>
+                        <svg class="absolute right-2 top-3 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
+
+                    <!-- View Mode Toggle -->
+                    <div class="flex bg-white/10 rounded-lg p-1">
+                        <button
+                            class="px-3 py-1 rounded {viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
+                            on:click={() => viewMode = 'grid'}
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                            </svg>
+                        </button>
+                        <button
+                            class="px-3 py-1 rounded {viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
+                            on:click={() => viewMode = 'list'}
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Row -->
+                {#if !loading && exams.length > 0}
+                    <div class="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+                        <div class="text-sm text-gray-300">
+                            Showing {filteredExams.length} of {totalExams} exams
+                            {#if selectedCategory}
+                                {#each categories as category}
+                                    {#if category.id === selectedCategory}
+                                        in {category.name}
+                                    {/if}
+                                {/each}
+                            {/if}
+                        </div>
+                        <div class="flex items-center gap-4 text-sm text-gray-400">
+                            <span>🔖 {bookmarks.length} bookmarked</span>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+
+            <!-- Loading Skeleton -->
+            {#if skeletonLoading}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                    {#each Array(8) as _}
+                        <div class="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 animate-pulse">
+                            <div class="h-4 bg-white/20 rounded mb-4"></div>
+                            <div class="h-3 bg-white/10 rounded mb-2"></div>
+                            <div class="h-3 bg-white/10 rounded mb-4 w-2/3"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="h-6 bg-white/10 rounded-full w-16"></div>
+                                <div class="h-6 bg-white/10 rounded-full w-20"></div>
+                            </div>
+                            <div class="h-10 bg-white/10 rounded"></div>
+                        </div>
+                    {/each}
+                </div>
+            {:else}
+                <!-- Exams Display -->
+                {#if viewMode === 'grid'}
+                    <!-- Grid View -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                        {#each filteredExams as exam}
+                            <div class="group bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 overflow-hidden">
+                                <div class="p-6">
+                                    <!-- Exam Header -->
+                                    <div class="flex items-start justify-between mb-4">
+                                        <h3 class="text-lg font-semibold text-white group-hover:text-blue-300 transition-colors line-clamp-2">
+                                            {exam.title}
+                                        </h3>
+                                        <button
+                                            on:click|stopPropagation={() => toggleBookmark(exam.id)}
+                                            class="flex-shrink-0 ml-2 p-2 rounded-lg hover:bg-white/10 transition-colors"
+                                            title={isBookmarked(exam.id) ? 'Remove bookmark' : 'Add bookmark'}
+                                        >
+                                            <svg class="w-5 h-5 {isBookmarked(exam.id) ? 'text-yellow-400 fill-current' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Description -->
+                                    <p class="text-gray-300 text-sm mb-4 line-clamp-3">
+                                        {exam.description}
+                                    </p>
+
+                                    <!-- Question Counts -->
+                                    <div class="flex gap-4 mb-4 text-sm">
+                                        <div class="flex items-center text-green-300">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            {exam.choice_count} MC
+                                        </div>
+                                        <div class="flex items-center text-blue-300">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                            </svg>
+                                            {exam.essay_count} Essay
+                                        </div>
+                                    </div>
+
+                                    <!-- Tags -->
+                                    {#if exam.tags.length > 0}
+                                        <div class="flex flex-wrap gap-2 mb-4">
+                                            {#each exam.tags.slice(0, 3) as tag, index}
+                                                <span class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}">
+                                                    {tag}
+                                                </span>
+                                            {/each}
+                                            {#if exam.tags.length > 3}
+                                                <span class="px-2 py-1 text-xs rounded-full border bg-gray-500/20 text-gray-300 border-gray-500/30">
+                                                    +{exam.tags.length - 3}
+                                                </span>
+                                            {/if}
+                                        </div>
+                                    {/if}
+
+                                    <!-- Action Button -->
+                                    <button
+                                        on:click={() => handleExamClick(exam)}
+                                        class="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white py-2 px-4 rounded-lg transition-all duration-300 font-medium flex items-center justify-center gap-2"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Start Practice
+                                    </button>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                {:else}
+                    <!-- List View -->
+                    <div class="space-y-4 mb-8">
+                        {#each filteredExams as exam}
+                            <div class="group bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <h3 class="text-lg font-semibold text-white group-hover:text-blue-300 transition-colors">
+                                                {exam.title}
+                                            </h3>
+                                            <button
+                                                on:click|stopPropagation={() => toggleBookmark(exam.id)}
+                                                class="flex-shrink-0 ml-4 p-2 rounded-lg hover:bg-white/10 transition-colors"
+                                                title={isBookmarked(exam.id) ? 'Remove bookmark' : 'Add bookmark'}
+                                            >
+                                                <svg class="w-5 h-5 {isBookmarked(exam.id) ? 'text-yellow-400 fill-current' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        
+                                        <p class="text-gray-300 text-sm mb-3 line-clamp-2">
+                                            {exam.description}
+                                        </p>
+                                        
+                                        <div class="flex items-center gap-6 mb-3">
+                                            <!-- Question Counts -->
+                                            <div class="flex items-center text-green-300 text-sm">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                {exam.choice_count} Multiple Choice
+                                            </div>
+                                            <div class="flex items-center text-blue-300 text-sm">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                                </svg>
+                                                {exam.essay_count} Essay
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Tags -->
+                                        {#if exam.tags.length > 0}
+                                            <div class="flex flex-wrap gap-2">
+                                                {#each exam.tags.slice(0, 5) as tag, index}
+                                                    <span class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}">
+                                                        {tag}
+                                                    </span>
+                                                {/each}
+                                                {#if exam.tags.length > 5}
+                                                    <span class="px-2 py-1 text-xs rounded-full border bg-gray-500/20 text-gray-300 border-gray-500/30">
+                                                        +{exam.tags.length - 5} more
+                                                    </span>
+                                                {/if}
+                                            </div>
+                                        {/if}
+                                    </div>
+                                    
+                                    <!-- Action Button -->
+                                    <div class="ml-6 flex-shrink-0">
+                                        <button
+                                            on:click={() => handleExamClick(exam)}
+                                            class="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white py-2 px-6 rounded-lg transition-all duration-300 font-medium flex items-center gap-2"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Start Practice
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+
+                <!-- Empty State -->
+                {#if filteredExams.length === 0 && !loading}
+                    <div class="text-center py-16">
+                        <div class="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-2">No exams found</h3>
+                        <p class="text-gray-400 mb-6">
+                            {searchQuery ? 'Try adjusting your search criteria' : 'No exams are available at the moment'}
+                        </p>
+                        {#if searchQuery}
+                            <button
+                                on:click={() => {searchQuery = ''; handleSearch();}}
+                                class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors"
+                            >
+                                Clear Search
+                            </button>
+                        {/if}
+                    </div>
+                {/if}
+            {/if}
+
+            <!-- Pagination -->
+            {#if totalPages > 1}
+                <div class="flex justify-center items-center space-x-2">
+                    <button
+                        on:click={() => goToPage(page - 1)}
+                        disabled={page === 1 || loading}
+                        class="px-4 py-2 rounded-lg border border-white/20 text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                        </svg>
+                        Previous
+                    </button>
+                    
+                    <div class="flex space-x-1">
+                        {#each Array.from({length: Math.min(5, totalPages)}, (_, i) => i + Math.max(1, page - 2)) as pageNum}
+                            {#if pageNum <= totalPages}
+                                <button
+                                    on:click={() => goToPage(pageNum)}
+                                    disabled={loading}
+                                    class="px-3 py-2 rounded-lg border border-white/20 text-white hover:bg-white/10 transition-colors disabled:opacity-50 {page === pageNum ? 'bg-blue-500 border-blue-500' : ''}"
+                                >
+                                    {pageNum}
+                                </button>
+                            {/if}
+                        {/each}
+                    </div>
+                    
+                    <button
+                        on:click={() => goToPage(page + 1)}
+                        disabled={page === totalPages || loading}
+                        class="px-4 py-2 rounded-lg border border-white/20 text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                        Next
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Loading indicator for pagination -->
+                {#if loading && !skeletonLoading}
+                    <div class="flex justify-center mt-4">
+                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    </div>
+                {/if}
+            {/if}
+        </div>
+    </div>
+</div>
+
+<style>
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    @keyframes float-gentle {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        33% { transform: translateY(-10px) rotate(1deg); }
+        66% { transform: translateY(5px) rotate(-1deg); }
+    }
+    
+    .animate-float-gentle {
+        animation: float-gentle 6s ease-in-out infinite;
+    }
+</style>
