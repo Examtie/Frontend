@@ -276,6 +276,9 @@ export interface Translations {
 	updateProfile: string;
 	profileUpdateSuccess: string;
 	profileUpdateError: string;
+	profileImageUrlPlaceholder: string;
+	updating: string;
+	pleaseLogInToViewProfile: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -555,7 +558,10 @@ export const translations: Record<'en' | 'th', Translations> = {
 		loadingUsers: 'Loading users...',
 		updateProfile: 'Update Profile',
 		profileUpdateSuccess: 'Profile updated successfully!',
-		profileUpdateError: 'Failed to update profile.'
+		profileUpdateError: 'Failed to update profile.',
+		profileImageUrlPlaceholder: 'Enter profile image URL...',
+		updating: 'Updating...',
+		pleaseLogInToViewProfile: 'Please log in to view your profile'
 	},
 	th: {
 		// Navigation
@@ -833,6 +839,9 @@ export const translations: Record<'en' | 'th', Translations> = {
         loadingUsers: 'กำลังโหลดรายชื่อผู้ใช้...',
 		updateProfile: 'อัปเดตโปรไฟล์',
 		profileUpdateSuccess: 'อัปเดตโปรไฟล์สำเร็จ!',
-		profileUpdateError: 'ไม่สามารถอัปเดตโปรไฟล์ได้'
+		profileUpdateError: 'ไม่สามารถอัปเดตโปรไฟล์ได้',
+		profileImageUrlPlaceholder: 'ใส่ URL รูปโปรไฟล์...',
+		updating: 'กำลังอัปเดต...',
+		pleaseLogInToViewProfile: 'กรุณาเข้าสู่ระบบเพื่อดูโปรไฟล์ของคุณ'
 	}
 };

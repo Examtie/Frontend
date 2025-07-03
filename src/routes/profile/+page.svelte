@@ -4,8 +4,8 @@
     import { onMount } from 'svelte';
     import { t } from '$lib/i18n';
 
-    let currentUser: User | null = null;
-    let loading = true;
+    let currentUser: User | null = $state(null);
+    let loading = $state(true);
 
     onMount(() => {
         const unsubscribe = auth.subscribe(value => {
@@ -26,17 +26,18 @@
     });
 
     // Form fields for profile update
-    let fullName = $derived(currentUser?.full_name || '');
-    let bio = $derived(currentUser?.bio || '');
+    let fullName = $derived((currentUser as User | null)?.full_name || '');
+    let bio = $derived((currentUser as User | null)?.bio || '');
     // Profile image handling would be more complex (file upload)
     // For now, let's assume it's a URL
-    let profileImage = $derived(currentUser?.profile_image || '');
+    let profileImage = $derived((currentUser as User | null)?.profile_image || '');
 
-    let updateError: string | null = null;
-    let updateSuccess: string | null = null;
-    let updating = false;
+    let updateError: string | null = $state(null);
+    let updateSuccess: string | null = $state(null);
+    let updating = $state(false);
 
-    async function handleProfileUpdate() {
+    async function handleProfileUpdate(event: Event) {
+        event.preventDefault();
         if (!currentUser || !$auth.token) return;
         updating = true;
         updateError = null;
@@ -57,11 +58,11 @@
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json() as any;
                 throw new Error(errorData.detail || 'Failed to update profile');
             }
 
-            const updatedUser = await response.json();
+            const updatedUser = await response.json() as User;
             auth.setUser(updatedUser); // Update the store with the new user details
             updateSuccess = $t('profileUpdatedSuccessfully');
 
@@ -84,7 +85,7 @@
         {#if loading}
             <p class="text-slate-300">{$t('loadingProfile')}...</p>
         {:else if currentUser}
-            <form on:submit|preventDefault={handleProfileUpdate} class="space-y-6">
+            <form onsubmit={handleProfileUpdate} class="space-y-6">
                 {#if updateSuccess}
                     <div class="bg-green-500/20 border border-green-700 text-green-300 px-4 py-3 rounded-lg">
                         {updateSuccess}
