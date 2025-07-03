@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { auth } from '$lib/stores/auth'; // Import the auth store
 	import { onMount } from 'svelte';
+	import ToastContainer from './components/ToastContainer.svelte';
 
 	let { children } = $props();
 
@@ -13,3 +14,5 @@
 </script>
 
 {@render children()}
+
+<ToastContainer />

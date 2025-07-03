@@ -1,5 +1,6 @@
 <script lang="ts">
     import { auth } from '$lib/stores/auth';
+    import { toastStore } from '$lib/stores/toast';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { t } from '$lib/i18n';
@@ -23,6 +24,8 @@
         tags: string[];
         url: string;
         uploaded_by: string;
+        essay_count: number;
+        choice_count: number;
         created_at?: string;
     };
 
@@ -96,6 +99,8 @@
         title: '',
         description: '',
         tags: '',
+        essay_count: 0,
+        choice_count: 0,
         file: null as File | null
     };
 
@@ -115,13 +120,21 @@
             throw new Error('No authentication token');
         }
 
+        // Don't set Content-Type if body is FormData (for file uploads)
+        const isFormData = options.body instanceof FormData;
+        const headers: HeadersInit = {
+            'Authorization': `Bearer ${token}`,
+            ...options.headers,
+        };
+        
+        // Only set Content-Type for non-FormData requests
+        if (!isFormData && !options.headers?.['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
+
         const response = await fetch(url, {
             ...options,
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
+            headers,
         });
 
         if (!response.ok) {
@@ -338,47 +351,145 @@
     }
 
     async function uploadExamFile() {
-        if (!uploadForm.file || !uploadForm.title || !uploadForm.description) {
-            error = 'Please fill in all required fields and select a file';
+        // Clear previous errors
+        error = '';
+        
+        // Validation
+        if (!uploadForm.file) {
+            error = 'Please select a file to upload';
+            toastStore.error('Please select a file to upload');
+            return;
+        }
+        
+        if (!uploadForm.title.trim()) {
+            error = 'Please enter a title';
+            toastStore.error('Please enter a title');
+            return;
+        }
+        
+        if (!uploadForm.description.trim()) {
+            error = 'Please enter a description';
+            toastStore.error('Please enter a description');
+            return;
+        }
+
+        // Validate that at least one question type has a count > 0
+        const essayCount = Number(uploadForm.essay_count) || 0;
+        const choiceCount = Number(uploadForm.choice_count) || 0;
+        
+        if (essayCount < 1 && choiceCount < 1) {
+            error = 'At least one of essay_count or choice_count must be 1 or greater';
+            toastStore.error('At least one of essay_count or choice_count must be 1 or greater');
+            return;
+        }
+
+        // File size validation (optional, but good practice)
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (uploadForm.file.size > maxSize) {
+            error = 'File size must be less than 50MB';
+            toastStore.error('File size must be less than 50MB');
             return;
         }
 
         try {
-            const token = $auth.token;
-            if (!token) {
-                throw new Error('No authentication token');
-            }
+            // Show loading state
+            loading = true;
+            toastStore.info('Uploading file...');
 
             const formData = new FormData();
             formData.append('file', uploadForm.file);
-            const tags = uploadForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-            tags.forEach(tag => formData.append('tags', tag));
+            formData.append('title', uploadForm.title.trim());
+            formData.append('description', uploadForm.description.trim());
+            formData.append('tags', uploadForm.tags.trim() || '');
+            formData.append('essay_count', essayCount.toString());
+            formData.append('choice_count', choiceCount.toString());
 
-            const params = new URLSearchParams({
-                title: uploadForm.title,
-                description: uploadForm.description
+            // Debug log
+            console.log('Upload form data:', {
+                fileName: uploadForm.file.name,
+                fileSize: uploadForm.file.size,
+                fileType: uploadForm.file.type,
+                title: uploadForm.title.trim(),
+                description: uploadForm.description.trim(),
+                tags: uploadForm.tags.trim(),
+                essay_count: essayCount,
+                choice_count: choiceCount
             });
 
-            const response = await fetch(`${API_BASE_URL}/admin/api/v1/upload?${params}`, {
+            // Use the improved makeAuthenticatedRequest function
+            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/upload`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: formData,
             });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: 'Upload failed' })) as any;
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
-            }
-
+            
+            // Reset form and close modal
             showUploadModal = false;
-            uploadForm = { title: '', description: '', tags: '', file: null };
+            uploadForm = { title: '', description: '', tags: '', essay_count: 0, choice_count: 0, file: null };
+            
+            // Show success message
             successMessage = 'File uploaded successfully';
+            toastStore.success('File uploaded successfully');
             setTimeout(() => successMessage = '', 3000);
+            
+            // Reload the files list
             await loadExamFiles();
+            
         } catch (err: any) {
-            error = err.message;
+            console.error('Upload error:', err);
+            error = err.message || 'Unknown error occurred during upload';
+            
+            // Provide more helpful error messages
+            if (err.message.includes('R2 storage is not configured')) {
+                toastStore.error('File storage is not configured. Please contact the administrator.');
+            } else if (err.message.includes('File upload service error')) {
+                toastStore.error('File storage service error. Please try again or contact support.');
+            } else if (err.message.includes('No authentication token')) {
+                toastStore.error('Please login again.');
+            } else {
+                toastStore.error(`Upload failed: ${err.message || 'Unknown error'}`);
+            }
+        } finally {
+            loading = false;
+        }
+    }
+
+    // Debug function to test R2 configuration
+    async function testR2Config() {
+        try {
+            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/test-r2`);
+            console.log('R2 Configuration Test:', result);
+            
+            if (result.r2_configured && result.bucket_accessible) {
+                toastStore.success('R2 storage is properly configured and accessible!');
+            } else {
+                let errorMsg = 'R2 Configuration Issues:\n';
+                if (!result.r2_configured) errorMsg += '- R2 not configured (missing environment variables)\n';
+                if (!result.bucket_accessible) errorMsg += `- Bucket not accessible: ${result.bucket_test_error}\n`;
+                toastStore.error(errorMsg);
+            }
+        } catch (error: any) {
+            toastStore.error(`R2 test failed: ${error.message}`);
+        }
+    }
+
+    // Debug function to test upload
+    async function debugUpload() {
+        try {
+            const token = $auth.token;
+            if (!token) {
+                toastStore.error('No authentication token found');
+                return;
+            }
+            
+            toastStore.info('Running upload test...');
+            await testApiConnection(API_BASE_URL, token);
+            await testUpload(API_BASE_URL, token);
+            toastStore.success('Upload test completed successfully!');
+            
+            // Reload files to see the test file
+            await loadExamFiles();
+        } catch (error: any) {
+            toastStore.error(`Upload test failed: ${error.message}`);
         }
     }
 
@@ -1204,6 +1315,26 @@
                                 </svg>
                             </button>
                             <button
+                                on:click={testR2Config}
+                                class="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm border border-gray-600/50"
+                                title="Test R2 storage configuration"
+                                aria-label="Test R2 storage configuration"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </button>
+                            <button
+                                on:click={debugUpload}
+                                class="px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-xl hover:from-yellow-700 hover:to-orange-700 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm border border-gray-600/50"
+                                title="Test upload functionality"
+                                aria-label="Test upload functionality"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                            </button>
+                            <button
                                 on:click={() => showUploadModal = true}
                                 class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
                             >
@@ -1751,6 +1882,48 @@
                         />
                         <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
                     </div>
+                    
+                    <!-- Question Type Counts -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="upload_essay_count" class="block text-sm font-medium text-gray-300 mb-2">
+                                Essay Questions <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                id="upload_essay_count"
+                                type="number"
+                                min="0"
+                                max="1000"
+                                bind:value={uploadForm.essay_count}
+                                on:input={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.essay_count = Math.max(0, parseInt(target.value) || 0);
+                                }}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <label for="upload_choice_count" class="block text-sm font-medium text-gray-300 mb-2">
+                                Choice Questions <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                id="upload_choice_count"
+                                type="number"
+                                min="0"
+                                max="1000"
+                                bind:value={uploadForm.choice_count}
+                                on:input={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.choice_count = Math.max(0, parseInt(target.value) || 0);
+                                }}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 -mt-2">At least one type must have 1 or more questions</p>
+                    
                     <div>
                         <label for="upload_file" class="block text-sm font-medium text-gray-300 mb-2">
                             File <span class="text-red-400">*</span>
@@ -1759,14 +1932,22 @@
                             <input
                                 id="upload_file"
                                 type="file"
+                                accept=".pdf,.doc,.docx,.txt,.json"
                                 on:change={(e) => {
                                     const target = e.target as HTMLInputElement;
-                                    uploadForm.file = target.files?.[0] || null;
+                                    const file = target.files?.[0] || null;
+                                    uploadForm.file = file;
+                                    
+                                    // Clear any previous file-related errors
+                                    if (file && error && error.includes('file')) {
+                                        error = '';
+                                    }
                                 }}
                                 required
                                 class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-500/20 file:text-purple-300 hover:file:bg-purple-500/30"
                             />
                         </div>
+                        <p class="text-xs text-gray-400 mt-1">Supported formats: PDF, DOC, DOCX, TXT, JSON (Max: 50MB)</p>
                         {#if uploadForm.file}
                             <div class="mt-2 p-3 bg-green-500/20 rounded-lg border border-green-500/30">
                                 <div class="flex items-center space-x-2">
@@ -1774,6 +1955,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
                                     <span class="text-sm text-green-300 font-medium">Selected: {uploadForm.file.name}</span>
+                                    <span class="text-xs text-gray-400">({(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB)</span>
                                 </div>
                             </div>
                         {/if}
@@ -1781,14 +1963,24 @@
                     <div class="flex gap-3 pt-4">
                         <button
                             type="submit"
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                            disabled={loading}
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center gap-2"
                         >
-                            Upload File
+                            {#if loading}
+                                <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Uploading...
+                            {:else}
+                                Upload File
+                            {/if}
                         </button>
                         <button
                             type="button"
                             on:click={() => showUploadModal = false}
-                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                            disabled={loading}
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>
