@@ -16,9 +16,92 @@ export interface AuthState {
   user: User | null;
   token: string | null;
   error: string | null; // For storing API error messages
+  tokenExpiresAt: Date | null; // When the token expires
+  isTokenExpiringSoon: boolean; // If token expires within 24 hours
 }
 
 const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
+
+// Token storage interface for better management
+interface TokenStorage {
+  token: string;
+  expires_at: number;
+  created_at: number;
+}
+
+// Enhanced token storage functions
+function saveToken(token: string, expiresInMinutes: number = 43200) { // 30 days default
+  if (typeof window !== 'undefined') {
+    const now = Date.now();
+    const tokenData: TokenStorage = {
+      token,
+      expires_at: now + (expiresInMinutes * 60 * 1000),
+      created_at: now
+    };
+    localStorage.setItem('authTokenData', JSON.stringify(tokenData));
+    // Also keep the simple token for backward compatibility
+    localStorage.setItem('authToken', token);
+  }
+}
+
+function getToken(): string | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const tokenDataStr = localStorage.getItem('authTokenData');
+      if (tokenDataStr) {
+        const tokenData: TokenStorage = JSON.parse(tokenDataStr);
+        const now = Date.now();
+        
+        // Check if token is expired
+        if (tokenData.expires_at && now > tokenData.expires_at) {
+          // Token expired, clear it
+          clearToken();
+          return null;
+        }
+        
+        return tokenData.token;
+      }
+      
+      // Fallback to simple token storage for backward compatibility
+      return localStorage.getItem('authToken');
+    } catch (error) {
+      console.error('Error parsing token data:', error);
+      // Clear corrupted data and fallback
+      localStorage.removeItem('authTokenData');
+      return localStorage.getItem('authToken');
+    }
+  }
+  return null;
+}
+
+function clearToken() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('authTokenData');
+    localStorage.removeItem('authToken');
+  }
+}
+
+function getTokenInfo(): { token: string; isExpiringSoon: boolean; expiresAt: Date | null } | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const tokenDataStr = localStorage.getItem('authTokenData');
+      if (tokenDataStr) {
+        const tokenData: TokenStorage = JSON.parse(tokenDataStr);
+        const now = Date.now();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        
+        return {
+          token: tokenData.token,
+          isExpiringSoon: !!(tokenData.expires_at && (tokenData.expires_at - now) < oneDayMs),
+          expiresAt: tokenData.expires_at ? new Date(tokenData.expires_at) : null
+        };
+      }
+    } catch (error) {
+      console.error('Error getting token info:', error);
+    }
+  }
+  return null;
+}
 
 // Helper functions for localStorage role management
 function saveUserRoles(userId: string, roles: string[]) {
@@ -46,6 +129,8 @@ const initialAuthState: AuthState = {
   user: null,
   token: null,
   error: null,
+  tokenExpiresAt: null,
+  isTokenExpiringSoon: false,
 };
 
 const { subscribe, set, update } = writable<AuthState>(initialAuthState);
@@ -91,13 +176,30 @@ async function fetchUserProfile(token: string): Promise<User | null> {
 export const auth = {
   subscribe,
   setToken: async (token: string) => {
-    localStorage.setItem('authToken', token);
+    saveToken(token); // Use the new saveToken function
     const user = await fetchUserProfile(token);
+    const tokenInfo = getTokenInfo();
     if (user) {
-      update((state) => ({ ...state, token, user, isAuthenticated: true, error: null }));
+      update((state) => ({ 
+        ...state, 
+        token, 
+        user, 
+        isAuthenticated: true, 
+        error: null,
+        tokenExpiresAt: tokenInfo?.expiresAt || null,
+        isTokenExpiringSoon: tokenInfo?.isExpiringSoon || false
+      }));
     } else {
       // Handle case where token is set but user profile fetch fails
-      update((state) => ({ ...state, token, isAuthenticated: true, user: null, error: 'Failed to fetch user profile after setting token.' }));
+      update((state) => ({ 
+        ...state, 
+        token, 
+        isAuthenticated: true, 
+        user: null, 
+        error: 'Failed to fetch user profile after setting token.',
+        tokenExpiresAt: tokenInfo?.expiresAt || null,
+        isTokenExpiringSoon: tokenInfo?.isExpiringSoon || false
+      }));
     }
   },
   setUser: (user: User) => {
@@ -109,19 +211,28 @@ export const auth = {
     if (currentState.user?.id) {
       clearSavedUserRoles(currentState.user.id);
     }
-    localStorage.removeItem('authToken');
+    clearToken(); // Use the new clearToken function
     set(initialAuthState);
   },
   initialize: async () => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('authToken');
+      const token = getToken(); // Use the new getToken function
       if (token) {
         const user = await fetchUserProfile(token);
+        const tokenInfo = getTokenInfo();
         if (user) {
-          update((state) => ({ ...state, token, user, isAuthenticated: true, error: null }));
+          update((state) => ({ 
+            ...state, 
+            token, 
+            user, 
+            isAuthenticated: true, 
+            error: null,
+            tokenExpiresAt: tokenInfo?.expiresAt || null,
+            isTokenExpiringSoon: tokenInfo?.isExpiringSoon || false
+          }));
         } else {
           // Token might be invalid or expired
-          localStorage.removeItem('authToken');
+          clearToken(); // Use the new clearToken function
           set(initialAuthState); // Reset to initial state
         }
       }
@@ -149,7 +260,15 @@ export const auth = {
       return true;
     } catch (err: any) {
       console.error("Login error:", err);
-      update(state => ({ ...state, error: err.message, isAuthenticated: false, user: null, token: null }));
+      update(state => ({ 
+        ...state, 
+        error: err.message, 
+        isAuthenticated: false, 
+        user: null, 
+        token: null,
+        tokenExpiresAt: null,
+        isTokenExpiringSoon: false
+      }));
       return false;
     }
   },
@@ -208,14 +327,53 @@ export const auth = {
     const currentState = get({ subscribe });
     if (currentState.token) {
       const user = await fetchUserProfile(currentState.token);
+      const tokenInfo = getTokenInfo();
       if (user) {
-        update(state => ({ ...state, user, error: null }));
+        update(state => ({ 
+          ...state, 
+          user, 
+          error: null,
+          tokenExpiresAt: tokenInfo?.expiresAt || null,
+          isTokenExpiringSoon: tokenInfo?.isExpiringSoon || false
+        }));
       }
     }
-  }
+  },
+  // New method to check if token is still valid
+  checkTokenValidity: () => {
+    const token = getToken();
+    const tokenInfo = getTokenInfo();
+    if (!token) {
+      // No token, logout
+      auth.logout();
+      return false;
+    }
+    if (tokenInfo) {
+      update(state => ({
+        ...state,
+        tokenExpiresAt: tokenInfo.expiresAt,
+        isTokenExpiringSoon: tokenInfo.isExpiringSoon
+      }));
+    }
+    return true;
+  },
+  // Get current token info
+  getTokenInfo: () => getTokenInfo()
 };
 
 // Initialize on load (client-side only)
 if (typeof window !== 'undefined') {
   auth.initialize();
+  
+  // Set up periodic token validity checking (every 30 minutes)
+  setInterval(() => {
+    auth.checkTokenValidity();
+  }, 30 * 60 * 1000); // 30 minutes
+  
+  // Also check when the page becomes visible again (user switches back to tab)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      auth.checkTokenValidity();
+    }
+  });
 }
