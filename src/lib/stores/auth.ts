@@ -18,6 +18,7 @@ export interface AuthState {
   error: string | null; // For storing API error messages
   tokenExpiresAt: Date | null; // When the token expires
   isTokenExpiringSoon: boolean; // If token expires within 24 hours
+  isInitialized: boolean; // Track if auth has finished initializing
 }
 
 const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
@@ -131,6 +132,7 @@ const initialAuthState: AuthState = {
   error: null,
   tokenExpiresAt: null,
   isTokenExpiringSoon: false,
+  isInitialized: false,
 };
 
 const { subscribe, set, update } = writable<AuthState>(initialAuthState);
@@ -212,7 +214,7 @@ export const auth = {
       clearSavedUserRoles(currentState.user.id);
     }
     clearToken(); // Use the new clearToken function
-    set(initialAuthState);
+    set({ ...initialAuthState, isInitialized: true }); // Keep initialized state
   },
   initialize: async () => {
     if (typeof window !== 'undefined') {
@@ -228,13 +230,17 @@ export const auth = {
             isAuthenticated: true, 
             error: null,
             tokenExpiresAt: tokenInfo?.expiresAt || null,
-            isTokenExpiringSoon: tokenInfo?.isExpiringSoon || false
+            isTokenExpiringSoon: tokenInfo?.isExpiringSoon || false,
+            isInitialized: true
           }));
         } else {
           // Token might be invalid or expired
           clearToken(); // Use the new clearToken function
-          set(initialAuthState); // Reset to initial state
+          set({ ...initialAuthState, isInitialized: true }); // Reset to initial state but mark as initialized
         }
+      } else {
+        // No token found, mark as initialized
+        update(state => ({ ...state, isInitialized: true }));
       }
     }
   },
@@ -257,6 +263,8 @@ export const auth = {
       }
       const tokenData = await response.json() as any;
       await auth.setToken(tokenData.access_token);
+      // Mark as initialized after successful login
+      update(state => ({ ...state, isInitialized: true }));
       return true;
     } catch (err: any) {
       console.error("Login error:", err);
@@ -267,7 +275,8 @@ export const auth = {
         user: null, 
         token: null,
         tokenExpiresAt: null,
-        isTokenExpiringSoon: false
+        isTokenExpiringSoon: false,
+        isInitialized: true
       }));
       return false;
     }

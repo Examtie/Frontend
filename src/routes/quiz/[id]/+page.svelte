@@ -44,14 +44,33 @@
     $: progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
     onMount(async () => {
-        // Check if user is authenticated
-        if (!$auth.isAuthenticated) {
-            goto('/login');
-            return;
-        }
+        // Wait for auth to initialize before checking authentication
+        if (!$auth.isInitialized) {
+            // Wait for auth initialization to complete
+            const unsubscribe = auth.subscribe((authState) => {
+                if (authState.isInitialized) {
+                    unsubscribe();
+                    // Now check authentication after initialization
+                    if (!authState.isAuthenticated) {
+                        goto('/login');
+                        return;
+                    }
+                    // Auth is valid, load exam questions
+                    if (examId) {
+                        loadExamQuestions();
+                    }
+                }
+            });
+        } else {
+            // Auth already initialized, check immediately
+            if (!$auth.isAuthenticated) {
+                goto('/login');
+                return;
+            }
 
-        if (examId) {
-            await loadExamQuestions();
+            if (examId) {
+                await loadExamQuestions();
+            }
         }
     });
 
