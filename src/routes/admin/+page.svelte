@@ -100,13 +100,29 @@
     };
 
     onMount(async () => {
-        // Check if user is admin
-        if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
-            goto('/');
-            return;
+        // Wait for auth to initialize before checking authentication
+        if (!$auth.isInitialized) {
+            // Wait for auth initialization to complete
+            const unsubscribe = auth.subscribe((authState) => {
+                if (authState.isInitialized) {
+                    unsubscribe();
+                    // Now check authentication and admin role after initialization
+                    if (!authState.isAuthenticated || !authState.user?.roles.includes('admin')) {
+                        goto('/');
+                        return;
+                    }
+                    // Auth is valid and user is admin, load data
+                    loadData();
+                }
+            });
+        } else {
+            // Auth already initialized, check immediately
+            if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
+                goto('/');
+                return;
+            }
+            await loadData();
         }
-
-        await loadData();
     });
 
     async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {

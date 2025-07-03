@@ -48,13 +48,29 @@
     let bookmarkingExams: Set<string> = new Set(); // Track which exams are being bookmarked
 
     onMount(async () => {
-        // Check if user is authenticated
-        if (!$auth.isAuthenticated) {
-            goto('/login');
-            return;
+        // Wait for auth to initialize before checking authentication
+        if (!$auth.isInitialized) {
+            // Wait for auth initialization to complete
+            const unsubscribe = auth.subscribe((authState) => {
+                if (authState.isInitialized) {
+                    unsubscribe();
+                    // Now check authentication after initialization
+                    if (!authState.isAuthenticated) {
+                        goto('/login');
+                        return;
+                    }
+                    // Auth is valid, load data
+                    loadData();
+                }
+            });
+        } else {
+            // Auth already initialized, check immediately
+            if (!$auth.isAuthenticated) {
+                goto('/login');
+                return;
+            }
+            await loadData();
         }
-
-        await loadData();
 
         // Set up bookmark refresh on window focus (when user comes back to tab)
         const handleFocus = () => {
