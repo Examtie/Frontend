@@ -23,6 +23,7 @@
         id: string;
         name: string;
         description: string | null;
+        english_name?: string | null;
     };
 
     const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
@@ -141,7 +142,7 @@
 
     async function loadCategories() {
         try {
-            categories = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-categories`);
+            categories = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exam-categories`);
         } catch (err: any) {
             console.warn('Failed to load categories:', err.message);
             categories = [];
@@ -179,7 +180,7 @@
                 toastStore.info('Bookmark removed 📝');
             }
         } catch (err: any) {
-            toastStore.error(`Failed to ${$bookmarkStore.isBookmarked(examId) ? 'remove' : 'add'} bookmark: ${err.message}`);
+            toastStore.error(`Failed to ${bookmarkStore.isBookmarked(examId) ? 'remove' : 'add'} bookmark: ${err.message}`);
         } finally {
             bookmarkingExams.delete(examId);
             bookmarkingExams = bookmarkingExams; // Trigger reactivity
@@ -230,9 +231,43 @@
         ? exams.filter(exam => 
             exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             exam.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            exam.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+            exam.tags.some(tag => {
+                const category = getCategoryById(tag);
+                return category && (
+                    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (category.english_name && category.english_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
+                );
+            })
         )
         : exams;
+
+    // Helper function to get category by ID
+    function getCategoryById(categoryId: string): ExamCategory | null {
+        return categories.find(cat => cat.id === categoryId) || null;
+    }
+
+    // Helper function to get category display name
+    function getCategoryDisplayName(categoryId: string): string {
+        const category = getCategoryById(categoryId);
+        if (!category) return categoryId; // Fallback to ID if category not found
+        return category.english_name || category.name;
+    }
+
+    // Helper function to get category hover text
+    function getCategoryHoverText(categoryId: string): string {
+        const category = getCategoryById(categoryId);
+        if (!category) return '';
+        
+        let hoverText = category.name;
+        if (category.english_name && category.english_name !== category.name) {
+            hoverText = `${category.english_name} (${category.name})`;
+        }
+        if (category.description) {
+            hoverText += ` - ${category.description}`;
+        }
+        return hoverText;
+    }
 
     // Reactive bookmark count for stats
     $: bookmarks = $bookmarkStore.bookmarks;
@@ -304,8 +339,15 @@
                         >
                             <option value="">All Categories</option>
                             {#each categories as category}
-                                <option value={category.id} class="bg-slate-800 text-white">
-                                    {category.name}
+                                <option 
+                                    value={category.id} 
+                                    class="bg-slate-800 text-white"
+                                    title={category.description || category.name}
+                                >
+                                    {category.english_name || category.name}
+                                    {#if category.english_name && category.name !== category.english_name}
+                                        ({category.name})
+                                    {/if}
                                 </option>
                             {/each}
                         </select>
@@ -343,7 +385,9 @@
                             {#if selectedCategory}
                                 {#each categories as category}
                                     {#if category.id === selectedCategory}
-                                        in {category.name}
+                                        in <span class="font-medium" title={category.description || category.name}>
+                                            {category.english_name || category.name}
+                                        </span>
                                     {/if}
                                 {/each}
                             {/if}
@@ -427,12 +471,18 @@
                                     {#if exam.tags.length > 0}
                                         <div class="flex flex-wrap gap-2 mb-4">
                                             {#each exam.tags.slice(0, 3) as tag, index}
-                                                <span class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}">
-                                                    {tag}
+                                                <span 
+                                                    class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}"
+                                                    title={getCategoryHoverText(tag)}
+                                                >
+                                                    {getCategoryDisplayName(tag)}
                                                 </span>
                                             {/each}
                                             {#if exam.tags.length > 3}
-                                                <span class="px-2 py-1 text-xs rounded-full border bg-gray-500/20 text-gray-300 border-gray-500/30">
+                                                <span 
+                                                    class="px-2 py-1 text-xs rounded-full border bg-gray-500/20 text-gray-300 border-gray-500/30"
+                                                    title={exam.tags.slice(3).map(tag => getCategoryHoverText(tag)).join(', ')}
+                                                >
                                                     +{exam.tags.length - 3}
                                                 </span>
                                             {/if}
@@ -506,12 +556,18 @@
                                         {#if exam.tags.length > 0}
                                             <div class="flex flex-wrap gap-2">
                                                 {#each exam.tags.slice(0, 5) as tag, index}
-                                                    <span class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}">
-                                                        {tag}
+                                                    <span 
+                                                        class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}"
+                                                        title={getCategoryHoverText(tag)}
+                                                    >
+                                                        {getCategoryDisplayName(tag)}
                                                     </span>
                                                 {/each}
                                                 {#if exam.tags.length > 5}
-                                                    <span class="px-2 py-1 text-xs rounded-full border bg-gray-500/20 text-gray-300 border-gray-500/30">
+                                                    <span 
+                                                        class="px-2 py-1 text-xs rounded-full border bg-gray-500/20 text-gray-300 border-gray-500/30"
+                                                        title={exam.tags.slice(5).map(tag => getCategoryHoverText(tag)).join(', ')}
+                                                    >
                                                         +{exam.tags.length - 5} more
                                                     </span>
                                                 {/if}
