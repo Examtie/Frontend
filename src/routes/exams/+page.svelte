@@ -1,9 +1,12 @@
 <script lang="ts">
     import { auth } from '$lib/stores/auth';
+    import { bookmarkStore } from '$lib/stores/bookmarks';
+    import { toastStore } from '$lib/stores/toast';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { t } from '$lib/i18n';
     import Header from '../components/Header.svelte';
+    import ToastContainer from '../components/ToastContainer.svelte';
 
     type ExamFile = {
         id: string;
@@ -22,22 +25,13 @@
         description: string | null;
     };
 
-    type Bookmark = {
-        id: string;
-        user_id: string;
-        exam_id: string;
-        created_at: string;
-    };
-
     const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
 
     let exams: ExamFile[] = [];
     let categories: ExamCategory[] = [];
-    let bookmarks: Bookmark[] = [];
     let loading = false;
     let skeletonLoading = true;
     let error = '';
-    let successMessage = '';
 
     // Pagination and filters
     let page = 1;
@@ -51,6 +45,7 @@
     let viewMode: 'grid' | 'list' = 'grid';
     let sortBy: 'title' | 'created_at' | 'popularity' = 'title';
     let sortOrder: 'asc' | 'desc' = 'asc';
+    let bookmarkingExams: Set<string> = new Set(); // Track which exams are being bookmarked
 
     onMount(async () => {
         // Check if user is authenticated
@@ -60,6 +55,29 @@
         }
 
         await loadData();
+
+        // Set up bookmark refresh on window focus (when user comes back to tab)
+        const handleFocus = () => {
+            if ($auth.isAuthenticated) {
+                bookmarkStore.refresh();
+            }
+        };
+
+        // Refresh when coming back online
+        const handleOnline = () => {
+            if ($auth.isAuthenticated) {
+                loadData();
+                bookmarkStore.refresh();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('online', handleOnline);
+
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('online', handleOnline);
+        };
     });
 
     async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
@@ -95,8 +113,7 @@
         try {
             await Promise.all([
                 loadExams(),
-                loadCategories(),
-                loadBookmarks()
+                loadCategories()
             ]);
         } catch (err: any) {
             error = err.message;
@@ -132,43 +149,25 @@
         totalPages = Math.ceil(totalExams / limit);
     }
 
-    async function loadBookmarks() {
-        try {
-            bookmarks = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/bookmarks`);
-        } catch (err: any) {
-            console.warn('Failed to load bookmarks:', err.message);
-            bookmarks = [];
-        }
-    }
-
     async function toggleBookmark(examId: string) {
+        if (bookmarkingExams.has(examId)) return; // Prevent double-clicking
+        
+        bookmarkingExams.add(examId);
+        bookmarkingExams = bookmarkingExams; // Trigger reactivity
+        
         try {
-            const isBookmarked = bookmarks.some(b => b.exam_id === examId);
-            
-            if (isBookmarked) {
-                await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/bookmarks/${examId}`, {
-                    method: 'DELETE',
-                });
-                bookmarks = bookmarks.filter(b => b.exam_id !== examId);
-                successMessage = 'Bookmark removed';
+            const result = await bookmarkStore.toggleBookmark(examId);
+            if (result.action === 'added') {
+                toastStore.success('Bookmark added! ⭐');
             } else {
-                const newBookmark = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/bookmarks`, {
-                    method: 'POST',
-                    body: JSON.stringify({ exam_id: examId }),
-                });
-                bookmarks = [...bookmarks, newBookmark];
-                successMessage = 'Bookmark added';
+                toastStore.info('Bookmark removed 📝');
             }
-            
-            setTimeout(() => successMessage = '', 3000);
         } catch (err: any) {
-            error = err.message;
-            setTimeout(() => error = '', 3000);
+            toastStore.error(`Failed to ${$bookmarkStore.isBookmarked(examId) ? 'remove' : 'add'} bookmark: ${err.message}`);
+        } finally {
+            bookmarkingExams.delete(examId);
+            bookmarkingExams = bookmarkingExams; // Trigger reactivity
         }
-    }
-
-    function isBookmarked(examId: string): boolean {
-        return bookmarks.some(b => b.exam_id === examId);
     }
 
     async function handleCategoryFilter() {
@@ -218,6 +217,10 @@
             exam.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
         )
         : exams;
+
+    // Reactive bookmark count for stats
+    $: bookmarks = $bookmarkStore.bookmarks;
+    $: bookmarkCount = bookmarks.length;
 </script>
 
 <svelte:head>
@@ -252,13 +255,7 @@
                 </p>
             </div>
 
-            <!-- Success/Error Messages -->
-            {#if successMessage}
-                <div class="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-lg text-green-300 text-center">
-                    {successMessage}
-                </div>
-            {/if}
-
+            <!-- Error Messages Only -->
             {#if error}
                 <div class="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-center">
                     {error}
@@ -336,7 +333,7 @@
                             {/if}
                         </div>
                         <div class="flex items-center gap-4 text-sm text-gray-400">
-                            <span>🔖 {bookmarks.length} bookmarked</span>
+                            <span>🔖 {bookmarkCount} bookmarked</span>
                         </div>
                     </div>
                 {/if}
@@ -373,12 +370,19 @@
                                         </h3>
                                         <button
                                             on:click|stopPropagation={() => toggleBookmark(exam.id)}
-                                            class="flex-shrink-0 ml-2 p-2 rounded-lg hover:bg-white/10 transition-colors"
-                                            title={isBookmarked(exam.id) ? 'Remove bookmark' : 'Add bookmark'}
+                                            class="flex-shrink-0 ml-2 p-2 rounded-lg hover:bg-white/10 transition-all duration-300 disabled:opacity-50 transform hover:scale-110 relative"
+                                            title={$bookmarkStore.bookmarks.some(b => b.exam_id === exam.id) ? 'Remove bookmark' : 'Add bookmark'}
+                                            disabled={bookmarkingExams.has(exam.id)}
                                         >
-                                            <svg class="w-5 h-5 {isBookmarked(exam.id) ? 'text-yellow-400 fill-current' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                                            </svg>
+                                            {#if bookmarkingExams.has(exam.id)}
+                                                <svg class="w-5 h-5 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                                </svg>
+                                            {:else}
+                                                <svg class="w-5 h-5 transition-all duration-500 transform {$bookmarkStore.bookmarks.some(b => b.exam_id === exam.id) ? 'text-yellow-400 fill-current scale-110 rotate-12' : 'text-gray-400 hover:text-yellow-300 hover:scale-105'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                                                </svg>
+                                            {/if}
                                         </button>
                                     </div>
 
@@ -446,12 +450,19 @@
                                             </h3>
                                             <button
                                                 on:click|stopPropagation={() => toggleBookmark(exam.id)}
-                                                class="flex-shrink-0 ml-4 p-2 rounded-lg hover:bg-white/10 transition-colors"
-                                                title={isBookmarked(exam.id) ? 'Remove bookmark' : 'Add bookmark'}
+                                                class="flex-shrink-0 ml-4 p-2 rounded-lg hover:bg-white/10 transition-all duration-300 disabled:opacity-50 transform hover:scale-110 relative"
+                                                title={$bookmarkStore.bookmarks.some(b => b.exam_id === exam.id) ? 'Remove bookmark' : 'Add bookmark'}
+                                                disabled={bookmarkingExams.has(exam.id)}
                                             >
-                                                <svg class="w-5 h-5 {isBookmarked(exam.id) ? 'text-yellow-400 fill-current' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                                                </svg>
+                                                {#if bookmarkingExams.has(exam.id)}
+                                                    <svg class="w-5 h-5 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                                    </svg>
+                                                {:else}
+                                                    <svg class="w-5 h-5 transition-all duration-500 transform {$bookmarkStore.bookmarks.some(b => b.exam_id === exam.id) ? 'text-yellow-400 fill-current scale-110 rotate-12' : 'text-gray-400 hover:text-yellow-300 hover:scale-105'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                                                    </svg>
+                                                {/if}
                                             </button>
                                         </div>
                                         
@@ -584,6 +595,9 @@
         </div>
     </div>
 </div>
+
+<!-- Toast notifications -->
+<ToastContainer />
 
 <style>
     .line-clamp-2 {
