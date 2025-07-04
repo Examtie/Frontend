@@ -4,7 +4,6 @@
     import { toastStore } from '$lib/stores/toast';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import Header from '../../components/Header.svelte';
     import ToastContainer from '../../components/ToastContainer.svelte';
 
     // Types
@@ -49,6 +48,8 @@
     let showQuestionList = false;
     let essayAnswer = '';
     let selectedChoice = '';
+    let showPdfViewer = false; // For mobile PDF toggle
+    let isMobile = false;
 
     // Get exam ID from route params
     $: examId = $page.params.id;
@@ -59,9 +60,21 @@
             return;
         }
 
+        // Check if mobile
+        function checkMobile() {
+            isMobile = window.innerWidth < 768;
+        }
+        
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
         if (examId) {
             await loadExamData();
         }
+
+        return () => {
+            window.removeEventListener('resize', checkMobile);
+        };
     });
 
     async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
@@ -201,6 +214,7 @@
         
         currentQuestionIndex = index;
         showQuestionList = false;
+        showPdfViewer = false; // Close PDF viewer on mobile when switching questions
         
         // Load answer for new question
         const currentQuestion = questions[currentQuestionIndex];
@@ -306,8 +320,6 @@
     <meta name="description" content={exam?.description || 'Practice quiz on ExamTie'} />
 </svelte:head>
 
-<Header />
-
 <div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
     {#if loading}
         <div class="flex items-center justify-center min-h-screen">
@@ -335,202 +347,445 @@
             </div>
         </div>
     {:else if exam && questions.length > 0}
-        <div class="flex h-screen pt-16">
-            <!-- Left Panel - PDF Viewer -->
-            <div class="w-1/2 bg-white border-r border-gray-300">
-                <div class="h-full flex flex-col">
-                    <div class="bg-gray-100 px-4 py-3 border-b">
-                        <h3 class="font-semibold text-gray-800">Exam Paper</h3>
-                    </div>
-                    <div class="flex-1 overflow-hidden">
-                        {#if pdfUrl}
-                            <iframe 
-                                src={pdfUrl} 
-                                class="w-full h-full border-0"
-                                title="Exam PDF"
-                            ></iframe>
-                        {:else}
-                            <div class="flex items-center justify-center h-full">
-                                <div class="text-center">
-                                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-gray-500">No PDF available</p>
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Panel - Answer Sheet -->
-            <div class="w-1/2 bg-slate-50">
-                <div class="h-full flex flex-col">
-                    <!-- Header -->
-                    <div class="bg-white px-6 py-4 border-b border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h2 class="text-xl font-bold text-gray-800">{exam.title}</h2>
-                                <p class="text-sm text-gray-600">{exam.description}</p>
-                            </div>
+        <!-- Mobile Layout -->
+        {#if isMobile}
+            <div class="min-h-screen bg-slate-50">
+                <!-- Mobile Header -->
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 z-10">
+                    <div class="flex items-center justify-between mb-3">
+                        <button
+                            on:click={() => goto('/exams')}
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                            </svg>
+                            Back
+                        </button>
+                        
+                        <div class="flex items-center gap-2">
+                            <!-- PDF Toggle Button -->
+                            <button
+                                on:click={() => showPdfViewer = !showPdfViewer}
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                {showPdfViewer ? 'Hide PDF' : 'View PDF'}
+                            </button>
+                            
+                            <!-- Questions List Toggle -->
                             <button
                                 on:click={() => showQuestionList = !showQuestionList}
-                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
                                 </svg>
-                                Questions
+                                <span class="hidden sm:inline">Questions</span>
                             </button>
                         </div>
-                        
-                        <!-- Progress Bar -->
-                        <div class="mt-4">
-                            <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-                                <span>{answeredCount}/{questions.length} answered</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                    class="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                    style="width: {progress}%"
-                                ></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h1 class="text-lg font-bold text-gray-800 truncate">{exam.title}</h1>
+                        <p class="text-sm text-gray-600 truncate">{exam.description}</p>
+                    </div>
+                    
+                    <!-- Mobile Progress Bar -->
+                    <div>
+                        <div class="flex justify-between text-sm text-gray-600 mb-2">
+                            <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+                            <span>{answeredCount}/{questions.length} answered</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                                class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                style="width: {progress}%"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile PDF Viewer (Fullscreen when active) -->
+                {#if showPdfViewer}
+                    <div class="fixed inset-0 bg-white z-50 flex flex-col">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-800">Exam Paper</h3>
+                            <button
+                                on:click={() => showPdfViewer = false}
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                            {#if pdfUrl}
+                                <iframe 
+                                    src={pdfUrl} 
+                                    class="w-full h-full border-0"
+                                    title="Exam PDF"
+                                ></iframe>
+                            {:else}
+                                <div class="flex items-center justify-center h-full">
+                                    <div class="text-center">
+                                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                        </div>
+                                        <p class="text-gray-500">No PDF available</p>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Mobile Question List -->
+                {#if showQuestionList}
+                    <div class="fixed inset-0 bg-white z-40 flex flex-col">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-800">Question Navigator</h3>
+                            <button
+                                on:click={() => showQuestionList = false}
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-4">
+                            <div class="grid grid-cols-6 gap-3">
+                                {#each questions as question, index}
+                                    <button
+                                        on:click={() => goToQuestion(index)}
+                                        class="aspect-square text-sm font-medium rounded-lg border-2 transition-all duration-200 {
+                                            index === currentQuestionIndex 
+                                                ? 'bg-blue-500 border-blue-500 text-white' 
+                                                : userAnswers.get(question.id)?.answer && userAnswers.get(question.id)?.answer.toString().trim() !== ''
+                                                    ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
+                                                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                                        }"
+                                    >
+                                        {index + 1}
+                                    </button>
+                                {/each}
                             </div>
                         </div>
                     </div>
+                {/if}
 
-                    <!-- Question List Dropdown -->
-                    {#if showQuestionList}
-                        <div class="bg-white border-b border-gray-200 max-h-48 overflow-y-auto">
-                            <div class="p-4">
-                                <h3 class="font-semibold text-gray-800 mb-3">Question Navigator</h3>
-                                <div class="grid grid-cols-10 gap-2">
-                                    {#each questions as question, index}
-                                        <button
-                                            on:click={() => goToQuestion(index)}
-                                            class="w-8 h-8 text-xs rounded-lg border-2 transition-all duration-200 {
-                                                index === currentQuestionIndex 
-                                                    ? 'bg-blue-500 border-blue-500 text-white' 
-                                                    : userAnswers.get(question.id)?.answer && userAnswers.get(question.id)?.answer.toString().trim() !== ''
-                                                        ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
-                                                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                                            }"
-                                        >
-                                            {index + 1}
-                                        </button>
+                <!-- Mobile Question Content -->
+                <div class="p-4 pb-20">
+                    {#if currentQuestion}
+                        <div class="mb-6">
+                            <div class="flex items-center gap-2 mb-4">
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-bold text-sm">{currentQuestionIndex + 1}</span>
+                                </div>
+                                <span class="text-sm font-medium px-2 py-1 rounded-full {
+                                    currentQuestion.type === 'multiple_choice' 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : 'bg-blue-100 text-blue-700'
+                                }">
+                                    {currentQuestion.type === 'multiple_choice' ? 'Multiple Choice' : 'Written Answer'}
+                                </span>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                                {currentQuestion.question}
+                            </h3>
+
+                            <!-- Multiple Choice Options -->
+                            {#if currentQuestion.type === 'multiple_choice' && currentQuestion.choices}
+                                <div class="space-y-3">
+                                    {#each currentQuestion.choices as choice, index}
+                                        <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 {
+                                            selectedChoice === choice 
+                                                ? 'border-blue-500 bg-blue-50' 
+                                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                        }">
+                                            <input 
+                                                type="radio" 
+                                                name="choice" 
+                                                value={choice}
+                                                bind:group={selectedChoice}
+                                                on:change={() => handleMultipleChoiceAnswer(choice)}
+                                                class="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                            />
+                                            <span class="ml-3 text-gray-700 text-base">{choice}</span>
+                                        </label>
                                     {/each}
                                 </div>
-                            </div>
+                            {:else}
+                                <!-- Essay/Fill Answer -->
+                                <div>
+                                    <textarea 
+                                        bind:value={essayAnswer}
+                                        on:input={handleEssayAnswer}
+                                        placeholder="Enter your answer here..."
+                                        class="w-full h-40 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base"
+                                    ></textarea>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
+                </div>
 
-                    <!-- Question Content -->
-                    <div class="flex-1 p-6 overflow-y-auto">
-                        {#if currentQuestion}
-                            <div class="mb-6">
-                                <div class="flex items-center gap-2 mb-4">
-                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <span class="text-white font-bold text-sm">{currentQuestionIndex + 1}</span>
-                                    </div>
-                                    <span class="text-sm font-medium px-2 py-1 rounded-full {
-                                        currentQuestion.type === 'multiple_choice' 
-                                            ? 'bg-green-100 text-green-700' 
-                                            : 'bg-blue-100 text-blue-700'
-                                    }">
-                                        {currentQuestion.type === 'multiple_choice' ? 'Multiple Choice' : 'Written Answer'}
-                                    </span>
-                                </div>
-                                
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                                    {currentQuestion.question}
-                                </h3>
+                <!-- Mobile Navigation Footer -->
+                <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <button
+                            on:click={previousQuestion}
+                            disabled={currentQuestionIndex === 0}
+                            class="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            Previous
+                        </button>
 
-                                <!-- Multiple Choice Options -->
-                                {#if currentQuestion.type === 'multiple_choice' && currentQuestion.choices}
-                                    <div class="space-y-3">
-                                        {#each currentQuestion.choices as choice, index}
-                                            <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 {
-                                                selectedChoice === choice 
-                                                    ? 'border-blue-500 bg-blue-50' 
-                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                            }">
-                                                <input 
-                                                    type="radio" 
-                                                    name="choice" 
-                                                    value={choice}
-                                                    bind:group={selectedChoice}
-                                                    on:change={() => handleMultipleChoiceAnswer(choice)}
-                                                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                                                />
-                                                <span class="ml-3 text-gray-700">{choice}</span>
-                                            </label>
-                                        {/each}
-                                    </div>
-                                {:else}
-                                    <!-- Essay/Fill Answer -->
-                                    <div>
-                                        <textarea 
-                                            bind:value={essayAnswer}
-                                            on:input={handleEssayAnswer}
-                                            placeholder="Enter your answer here..."
-                                            class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                        ></textarea>
-                                    </div>
-                                {/if}
-                            </div>
-                        {/if}
-                    </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                            <div class="w-2 h-2 rounded-full {isQuestionAnswered ? 'bg-green-500' : 'bg-gray-300'}"></div>
+                            {isQuestionAnswered ? 'Answered' : 'Not answered'}
+                        </div>
 
-                    <!-- Navigation Footer -->
-                    <div class="bg-white border-t border-gray-200 p-4">
-                        <div class="flex items-center justify-between">
+                        {#if currentQuestionIndex === questions.length - 1}
                             <button
-                                on:click={previousQuestion}
-                                disabled={currentQuestionIndex === 0}
-                                class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                on:click={confirmSubmit}
+                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
-                                Previous
+                                Submit
                             </button>
-
-                            <div class="flex items-center gap-2">
-                                <!-- Question Status Indicator -->
-                                <div class="flex items-center gap-1 text-sm text-gray-600">
-                                    <div class="w-2 h-2 rounded-full {isQuestionAnswered ? 'bg-green-500' : 'bg-gray-300'}"></div>
-                                    {isQuestionAnswered ? 'Answered' : 'Not answered'}
-                                </div>
-                            </div>
-
-                            {#if currentQuestionIndex === questions.length - 1}
-                                <button
-                                    on:click={confirmSubmit}
-                                    class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    Submit Exam
-                                </button>
+                        {:else}
+                            <button
+                                on:click={nextQuestion}
+                                class="flex items-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                            >
+                                Next
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        {:else}
+            <!-- Desktop Layout (Original) -->
+            <div class="flex h-screen">
+                <!-- Left Panel - PDF Viewer -->
+                <div class="w-1/2 bg-white border-r border-gray-300">
+                    <div class="h-full flex flex-col">
+                        <div class="bg-gray-100 px-4 py-3 border-b">
+                            <h3 class="font-semibold text-gray-800">Exam Paper</h3>
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                            {#if pdfUrl}
+                                <iframe 
+                                    src={pdfUrl} 
+                                    class="w-full h-full border-0"
+                                    title="Exam PDF"
+                                ></iframe>
                             {:else}
-                                <button
-                                    on:click={nextQuestion}
-                                    class="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                                >
-                                    Next
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                    </svg>
-                                </button>
+                                <div class="flex items-center justify-center h-full">
+                                    <div class="text-center">
+                                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                        </div>
+                                        <p class="text-gray-500">No PDF available</p>
+                                    </div>
+                                </div>
                             {/if}
                         </div>
                     </div>
                 </div>
+
+                <!-- Right Panel - Answer Sheet -->
+                <div class="w-1/2 bg-slate-50">
+                    <div class="h-full flex flex-col">
+                        <!-- Header -->
+                        <div class="bg-white px-6 py-4 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <button
+                                        on:click={() => goto('/exams')}
+                                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                        </svg>
+                                        Back to Exams
+                                    </button>
+                                    <div>
+                                        <h2 class="text-xl font-bold text-gray-800">{exam.title}</h2>
+                                        <p class="text-sm text-gray-600">{exam.description}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    on:click={() => showQuestionList = !showQuestionList}
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                    </svg>
+                                    Questions
+                                </button>
+                            </div>
+                            
+                            <!-- Progress Bar -->
+                            <div class="mt-4">
+                                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                    <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+                                    <span>{answeredCount}/{questions.length} answered</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                        class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                        style="width: {progress}%"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Question List Dropdown -->
+                        {#if showQuestionList}
+                            <div class="bg-white border-b border-gray-200 max-h-48 overflow-y-auto">
+                                <div class="p-4">
+                                    <h3 class="font-semibold text-gray-800 mb-3">Question Navigator</h3>
+                                    <div class="grid grid-cols-10 gap-2">
+                                        {#each questions as question, index}
+                                            <button
+                                                on:click={() => goToQuestion(index)}
+                                                class="w-8 h-8 text-xs rounded-lg border-2 transition-all duration-200 {
+                                                    index === currentQuestionIndex 
+                                                        ? 'bg-blue-500 border-blue-500 text-white' 
+                                                        : userAnswers.get(question.id)?.answer && userAnswers.get(question.id)?.answer.toString().trim() !== ''
+                                                            ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
+                                                            : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                                                }"
+                                            >
+                                                {index + 1}
+                                            </button>
+                                        {/each}
+                                    </div>
+                                </div>
+                            </div>
+                        {/if}
+
+                        <!-- Question Content -->
+                        <div class="flex-1 p-6 overflow-y-auto">
+                            {#if currentQuestion}
+                                <div class="mb-6">
+                                    <div class="flex items-center gap-2 mb-4">
+                                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                            <span class="text-white font-bold text-sm">{currentQuestionIndex + 1}</span>
+                                        </div>
+                                        <span class="text-sm font-medium px-2 py-1 rounded-full {
+                                            currentQuestion.type === 'multiple_choice' 
+                                                ? 'bg-green-100 text-green-700' 
+                                                : 'bg-blue-100 text-blue-700'
+                                        }">
+                                            {currentQuestion.type === 'multiple_choice' ? 'Multiple Choice' : 'Written Answer'}
+                                        </span>
+                                    </div>
+                                    
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                                        {currentQuestion.question}
+                                    </h3>
+
+                                    <!-- Multiple Choice Options -->
+                                    {#if currentQuestion.type === 'multiple_choice' && currentQuestion.choices}
+                                        <div class="space-y-3">
+                                            {#each currentQuestion.choices as choice, index}
+                                                <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 {
+                                                    selectedChoice === choice 
+                                                        ? 'border-blue-500 bg-blue-50' 
+                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                }">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="choice" 
+                                                        value={choice}
+                                                        bind:group={selectedChoice}
+                                                        on:change={() => handleMultipleChoiceAnswer(choice)}
+                                                        class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                                    />
+                                                    <span class="ml-3 text-gray-700">{choice}</span>
+                                                </label>
+                                            {/each}
+                                        </div>
+                                    {:else}
+                                        <!-- Essay/Fill Answer -->
+                                        <div>
+                                            <textarea 
+                                                bind:value={essayAnswer}
+                                                on:input={handleEssayAnswer}
+                                                placeholder="Enter your answer here..."
+                                                class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                            ></textarea>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
+
+                        <!-- Navigation Footer -->
+                        <div class="bg-white border-t border-gray-200 p-4">
+                            <div class="flex items-center justify-between">
+                                <button
+                                    on:click={previousQuestion}
+                                    disabled={currentQuestionIndex === 0}
+                                    class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                    </svg>
+                                    Previous
+                                </button>
+
+                                <div class="flex items-center gap-2">
+                                    <!-- Question Status Indicator -->
+                                    <div class="flex items-center gap-1 text-sm text-gray-600">
+                                        <div class="w-2 h-2 rounded-full {isQuestionAnswered ? 'bg-green-500' : 'bg-gray-300'}"></div>
+                                        {isQuestionAnswered ? 'Answered' : 'Not answered'}
+                                    </div>
+                                </div>
+
+                                {#if currentQuestionIndex === questions.length - 1}
+                                    <button
+                                        on:click={confirmSubmit}
+                                        class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Submit Exam
+                                    </button>
+                                {:else}
+                                    <button
+                                        on:click={nextQuestion}
+                                        class="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                                    >
+                                        Next
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </button>
+                                {/if}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        {/if}
     {:else}
         <div class="flex items-center justify-center min-h-screen">
             <div class="text-center">
@@ -554,8 +809,8 @@
 
 <!-- Submit Confirmation Modal -->
 {#if showSubmitConfirmation}
-    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full">
             <div class="text-center mb-6">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -581,17 +836,17 @@
                 </p>
             </div>
             
-            <div class="flex gap-3">
+            <div class="flex flex-col sm:flex-row gap-3">
                 <button
                     on:click={() => showSubmitConfirmation = false}
-                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                     Cancel
                 </button>
                 <button
                     on:click={submitExam}
                     disabled={submitting}
-                    class="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    class="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                     {#if submitting}
                         <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
