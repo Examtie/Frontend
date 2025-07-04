@@ -91,7 +91,9 @@
     let examFileForm = {
         title: '',
         description: '',
-        tags: ''
+        tags: '',
+        essay_count: 0,
+        choice_count: 0
     };
 
     // Upload form
@@ -344,6 +346,13 @@
         if (!editingExamFile) return;
 
         try {
+            // Validation: At least one question type must be greater than 0
+            if (examFileForm.essay_count < 1 && examFileForm.choice_count < 1) {
+                error = 'At least one question type (essay or multiple choice) must be 1 or greater';
+                toastStore.error('At least one question type must be 1 or greater');
+                return;
+            }
+
             const tags = examFileForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
             
             await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${editingExamFile.id}`, {
@@ -351,16 +360,20 @@
                 body: JSON.stringify({
                     title: examFileForm.title,
                     description: examFileForm.description,
-                    tags: tags
+                    tags: tags,
+                    essay_count: examFileForm.essay_count,
+                    choice_count: examFileForm.choice_count
                 }),
             });
             showExamFileModal = false;
             editingExamFile = null;
             successMessage = 'Exam file updated successfully';
+            toastStore.success('Exam file updated successfully');
             setTimeout(() => successMessage = '', 3000);
             await loadExamFiles();
         } catch (err: any) {
             error = err.message;
+            toastStore.error(err.message || 'Failed to update exam file');
         }
     }
 
@@ -522,7 +535,9 @@
         examFileForm = {
             title: examFile.title,
             description: examFile.description,
-            tags: examFile.tags.join(', ')
+            tags: examFile.tags.join(', '),
+            essay_count: examFile.essay_count,
+            choice_count: examFile.choice_count
         };
         showExamFileModal = true;
     }
@@ -1809,6 +1824,30 @@
                             class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                         />
                         <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="essay_count" class="block text-sm font-medium text-gray-300 mb-2">Essay Questions</label>
+                            <input
+                                id="essay_count"
+                                type="number"
+                                min="0"
+                                bind:value={examFileForm.essay_count}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <label for="choice_count" class="block text-sm font-medium text-gray-300 mb-2">Multiple Choice</label>
+                            <input
+                                id="choice_count"
+                                type="number"
+                                min="0"
+                                bind:value={examFileForm.choice_count}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
                     </div>
                     <div class="flex gap-3 pt-4">
                         <button
