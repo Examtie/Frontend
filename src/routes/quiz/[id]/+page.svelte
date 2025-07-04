@@ -311,7 +311,7 @@
     // Reactive statements
     $: currentQuestion = questions[currentQuestionIndex];
     $: progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
-    $: answeredCount = getAnsweredQuestionsCount();
+    $: answeredCount = userAnswers && getAnsweredQuestionsCount();
     $: isQuestionAnswered = currentQuestion ? userAnswers.get(currentQuestion.id)?.answer && userAnswers.get(currentQuestion.id)?.answer.toString().trim() !== '' : false;
 </script>
 
