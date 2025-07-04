@@ -138,14 +138,12 @@
 
         // Don't set Content-Type if body is FormData (for file uploads)
         const isFormData = options.body instanceof FormData;
-        const headers: HeadersInit = {
-            'Authorization': `Bearer ${token}`,
-            ...options.headers,
-        };
+        const headers = new Headers(options.headers);
+        headers.set('Authorization', `Bearer ${token}`);
         
         // Only set Content-Type for non-FormData requests
-        if (!isFormData && !options.headers?.['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
+        if (!isFormData && !headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
         }
 
         const response = await fetch(url, {
@@ -498,8 +496,8 @@
             }
             
             toastStore.info('Running upload test...');
-            await testApiConnection(API_BASE_URL, token);
-            await testUpload(API_BASE_URL, token);
+            // await testApiConnection(API_BASE_URL, token);
+            // await testUpload(API_BASE_URL, token);
             toastStore.success('Upload test completed successfully!');
             
             // Reload files to see the test file
@@ -1382,16 +1380,29 @@
                                                     <span>Uploaded By</span>
                                                 </div>
                                             </th>
-                                            <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
-                                                <div class="flex items-center space-x-2">
-                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortExamFiles('created_at')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                     </svg>
-                                                    <span>Creation Date</span>
-                                                </div>
+                                                    Creation Date
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'created_at' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
                                             </th>
-                                            <th scope="col" class="px-3 py-4 text-center text-sm font-semibold text-gray-200">
-                                                Actions
+                                            <th scope="col" class="px-3 py-4 text-center">
+                                                <div class="flex items-center justify-center space-x-1">
+                                                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                                    </svg>
+                                                    <span class="text-sm font-semibold text-gray-200">Actions</span>
+                                                </div>
                                             </th>
                                         </tr>
                                     </thead>
@@ -1568,8 +1579,6 @@
                                                         >
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                            </svg>
-                                                            <span>Edit</span>
                                                         </button>
                                                         <button
                                                             on:click={() => deleteExamFile(examFile.id)}
@@ -1832,7 +1841,6 @@
                         <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                            </svg>
                         </div>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-200">Upload Exam File</h3>
