@@ -342,7 +342,7 @@
                     on:click={() => goto('/exams')}
                     class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors"
                 >
-                    Back to Exams
+                    Back
                 </button>
             </div>
         </div>
@@ -622,7 +622,7 @@
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                                         </svg>
-                                        Back to Exams
+                                        Back
                                     </button>
                                     <div>
                                         <h2 class="text-xl font-bold text-gray-800">{exam.title}</h2>
