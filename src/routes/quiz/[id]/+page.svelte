@@ -423,7 +423,10 @@
 
     // Answer sheet resizing functions
     function handleMouseDown(e: MouseEvent) {
+        if (isMobile) return;
         isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
         e.preventDefault();
         e.stopPropagation();
     }
@@ -433,19 +436,32 @@
         
         const containerWidth = window.innerWidth;
         const mouseX = e.clientX;
-        const newPdfWidth = (mouseX / containerWidth) * 100;
-        const newAnswerSheetWidth = 100 - newPdfWidth;
-
-        // Constrain the answer sheet width between 25% and 75%
-        answerSheetWidth = Math.max(25, Math.min(75, newAnswerSheetWidth));
+        
+        // Calculate the position as a percentage of the container width
+        let newPdfWidthPercent = (mouseX / containerWidth) * 100;
+        
+        // Constrain the PDF width between 25% and 75%
+        newPdfWidthPercent = Math.max(25, Math.min(75, newPdfWidthPercent));
+        
+        // Update the answer sheet width (it's the remainder)
+        const newAnswerSheetWidth = 100 - newPdfWidthPercent;
+        
+        // Only update if the value actually changed to trigger reactivity
+        if (Math.abs(answerSheetWidth - newAnswerSheetWidth) > 0.1) {
+            answerSheetWidth = newAnswerSheetWidth;
+        }
         
         e.preventDefault();
         e.stopPropagation();
     }
 
     function handleMouseUp() {
-        if (isResizing && typeof window !== 'undefined') {
-            localStorage.setItem('examtie-answer-sheet-width', answerSheetWidth.toString());
+        if (isResizing) {
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('examtie-answer-sheet-width', answerSheetWidth.toString());
+            }
         }
         isResizing = false;
     }
@@ -554,6 +570,10 @@
         user-select: none !important;
     }
     
+    .resizing iframe {
+        pointer-events: none !important;
+    }
+    
     .fade-in {
         animation: fadeIn 0.3s ease-in-out;
     }
@@ -594,6 +614,21 @@
     @keyframes typing {
         0%, 50% { opacity: 1; }
         51%, 100% { opacity: 0; }
+    }
+    
+    /* Drag handle styles */
+    .drag-handle {
+        position: relative;
+        transition: all 0.2s ease;
+    }
+    
+    .drag-handle:hover {
+        transform: scale(1.1);
+    }
+    
+    .drag-handle.dragging {
+        transform: scale(1.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 </style>
 
@@ -699,11 +734,7 @@
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
                             <div 
-                                class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500 ease-out"
-                                style="width: {progress}%"
-                            ></div>
-                            <div 
-                                class="absolute top-0 left-0 bg-green-500 h-full rounded-full transition-all duration-500 ease-out opacity-30"
+                                class="bg-green-500 h-full rounded-full transition-all duration-500 ease-out"
                                 style="width: {completionPercentage}%"
                             ></div>
                         </div>
@@ -728,6 +759,9 @@
                                     src={pdfUrl} 
                                     class="w-full h-full border-0"
                                     title="Exam PDF"
+                                    width="100%"
+                                    height="100%"
+                                    style="width: 100%; height: 100%;"
                                 ></iframe>
                             {:else}
                                 <div class="flex items-center justify-center h-full">
@@ -925,9 +959,9 @@
             </div>
         {:else}
             <!-- Desktop Layout with Adjustable Answer Sheet -->
-            <div class="flex h-screen relative">
+            <div class="flex h-screen relative {isResizing ? 'select-none' : ''}">
                 <!-- Left Panel - PDF Viewer -->
-                <div class="bg-white border-r border-gray-300 transition-all duration-200" style="width: {pdfWidth}%;">
+                <div class="bg-white border-r border-gray-300 {isResizing ? 'shadow-lg' : 'transition-all duration-200'}" style="width: {pdfWidth}%;">
                     <div class="h-full flex flex-col">
                         <div class="bg-gray-100 px-4 py-3 border-b">
                             <h3 class="font-semibold text-gray-800">{exam?.title || 'Exam Paper'}</h3>
@@ -936,8 +970,11 @@
                             {#if pdfUrl}
                                 <iframe 
                                     src={pdfUrl} 
-                                    class="w-full h-full border-0"
+                                    class="w-full h-full border-0 {isResizing ? 'pointer-events-none' : ''}"
                                     title="Exam PDF"
+                                    width="100%"
+                                    height="100%"
+                                    style="width: 100%; height: 100%;"
                                 ></iframe>
                             {:else}
                                 <div class="flex items-center justify-center h-full">
@@ -956,12 +993,11 @@
                 </div>
 
                 <!-- Resize Handle -->
-                <div 
-                    class="w-3 bg-gray-300 hover:bg-blue-500 cursor-col-resize transition-colors duration-200 flex items-center justify-center group relative select-none focus:outline-none {isResizing ? 'bg-blue-500' : ''}"
+                <button 
+                    class="w-3 bg-gray-300 hover:bg-blue-500 cursor-col-resize transition-colors duration-200 flex items-center justify-center group relative select-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 drag-handle {isResizing ? 'bg-blue-500 dragging' : ''}"
                     on:mousedown={handleMouseDown}
-                    role="separator"
-                    aria-label="Resize panels"
-                    tabindex="0"
+                    aria-label="Resize panels - drag to adjust the size of PDF and answer sheet panels"
+                    title="Drag to resize panels"
                     on:keydown={(e) => {
                         if (e.key === 'ArrowLeft') {
                             e.preventDefault();
@@ -989,10 +1025,10 @@
                         <div class="w-1 h-1 bg-gray-600 rounded-full"></div>
                         <div class="w-1 h-1 bg-gray-600 rounded-full"></div>
                     </div>
-                </div>
+                </button>
 
                 <!-- Right Panel - Answer Sheet -->
-                <div class="bg-slate-50 transition-all duration-200" style="width: {answerSheetWidth}%;">
+                <div class="bg-slate-50 {isResizing ? 'shadow-lg' : 'transition-all duration-200'}" style="width: {answerSheetWidth}%;">
                     <div class="h-full flex flex-col">
                         <!-- Header -->
                         <div class="bg-white px-3 py-3 border-b border-gray-200">
@@ -1032,6 +1068,7 @@
                                         on:click={() => showStats = !showStats}
                                         class="inline-flex items-center gap-2 px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                                         title="Toggle stats"
+                                        aria-label="Toggle statistics panel"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
@@ -1043,6 +1080,7 @@
                                         on:click={() => showKeyboardHelp = !showKeyboardHelp}
                                         class="inline-flex items-center gap-2 px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                                         title="Keyboard shortcuts"
+                                        aria-label="Show keyboard shortcuts help"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -1072,11 +1110,7 @@
                                 </div>
                                 <div class="w-full bg-gray-200 rounded-full h-2 relative overflow-hidden">
                                     <div 
-                                        class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500 ease-out"
-                                        style="width: {progress}%"
-                                    ></div>
-                                    <div 
-                                        class="absolute top-0 left-0 bg-green-500 h-full rounded-full transition-all duration-500 ease-out opacity-30"
+                                        class="bg-green-500 h-full rounded-full transition-all duration-500 ease-out"
                                         style="width: {completionPercentage}%"
                                     ></div>
                                 </div>
@@ -1192,9 +1226,10 @@
 
                                     <!-- Multiple Choice Options -->
                                     {#if question.type === 'multiple_choice' && question.choices}
-                                        <div class="space-y-2">
+                                        <div class="flex items-center gap-4 flex-wrap">
+                                            <span class="text-sm font-medium text-gray-700">Q{index + 1}:</span>
                                             {#each question.choices as choice, choiceIndex}
-                                                <label class="cursor-pointer group">
+                                                <label class="cursor-pointer flex items-center gap-2 group">
                                                     <input 
                                                         type="radio" 
                                                         name="choice_{question.id}" 
@@ -1210,18 +1245,18 @@
                                                         }}
                                                         class="hidden"
                                                     />
-                                                    <div class="flex items-center gap-3 p-3 border-2 rounded-lg transition-all duration-200 group-hover:border-blue-300 group-hover:bg-blue-50 {
+                                                    <div class="flex items-center gap-1 px-2 py-1 border-2 rounded-lg transition-all duration-200 group-hover:border-blue-300 group-hover:bg-blue-50 {
                                                         userAnswers.get(question.id)?.answer === choice 
                                                             ? 'border-blue-500 bg-blue-50 shadow-sm' 
                                                             : 'border-gray-200 bg-white hover:shadow-sm'
                                                     }">
-                                                        <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 {
+                                                        <div class="w-3 h-3 rounded-full border-2 flex items-center justify-center transition-all duration-200 {
                                                             userAnswers.get(question.id)?.answer === choice 
                                                                 ? 'border-blue-500 bg-blue-500' 
                                                                 : 'border-gray-300 group-hover:border-blue-300'
                                                         }">
                                                             {#if userAnswers.get(question.id)?.answer === choice}
-                                                                <div class="w-2 h-2 bg-white rounded-full"></div>
+                                                                <div class="w-1 h-1 bg-white rounded-full"></div>
                                                             {/if}
                                                         </div>
                                                         <span class="text-sm font-medium text-gray-700 group-hover:text-blue-700 transition-colors">
