@@ -26,10 +26,21 @@
         english_name?: string | null;
     };
 
+    type ExamProgress = {
+        exam_id: string;
+        progress_percentage: number;
+        answered_count: number;
+        total_questions: number;
+        last_attempted: string;
+        is_completed: boolean;
+        time_spent: number; // in seconds
+    };
+
     const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
 
     let exams: ExamFile[] = [];
     let categories: ExamCategory[] = [];
+    let examProgress: Map<string, ExamProgress> = new Map();
     let loading = false;
     let skeletonLoading = true;
     let error = '';
@@ -48,7 +59,7 @@
     let sortOrder: 'asc' | 'desc' = 'asc';
     let bookmarkingExams: Set<string> = new Set(); // Track which exams are being bookmarked
 
-    onMount(async () => {
+    onMount(() => {
         // Wait for auth to initialize before checking authentication
         if (!$auth.isInitialized) {
             // Wait for auth initialization to complete
@@ -70,7 +81,7 @@
                 goto('/login');
                 return;
             }
-            await loadData();
+            loadData();
         }
 
         // Set up bookmark refresh on window focus (when user comes back to tab)
@@ -130,7 +141,8 @@
         try {
             await Promise.all([
                 loadExams(),
-                loadCategories()
+                loadCategories(),
+                loadExamProgress()
             ]);
         } catch (err: any) {
             error = err.message;
@@ -164,6 +176,21 @@
         exams = Array.isArray(response) ? response : response.exams || [];
         totalExams = response.total || exams.length;
         totalPages = Math.ceil(totalExams / limit);
+    }
+
+    async function loadExamProgress() {
+        try {
+            const progressData = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exam-progress`);
+            examProgress = new Map();
+            if (Array.isArray(progressData)) {
+                progressData.forEach((progress: ExamProgress) => {
+                    examProgress.set(progress.exam_id, progress);
+                });
+            }
+        } catch (err: any) {
+            console.warn('Failed to load exam progress:', err.message);
+            examProgress = new Map();
+        }
     }
 
     async function toggleBookmark(examId: string) {
@@ -267,6 +294,22 @@
             hoverText += ` - ${category.description}`;
         }
         return hoverText;
+    }
+
+    // Helper functions for exam progress
+    function getExamProgress(examId: string): ExamProgress | null {
+        return examProgress.get(examId) || null;
+    }
+
+    function hasStartedExam(examId: string): boolean {
+        const progress = getExamProgress(examId);
+        return progress !== null && progress.answered_count > 0;
+    }
+
+    function formatTimeSpent(seconds: number): string {
+        if (seconds < 60) return `${seconds}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+        return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
     }
 
     // Reactive bookmark count for stats
@@ -467,6 +510,29 @@
                                         </div>
                                     </div>
 
+                                    <!-- Progress Bar (if exam has been started) -->
+                                    {#if hasStartedExam(exam.id)}
+                                        {@const progress = getExamProgress(exam.id)}
+                                        <div class="mb-3 p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                            <div class="flex items-center justify-between text-xs text-blue-300 mb-1">
+                                                <span>Progress</span>
+                                                <span>{progress?.progress_percentage.toFixed(0)}%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                                <div 
+                                                    class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
+                                                    style="width: {progress?.progress_percentage || 0}%"
+                                                ></div>
+                                            </div>
+                                            <div class="flex items-center justify-between text-xs text-gray-400 mt-1">
+                                                <span>{progress?.answered_count}/{progress?.total_questions} answered</span>
+                                                {#if progress && progress.time_spent > 0}
+                                                    <span>{formatTimeSpent(progress.time_spent)}</span>
+                                                {/if}
+                                            </div>
+                                        </div>
+                                    {/if}
+
                                     <!-- Tags -->
                                     {#if exam.tags.length > 0}
                                         <div class="flex flex-wrap gap-2 mb-4">
@@ -492,12 +558,19 @@
                                     <!-- Action Button -->
                                     <button
                                         on:click={() => handleExamClick(exam)}
-                                        class="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white py-2 px-4 rounded-lg transition-all duration-300 font-medium flex items-center justify-center gap-2"
+                                        class="w-full bg-gradient-to-r {hasStartedExam(exam.id) ? 'from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600' : 'from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600'} text-white py-2 px-4 rounded-lg transition-all duration-300 font-medium flex items-center justify-center gap-2"
                                     >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        Start Practice
+                                        {#if hasStartedExam(exam.id)}
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                            </svg>
+                                            Continue Practice
+                                        {:else}
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Start Practice
+                                        {/if}
                                     </button>
                                 </div>
                             </div>
@@ -552,9 +625,31 @@
                                             </div>
                                         </div>
                                         
+                                        <!-- Progress Bar (if exam has been started) -->
+                                        {#if hasStartedExam(exam.id)}
+                                            {@const progress = getExamProgress(exam.id)}
+                                            <div class="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                                <div class="flex items-center justify-between text-sm text-blue-300 mb-2">
+                                                    <span>Progress: {progress?.progress_percentage.toFixed(0)}%</span>
+                                                    <span>{progress?.answered_count}/{progress?.total_questions} answered</span>
+                                                </div>
+                                                <div class="w-full bg-gray-700 rounded-full h-2">
+                                                    <div 
+                                                        class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
+                                                        style="width: {progress?.progress_percentage || 0}%"
+                                                    ></div>
+                                                </div>
+                                                {#if progress && progress.time_spent > 0}
+                                                    <div class="text-xs text-gray-400 mt-1">
+                                                        Time spent: {formatTimeSpent(progress.time_spent)}
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        {/if}
+
                                         <!-- Tags -->
                                         {#if exam.tags.length > 0}
-                                            <div class="flex flex-wrap gap-2">
+                                            <div class="flex flex-wrap gap-2 {hasStartedExam(exam.id) ? 'mt-3' : ''}">
                                                 {#each exam.tags.slice(0, 5) as tag, index}
                                                     <span 
                                                         class="px-2 py-1 text-xs rounded-full border {getTagColor(index)}"
@@ -579,12 +674,19 @@
                                     <div class="ml-6 flex-shrink-0">
                                         <button
                                             on:click={() => handleExamClick(exam)}
-                                            class="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white py-2 px-6 rounded-lg transition-all duration-300 font-medium flex items-center gap-2"
+                                            class="bg-gradient-to-r {hasStartedExam(exam.id) ? 'from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600' : 'from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600'} text-white py-2 px-6 rounded-lg transition-all duration-300 font-medium flex items-center gap-2"
                                         >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            Start Practice
+                                            {#if hasStartedExam(exam.id)}
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                                </svg>
+                                                Continue
+                                            {:else}
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                Start Practice
+                                            {/if}
                                         </button>
                                     </div>
                                 </div>
