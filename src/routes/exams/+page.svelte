@@ -36,11 +36,28 @@
         time_spent: number; // in seconds
     };
 
+    type InProgressExam = {
+        exam_id: string;
+        title: string;
+        description: string;
+        tags: string[];
+        url: string;
+        essay_count: number;
+        choice_count: number;
+        progress_percentage: number;
+        answered_count: number;
+        total_questions: number;
+        last_saved: string;
+        time_spent: number;
+        submission_id: string;
+    };
+
     const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
 
     let exams: ExamFile[] = [];
     let categories: ExamCategory[] = [];
     let examProgress: Map<string, ExamProgress> = new Map();
+    let inProgressExams: InProgressExam[] = [];
     let loading = false;
     let skeletonLoading = true;
     let error = '';
@@ -52,6 +69,7 @@
     let searchQuery = '';
     let totalExams = 0;
     let totalPages = 0;
+    let showInProgressOnly = false;
 
     // UI state
     let viewMode: 'grid' | 'list' = 'grid';
@@ -142,7 +160,8 @@
             await Promise.all([
                 loadExams(),
                 loadCategories(),
-                loadExamProgress()
+                loadExamProgress(),
+                loadInProgressExams()
             ]);
         } catch (err: any) {
             error = err.message;
@@ -190,6 +209,29 @@
         } catch (err: any) {
             console.warn('Failed to load exam progress:', err.message);
             examProgress = new Map();
+        }
+    }
+
+    async function loadInProgressExams() {
+        try {
+            inProgressExams = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/in-progress`);
+        } catch (err: any) {
+            console.warn('Failed to load in-progress exams:', err.message);
+            inProgressExams = [];
+        }
+    }
+
+    async function clearExamProgress(examId: string) {
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/progress`, {
+                method: 'DELETE'
+            });
+            
+            // Refresh the in-progress exams list
+            await loadInProgressExams();
+            toastStore.success('Progress cleared successfully');
+        } catch (err: any) {
+            toastStore.error(`Failed to clear progress: ${err.message}`);
         }
     }
 
@@ -253,21 +295,34 @@
         return colors[index % colors.length];
     }
 
-    // Filter exams based on search query (client-side)
-    $: filteredExams = searchQuery 
-        ? exams.filter(exam => 
-            exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            exam.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            exam.tags.some(tag => {
-                const category = getCategoryById(tag);
-                return category && (
-                    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (category.english_name && category.english_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                    (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
-                );
-            })
-        )
-        : exams;
+    // Filter exams based on search query and in-progress filter
+    $: filteredExams = (() => {
+        let filtered = exams;
+        
+        // Apply in-progress filter
+        if (showInProgressOnly) {
+            const inProgressIds = new Set(inProgressExams.map(exam => exam.exam_id));
+            filtered = filtered.filter(exam => inProgressIds.has(exam.id));
+        }
+        
+        // Apply search filter
+        if (searchQuery) {
+            filtered = filtered.filter(exam => 
+                exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                exam.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                exam.tags.some(tag => {
+                    const category = getCategoryById(tag);
+                    return category && (
+                        category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (category.english_name && category.english_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                        (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
+                    );
+                })
+            );
+        }
+        
+        return filtered;
+    })();
 
     // Helper function to get category by ID
     function getCategoryById(categoryId: string): ExamCategory | null {
@@ -418,6 +473,22 @@
                             </svg>
                         </button>
                     </div>
+
+                    <!-- In Progress Toggle -->
+                    <div class="flex items-center gap-2">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                bind:checked={showInProgressOnly}
+                                class="sr-only"
+                            />
+                            <div class="relative">
+                                <div class="w-10 h-6 bg-white/20 rounded-full shadow-inner"></div>
+                                <div class="absolute w-4 h-4 bg-white rounded-full shadow inset-y-1 left-1 transition-transform duration-200 {showInProgressOnly ? 'transform translate-x-4 bg-blue-500' : ''}"></div>
+                            </div>
+                            <span class="ml-2 text-sm text-gray-300">In Progress Only</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Stats Row -->
@@ -437,10 +508,80 @@
                         </div>
                         <div class="flex items-center gap-4 text-sm text-gray-400">
                             <span>🔖 {bookmarkCount} bookmarked</span>
+                            <span>📝 {inProgressExams.length} in progress</span>
                         </div>
                     </div>
                 {/if}
             </div>
+
+            <!-- In Progress Exams Section -->
+            {#if !loading && inProgressExams.length > 0 && !showInProgressOnly}
+                <div class="mb-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                            <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Continue Where You Left Off
+                        </h2>
+                        <button
+                            on:click={() => showInProgressOnly = true}
+                            class="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                        >
+                            View All In Progress →
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {#each inProgressExams.slice(0, 3) as inProgressExam}
+                            <div class="bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-blue-500/30 rounded-xl p-4 hover:from-blue-500/30 hover:to-purple-500/30 transition-all duration-300">
+                                <div class="flex items-start justify-between mb-3">
+                                    <h3 class="font-semibold text-white text-sm line-clamp-2">
+                                        {inProgressExam.title}
+                                    </h3>
+                                    <button
+                                        on:click={() => clearExamProgress(inProgressExam.exam_id)}
+                                        class="text-gray-400 hover:text-red-400 p-1 rounded"
+                                        title="Clear progress"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="flex items-center justify-between text-xs text-blue-300 mb-1">
+                                        <span>Progress: {inProgressExam.progress_percentage.toFixed(0)}%</span>
+                                        <span>{inProgressExam.answered_count}/{inProgressExam.total_questions} answered</span>
+                                    </div>
+                                    <div class="w-full bg-gray-700 rounded-full h-2">
+                                        <div 
+                                            class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
+                                            style="width: {inProgressExam.progress_percentage}%"
+                                        ></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <div class="text-xs text-gray-400">
+                                        Last saved: {new Date(inProgressExam.last_saved).toLocaleDateString()}
+                                        {#if inProgressExam.time_spent > 0}
+                                            • {formatTimeSpent(inProgressExam.time_spent)}
+                                        {/if}
+                                    </div>
+                                    <button
+                                        on:click={() => goto(`/quiz/${inProgressExam.exam_id}`)}
+                                        class="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+                                    >
+                                        Resume
+                                    </button>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
 
             <!-- Loading Skeleton -->
             {#if skeletonLoading}

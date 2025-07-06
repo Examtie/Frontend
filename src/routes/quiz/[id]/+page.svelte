@@ -57,6 +57,7 @@
     let timerInterval: number | null = null;
     let showStats = false;
     let autoSaveIndicator = false;
+    let autoSaveError = false;
     let lastSaveTime: Date | null = null;
     let showKeyboardHelp = false;
     let autoSaveTimeout: number | null = null;
@@ -191,11 +192,39 @@
 
             // Initialize user answers
             userAnswers = new Map();
+            
+            // Try to load saved progress first
+            try {
+                const progressResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/progress`);
+                
+                if (progressResponse.has_progress && progressResponse.answers) {
+                    // Load saved answers
+                    progressResponse.answers.forEach((savedAnswer: any) => {
+                        if (savedAnswer.question_id && savedAnswer.answer) {
+                            userAnswers.set(savedAnswer.question_id, {
+                                question_id: savedAnswer.question_id,
+                                answer: savedAnswer.answer
+                            });
+                        }
+                    });
+                    
+                    // Show a notification that progress was loaded
+                    if (progressResponse.answered_count > 0) {
+                        toastStore.info(`Restored ${progressResponse.answered_count} saved answers`);
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to load saved progress:', err);
+            }
+            
+            // Initialize answers for questions that don't have saved answers
             questions.forEach(q => {
-                userAnswers.set(q.id, {
-                    question_id: q.id,
-                    answer: q.type === 'multiple_choice' ? '' : ''
-                });
+                if (!userAnswers.has(q.id)) {
+                    userAnswers.set(q.id, {
+                        question_id: q.id,
+                        answer: q.type === 'multiple_choice' ? '' : ''
+                    });
+                }
             });
 
             // Set initial answer for current question
@@ -261,21 +290,30 @@
             await performAutoSave();
         }, 2000);
         
-        // Show immediate indicator
-        showAutoSaveIndicator();
+        // Show immediate saving indicator
+        autoSaveIndicator = true;
+        autoSaveError = false;
     }
 
     async function performAutoSave() {
-        if (!exam) return;
+        if (!exam || !examStartTime) return;
         
         try {
             const answers = Array.from(userAnswers.values()).filter(answer => 
                 answer.answer && answer.answer.toString().trim() !== ''
             );
 
+            // Only save if there are actual answers
+            if (answers.length === 0) {
+                return;
+            }
+
+            const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
+
             const saveData = {
                 answers: answers,
-                is_draft: true // This indicates it's an auto-save, not final submission
+                is_draft: true, // This indicates it's an auto-save, not final submission
+                time_spent: timeSpent
             };
 
             await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/save-progress`, {
@@ -284,13 +322,27 @@
             });
 
             lastSaveTime = new Date();
+            
+            // Show success indicator briefly
+            showAutoSaveIndicator();
+            
         } catch (err: any) {
             console.warn('Auto-save failed:', err.message);
-            // Don't show error toast for auto-save failures as it might be annoying
+            // Show error indicator for failed saves
+            showAutoSaveError();
         }
     }
 
+    function showAutoSaveError() {
+        autoSaveIndicator = false;
+        autoSaveError = true;
+        setTimeout(() => {
+            autoSaveError = false;
+        }, 3000);
+    }
+
     function showAutoSaveIndicator() {
+        autoSaveError = false;
         autoSaveIndicator = true;
         lastSaveTime = new Date();
         setTimeout(() => {
@@ -375,7 +427,7 @@
     }
 
     async function submitExam() {
-        if (!exam) return;
+        if (!exam || !examStartTime) return;
         
         submitting = true;
         error = '';
@@ -385,8 +437,11 @@
                 answer.answer && answer.answer.toString().trim() !== ''
             );
 
+            const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
+
             const submissionData = {
-                answers: answers
+                answers: answers,
+                time_spent: timeSpent
             };
 
             await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/submit`, {
@@ -407,6 +462,18 @@
             toastStore.error(`Failed to submit exam: ${err.message}`);
         } finally {
             submitting = false;
+        }
+    }
+
+    async function manualSave() {
+        if (!exam || !examStartTime) return;
+        
+        try {
+            showAutoSaveIndicator();
+            await performAutoSave();
+            toastStore.success('Progress saved!');
+        } catch (err: any) {
+            toastStore.error(`Failed to save progress: ${err.message}`);
         }
     }
 
@@ -929,7 +996,19 @@
                             <div class="w-2 h-2 rounded-full {isQuestionAnswered ? 'bg-green-500' : 'bg-gray-300'} transition-colors"></div>
                             {isQuestionAnswered ? 'Done' : 'Pending'}
                             {#if autoSaveIndicator}
-                                <span class="text-green-600 font-medium">• Saved</span>
+                                <span class="text-green-600 font-medium flex items-center gap-1">
+                                    <svg class="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    Saved
+                                </span>
+                            {:else if autoSaveError}
+                                <span class="text-red-600 font-medium flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Save failed
+                                </span>
                             {/if}
                         </div>
 
@@ -982,7 +1061,6 @@
                                         <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                                             <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                            </svg>
                                         </div>
                                         <p class="text-gray-500">No PDF available</p>
                                     </div>
@@ -1048,6 +1126,20 @@
                                     <!-- Auto-save indicator -->
                                     {#if autoSaveIndicator}
                                         <div class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full border border-green-200 flex items-center gap-1 fade-in">
+                                            <svg class="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            Saving...
+                                        </div>
+                                    {:else if autoSaveError}
+                                        <div class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full border border-red-200 flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Save failed
+                                        </div>
+                                    {:else if lastSaveTime}
+                                        <div class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full border border-green-200 flex items-center gap-1">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                             </svg>
@@ -1071,7 +1163,7 @@
                                         aria-label="Toggle statistics panel"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 012 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                         </svg>
                                     </button>
                                     
