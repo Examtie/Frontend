@@ -364,7 +364,7 @@
 							<div class="absolute -bottom-6 -right-8 animate-float-gentle" style="animation-delay: 0.4s">
 								<div class="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl border border-white/50">
 									<div class="flex items-center gap-2">
-										<span class="text-2xl">�</span>
+										<span class="text-2xl">📚</span>
 										<div class="hidden sm:block">
 											<div class="text-sm font-semibold text-slate-800">9 วิชาสามัญ</div>
 											<div class="text-xs text-slate-600">2,234 ข้อสอบ</div>
@@ -380,32 +380,42 @@
 	</section>
 
 	<!-- Exam Types Section -->
-	<section class="py-12 md:py-24 lg:py-32 bg-white dark:bg-gray-950">
+	<section class="py-20 lg:py-24 bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800">
 		<div class="container px-4 md:px-6 max-w-7xl mx-auto">
-			<div class="flex flex-col items-center justify-center space-y-4 text-center">
-				<div class="space-y-2">
-					<div class="inline-block rounded-lg bg-purple-100 px-3 py-1 text-sm dark:bg-purple-800/20 text-purple-700 dark:text-purple-300">
-						ข้อสอบหลากหลาย
-					</div>
-					<h2 class="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-slate-900 dark:text-white">เลือกข้อสอบที่คุณต้องการ</h2>
-					<p class="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
-						Examtie มีข้อสอบหลากหลายประเภทให้คุณได้ฝึกฝนและพัฒนาทักษะการเรียนรู้
-					</p>
+			<div class="text-center mb-16">
+				<div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-sm rounded-full border border-purple-400/30 mb-6">
+					<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+					</svg>
+					<span class="text-sm font-medium text-purple-700 dark:text-purple-300">ข้อสอบหลากหลาย</span>
 				</div>
+				<h2 class="text-3xl lg:text-4xl xl:text-5xl font-bold text-slate-900 dark:text-white mb-6">
+					เลือกข้อสอบที่
+					<span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+						คุณต้องการ
+					</span>
+				</h2>
+				<p class="text-lg lg:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+					Examtie มีข้อสอบหลากหลายประเภทให้คุณได้ฝึกฝนและพัฒนาทักษะการเรียนรู้
+				</p>
 			</div>
-			<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
+			
+			<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 				{#each examTypes as exam}
-					<div class="overflow-hidden transition-all hover:shadow-md bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-						<div class="p-0">
-							<button class="w-full h-full flex flex-col items-center justify-center gap-2 p-6 rounded-none hover:bg-{exam.color}-50 dark:hover:bg-{exam.color}-950/10 transition-colors">
-								<div class="rounded-full bg-{exam.color}-100 p-2 text-{exam.color}-600 dark:bg-{exam.color}-800/20 dark:text-{exam.color}-400">
-									<span class="text-2xl">{exam.icon}</span>
+					<div class="group relative">
+						<div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+						<div class="relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-xl hover:scale-105 transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-600">
+							<div class="text-center">
+								<div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/20 dark:to-blue-900/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+									<span class="text-3xl">{exam.icon}</span>
 								</div>
-								<div class="text-center">
-									<div class="font-medium text-slate-900 dark:text-white">{exam.name}</div>
-									<div class="text-sm text-gray-500 dark:text-gray-400">{exam.thaiName}</div>
-								</div>
-							</button>
+								<h3 class="font-semibold text-slate-900 dark:text-white mb-1 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+									{exam.name}
+								</h3>
+								<p class="text-sm text-slate-600 dark:text-slate-400">
+									{exam.thaiName}
+								</p>
+							</div>
 						</div>
 					</div>
 				{/each}
@@ -414,48 +424,54 @@
 	</section>
 
 	<!-- Features Section -->
-	<section class="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-800 relative overflow-hidden">
+	<section class="py-20 lg:py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-900 relative overflow-hidden">
 		<!-- Background pattern -->
 		<div class="absolute inset-0 opacity-5">
-			<div class="absolute inset-0" style="background-image: radial-gradient(circle at 25px 25px, #3b82f6 2px, transparent 0), radial-gradient(circle at 75px 75px, #8b5cf6 2px, transparent 0); background-size: 100px 100px;"></div>
+			<div class="absolute inset-0" style="background-image: 
+				radial-gradient(circle at 25px 25px, rgba(139, 92, 246, 0.4) 2px, transparent 0), 
+				radial-gradient(circle at 75px 75px, rgba(59, 130, 246, 0.3) 2px, transparent 0); 
+				background-size: 100px 100px;
+			"></div>
 		</div>
 		
 		<div class="max-w-7xl mx-auto relative">
-			<div class="text-center mb-12 lg:mb-20">
-				<div class="inline-flex items-center px-3 py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs lg:text-sm font-medium mb-4 lg:mb-6">
-					<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<div class="text-center mb-16 lg:mb-20">
+				<div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-sm rounded-full border border-purple-400/30 mb-6">
+					<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
 					</svg>
-					{$t('powerfulFeatures')}
+					<span class="text-sm font-medium text-purple-700 dark:text-purple-300">{$t('powerfulFeatures')}</span>
 				</div>
-				<h2 class="text-3xl lg:text-4xl xl:text-5xl font-bold text-slate-900 dark:text-white mb-4 lg:mb-6">
+				<h2 class="text-3xl lg:text-4xl xl:text-5xl font-bold text-slate-900 dark:text-white mb-6">
 					{$t('whyChoose')} 
-					<span class="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+					<span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
 						{$t('examTie')}?
 					</span>
 				</h2>
-				<p class="text-lg lg:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+				<p class="text-lg lg:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed">
 					{$t('featuresDescription')}
 				</p>
 			</div>
 
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-10">
-				<div class="group relative bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 lg:p-10 rounded-2xl lg:rounded-3xl border border-blue-200/50 dark:border-blue-700/50 transition-all duration-700 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 overflow-hidden">
-					<!-- Enhanced animated background gradient -->
-					<div class="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/10 group-hover:to-indigo-500/10 rounded-2xl lg:rounded-3xl transition-all duration-700"></div>
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+				<!-- AI-Powered Learning -->
+				<div class="group relative bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-8 lg:p-10 rounded-3xl border border-blue-200/50 dark:border-blue-700/50 transition-all duration-700 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 overflow-hidden">
+					<div class="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/10 group-hover:to-indigo-500/10 rounded-3xl transition-all duration-700"></div>
 					<div class="absolute -top-10 -right-10 w-20 h-20 bg-blue-400/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
 					
 					<div class="relative z-10">
-						<div class="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl lg:rounded-2xl flex items-center justify-center mb-4 lg:mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 shadow-xl shadow-blue-500/30">
-							<svg class="w-6 h-6 lg:w-8 lg:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 shadow-xl shadow-blue-500/30">
+							<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
 							</svg>
 						</div>
-						<h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white mb-3 lg:mb-6 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-500">{$t('aiPoweredLearning')}</h3>
-						<p class="text-slate-600 dark:text-slate-300 leading-relaxed text-base lg:text-lg">
+						<h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white mb-4 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-500">
+							{$t('aiPoweredLearning')}
+						</h3>
+						<p class="text-slate-600 dark:text-slate-300 leading-relaxed text-base lg:text-lg mb-6">
 							{$t('aiPoweredLearningDesc')}
 						</p>
-						<div class="mt-4 lg:mt-6 inline-flex items-center text-blue-600 dark:text-blue-400 font-semibold group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors duration-300">
+						<div class="inline-flex items-center text-blue-600 dark:text-blue-400 font-semibold group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors duration-300">
 							{$t('learnMore')} 
 							<svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -464,21 +480,24 @@
 					</div>
 				</div>
 
-				<div class="group relative bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 p-6 lg:p-10 rounded-2xl lg:rounded-3xl border border-green-200/50 dark:border-green-700/50 transition-all duration-700 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/25 overflow-hidden">
-					<div class="absolute inset-0 bg-gradient-to-br from-green-500/0 to-emerald-500/0 group-hover:from-green-500/10 group-hover:to-emerald-500/10 rounded-2xl lg:rounded-3xl transition-all duration-700"></div>
+				<!-- Progress Tracking -->
+				<div class="group relative bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-8 lg:p-10 rounded-3xl border border-green-200/50 dark:border-green-700/50 transition-all duration-700 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/25 overflow-hidden">
+					<div class="absolute inset-0 bg-gradient-to-br from-green-500/0 to-emerald-500/0 group-hover:from-green-500/10 group-hover:to-emerald-500/10 rounded-3xl transition-all duration-700"></div>
 					<div class="absolute -top-10 -right-10 w-20 h-20 bg-green-400/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
 					
 					<div class="relative z-10">
-						<div class="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl lg:rounded-2xl flex items-center justify-center mb-4 lg:mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 shadow-xl shadow-green-500/30">
-							<svg class="w-6 h-6 lg:w-8 lg:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<div class="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 shadow-xl shadow-green-500/30">
+							<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
 							</svg>
 						</div>
-						<h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white mb-3 lg:mb-6 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-500">{$t('progressTracking')}</h3>
-						<p class="text-slate-600 dark:text-slate-300 leading-relaxed text-base lg:text-lg">
+						<h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white mb-4 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-500">
+							{$t('progressTracking')}
+						</h3>
+						<p class="text-slate-600 dark:text-slate-300 leading-relaxed text-base lg:text-lg mb-6">
 							{$t('progressTrackingDesc')}
 						</p>
-						<div class="mt-4 lg:mt-6 inline-flex items-center text-green-600 dark:text-green-400 font-semibold group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors duration-300">
+						<div class="inline-flex items-center text-green-600 dark:text-green-400 font-semibold group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors duration-300">
 							{$t('learnMore')} 
 							<svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -487,21 +506,24 @@
 					</div>
 				</div>
 
-				<div class="group relative bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-900/20 p-6 lg:p-10 rounded-2xl lg:rounded-3xl border border-purple-200/50 dark:border-purple-700/50 transition-all duration-700 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 overflow-hidden">
-					<div class="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-violet-500/0 group-hover:from-purple-500/10 group-hover:to-violet-500/10 rounded-2xl lg:rounded-3xl transition-all duration-700"></div>
+				<!-- Vast Question Bank -->
+				<div class="group relative bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 p-8 lg:p-10 rounded-3xl border border-purple-200/50 dark:border-purple-700/50 transition-all duration-700 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 overflow-hidden">
+					<div class="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-violet-500/0 group-hover:from-purple-500/10 group-hover:to-violet-500/10 rounded-3xl transition-all duration-700"></div>
 					<div class="absolute -top-10 -right-10 w-20 h-20 bg-purple-400/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
 					
 					<div class="relative z-10">
-						<div class="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl lg:rounded-2xl flex items-center justify-center mb-4 lg:mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 shadow-xl shadow-purple-500/30">
-							<svg class="w-6 h-6 lg:w-8 lg:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 shadow-xl shadow-purple-500/30">
+							<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
 							</svg>
 						</div>
-						<h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white mb-3 lg:mb-6 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-500">{$t('vastQuestionBank')}</h3>
-						<p class="text-slate-600 dark:text-slate-300 leading-relaxed text-base lg:text-lg">
+						<h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white mb-4 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-500">
+							{$t('vastQuestionBank')}
+						</h3>
+						<p class="text-slate-600 dark:text-slate-300 leading-relaxed text-base lg:text-lg mb-6">
 							{$t('vastQuestionBankDesc')}
 						</p>
-						<div class="mt-4 lg:mt-6 inline-flex items-center text-purple-600 dark:text-purple-400 font-semibold group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors duration-300">
+						<div class="inline-flex items-center text-purple-600 dark:text-purple-400 font-semibold group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors duration-300">
 							{$t('learnMore')} 
 							<svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -511,29 +533,39 @@
 				</div>
 			</div>
 
-			<!-- Enhanced additional feature highlights -->
-			<div class="mt-12 lg:mt-20 grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
-				<div class="group flex items-start space-x-4 lg:space-x-6 p-6 lg:p-8 bg-gradient-to-r from-slate-50 to-blue-50/70 dark:from-slate-800 dark:to-blue-900/30 rounded-xl lg:rounded-2xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-105 transition-all duration-500">
-					<div class="flex-shrink-0 w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl lg:rounded-2xl flex items-center justify-center mb-4 lg:mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg">
-						<svg class="w-6 h-6 lg:w-7 lg:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+			<!-- Additional Features -->
+			<div class="mt-16 lg:mt-20 grid grid-cols-1 md:grid-cols-2 gap-8">
+				<!-- Marketplace -->
+				<div class="group flex items-start space-x-6 p-8 bg-gradient-to-r from-slate-50 to-blue-50/70 dark:from-slate-800 dark:to-blue-900/30 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-105 transition-all duration-500">
+					<div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg">
+						<svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
 						</svg>
 					</div>
 					<div>
-						<h4 class="text-lg lg:text-xl font-bold text-slate-900 dark:text-white mb-2 lg:mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">{$t('instantFeedback')}</h4>
-						<p class="text-slate-600 dark:text-slate-300 text-base lg:text-lg leading-relaxed">{$t('instantFeedbackDesc')}</p>
+						<h4 class="text-xl font-bold text-slate-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
+							Marketplace
+						</h4>
+						<p class="text-slate-600 dark:text-slate-300 text-lg leading-relaxed">
+							Sell and buy high quality educational content
+						</p>
 					</div>
 				</div>
 				
-				<div class="group flex items-start space-x-4 lg:space-x-6 p-6 lg:p-8 bg-gradient-to-r from-slate-50 to-purple-50/70 dark:from-slate-800 dark:to-purple-900/30 rounded-xl lg:rounded-2xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-105 transition-all duration-500">
-					<div class="flex-shrink-0 w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl lg:rounded-2xl flex items-center justify-center mb-4 lg:mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg">
-						<svg class="w-6 h-6 lg:w-7 lg:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+				<!-- Flashcards -->
+				<div class="group flex items-start space-x-6 p-8 bg-gradient-to-r from-slate-50 to-purple-50/70 dark:from-slate-800 dark:to-purple-900/30 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-105 transition-all duration-500">
+					<div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg">
+						<svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
 						</svg>
 					</div>
 					<div>
-						<h4 class="text-lg lg:text-xl font-bold text-slate-900 dark:text-white mb-2 lg:mb-3 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">{$t('adaptiveDifficulty')}</h4>
-						<p class="text-slate-600 dark:text-slate-300 text-base lg:text-lg leading-relaxed">{$t('adaptiveDifficultyDesc')}</p>
+						<h4 class="text-xl font-bold text-slate-900 dark:text-white mb-3 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">
+							Flashcards Generation
+						</h4>
+						<p class="text-slate-600 dark:text-slate-300 text-lg leading-relaxed">
+							Generate flashcards, exportable to Anki
+						</p>
 					</div>
 				</div>
 			</div>
@@ -541,76 +573,122 @@
 	</section>
 
 	<!-- User Types Section -->
-	<section class="py-12 md:py-24 lg:py-32 bg-white dark:bg-gray-950">
+	<section class="py-20 lg:py-24 bg-gradient-to-br from-slate-50 to-purple-50/30 dark:from-slate-900 dark:to-slate-800">
 		<div class="container px-4 md:px-6 max-w-7xl mx-auto">
-			<div class="flex flex-col items-center justify-center space-y-4 text-center">
-				<div class="space-y-2">
-					<div class="inline-block rounded-lg bg-purple-100 px-3 py-1 text-sm dark:bg-purple-800/20 text-purple-700 dark:text-purple-300">
-						สำหรับทุกคน
-					</div>
-					<h2 class="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-slate-900 dark:text-white">Examtie เหมาะกับใคร?</h2>
-					<p class="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
-						แพลตฟอร์มของเราออกแบบมาเพื่อตอบโจทย์ความต้องการของทุกคน
-					</p>
+			<div class="text-center mb-16">
+				<div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-sm rounded-full border border-purple-400/30 mb-6">
+					<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+					</svg>
+					<span class="text-sm font-medium text-purple-700 dark:text-purple-300">สำหรับทุกคน</span>
 				</div>
+				<h2 class="text-3xl lg:text-4xl xl:text-5xl font-bold text-slate-900 dark:text-white mb-6">
+					Examtie 
+					<span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+						เหมาะกับใคร?
+					</span>
+				</h2>
+				<p class="text-lg lg:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+					แพลตฟอร์มของเราออกแบบมาเพื่อตอบโจทย์ความต้องการของทุกคน
+				</p>
 			</div>
-			<div class="mt-8 max-w-4xl mx-auto">
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-					<button class="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors">
-						นักเรียน
+			
+			<div class="max-w-5xl mx-auto">
+				<!-- User Type Tabs -->
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+					<button class="group px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-semibold hover:from-purple-500 hover:to-blue-500 transition-all duration-300 transform hover:scale-105 shadow-lg">
+						<div class="flex items-center justify-center gap-2">
+							<span class="text-2xl">👨‍🎓</span>
+							<span>นักเรียน</span>
+						</div>
 					</button>
-					<button class="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition-colors dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">
-						ครูและอาจารย์
+					<button class="group px-6 py-4 bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-semibold hover:bg-purple-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-600">
+						<div class="flex items-center justify-center gap-2">
+							<span class="text-2xl">👩‍🏫</span>
+							<span>ครูและอาจารย์</span>
+						</div>
 					</button>
-					<button class="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition-colors dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">
-						สถาบันการศึกษา
+					<button class="group px-6 py-4 bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-semibold hover:bg-purple-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-600">
+						<div class="flex items-center justify-center gap-2">
+							<span class="text-2xl">🏫</span>
+							<span>สถาบันการศึกษา</span>
+						</div>
 					</button>
 				</div>
-				<div class="p-6 border rounded-lg mt-6 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-					<div class="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
-						<div class="space-y-4">
-							<h3 class="text-2xl font-bold text-slate-900 dark:text-white">สำหรับนักเรียนและผู้เรียน</h3>
-							<ul class="space-y-2">
-								<li class="flex items-center gap-2">
-									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
-										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+				
+				<!-- User Type Content -->
+				<div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-8 lg:p-12 shadow-xl">
+					<div class="grid gap-8 lg:grid-cols-2 lg:gap-12 items-center">
+						<div class="space-y-6">
+							<div>
+								<h3 class="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white mb-4">
+									สำหรับ
+									<span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+										นักเรียนและผู้เรียน
+									</span>
+								</h3>
+								<p class="text-slate-600 dark:text-slate-400 text-lg">
+									พัฒนาทักษะการเรียนรู้ด้วยเครื่องมือที่ทันสมัยและมีประสิทธิภาพ
+								</p>
+							</div>
+							
+							<ul class="space-y-4">
+								<li class="flex items-start gap-3">
+									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
+										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
 										</svg>
 									</div>
-									<span class="text-slate-700 dark:text-slate-300">เข้าถึงข้อสอบคุณภาพสูงจากหลากหลายวิชา</span>
+									<span class="text-slate-700 dark:text-slate-300 text-lg">เข้าถึงข้อสอบคุณภาพสูงจากหลากหลายวิชา</span>
 								</li>
-								<li class="flex items-center gap-2">
-									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
-										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+								<li class="flex items-start gap-3">
+									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
+										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
 										</svg>
 									</div>
-									<span class="text-slate-700 dark:text-slate-300">สร้างแฟลชการ์ดเพื่อทบทวนบทเรียน</span>
+									<span class="text-slate-700 dark:text-slate-300 text-lg">สร้างแฟลชการ์ดเพื่อทบทวนบทเรียน</span>
 								</li>
-								<li class="flex items-center gap-2">
-									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
-										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+								<li class="flex items-start gap-3">
+									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
+										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
 										</svg>
 									</div>
-									<span class="text-slate-700 dark:text-slate-300">รับการวิเคราะห์จุดแข็งและจุดอ่อนด้วย AI</span>
+									<span class="text-slate-700 dark:text-slate-300 text-lg">รับการวิเคราะห์จุดแข็งและจุดอ่อนด้วย AI</span>
 								</li>
-								<li class="flex items-center gap-2">
-									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
-										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+								<li class="flex items-start gap-3">
+									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
+										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
 										</svg>
 									</div>
-									<span class="text-slate-700 dark:text-slate-300">ฝึกฝนกับข้อสอบเสมือนจริง</span>
+									<span class="text-slate-700 dark:text-slate-300 text-lg">ฝึกฝนกับข้อสอบเสมือนจริง</span>
 								</li>
 							</ul>
-							<button class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors mt-4">
-								เริ่มต้นเรียนรู้
+							
+							<button class="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105">
+								<span class="flex items-center justify-center gap-2">
+									<svg class="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+									</svg>
+									เริ่มต้นเรียนรู้
+								</span>
 							</button>
 						</div>
-						<div class="mx-auto w-full max-w-[400px] lg:max-w-none">
-							<div class="aspect-square overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/20 dark:to-blue-900/20 flex items-center justify-center">
-								<div class="text-6xl">👨‍🎓</div>
+						
+						<div class="flex justify-center">
+							<div class="relative">
+								<div class="w-80 h-80 bg-gradient-to-br from-purple-100 via-blue-100 to-indigo-100 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-3xl flex items-center justify-center shadow-2xl">
+									<div class="text-8xl animate-bounce">👨‍🎓</div>
+								</div>
+								<!-- Floating elements -->
+								<div class="absolute -top-4 -right-4 w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center animate-float-gentle">
+									<span class="text-white text-xl">📚</span>
+								</div>
+								<div class="absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center animate-float-gentle" style="animation-delay: 1s">
+									<span class="text-white text-xl">�</span>
+								</div>
 							</div>
 						</div>
 					</div>
