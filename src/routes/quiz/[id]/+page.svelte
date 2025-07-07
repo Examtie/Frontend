@@ -193,13 +193,18 @@
             // Initialize user answers
             userAnswers = new Map();
             
+            // --- FIXED RESUME LOGIC ---
             // Try to load saved progress first
             try {
-                const progressResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/progress`);
+                // 1. Fetch all exams that are in progress
+                const inProgressExams = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/in-progress`);
                 
-                if (progressResponse.has_progress && progressResponse.answers) {
-                    // Load saved answers
-                    progressResponse.answers.forEach((savedAnswer: any) => {
+                // 2. Find the progress data for the current exam
+                const progressForThisExam = inProgressExams.find((p: any) => p.exam_id === examId);
+
+                // 3. If progress exists, populate the answers map
+                if (progressForThisExam && progressForThisExam.answers) {
+                    progressForThisExam.answers.forEach((savedAnswer: any) => {
                         if (savedAnswer.question_id && savedAnswer.answer) {
                             userAnswers.set(savedAnswer.question_id, {
                                 question_id: savedAnswer.question_id,
@@ -208,13 +213,14 @@
                         }
                     });
                     
-                    // Show a notification that progress was loaded
-                    if (progressResponse.answered_count > 0) {
-                        toastStore.info(`Restored ${progressResponse.answered_count} saved answers`);
+                    const restoredCount = progressForThisExam.answered_count || progressForThisExam.answers.length;
+                    if (restoredCount > 0) {
+                        toastStore.info(`Restored ${restoredCount} saved answers`);
                     }
                 }
             } catch (err) {
-                console.warn('Failed to load saved progress:', err);
+                console.warn('Could not load saved progress:', err);
+                // Don't throw an error, just continue without saved data.
             }
             
             // Initialize answers for questions that don't have saved answers
@@ -385,7 +391,7 @@
         }
         
         // Scroll to the question (for multi-question view)
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !isMobile) {
             setTimeout(() => {
                 const questionElement = document.querySelector(`[data-question-index="${index}"]`);
                 if (questionElement) {
@@ -1146,6 +1152,18 @@
                                             Saved
                                         </div>
                                     {/if}
+                                    
+                                    <!-- Manual Save Button -->
+                                    <button
+                                        on:click={manualSave}
+                                        class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-200 transition-all duration-200 flex items-center gap-1"
+                                        title="Save progress manually"
+                                    >
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                                        </svg>
+                                        Save
+                                    </button>
                                     
                                     <!-- Timer -->
                                     <div class="text-xs px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg font-mono border border-blue-200 flex items-center gap-1">

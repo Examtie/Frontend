@@ -24,6 +24,58 @@
 		]
 	};
 
+	// Exam types data - Thai educational system
+	const examTypes = [
+		{ name: "A-Level", thaiName: "เอเลเวล", icon: "🎓", color: "purple" },
+		{ name: "O-NET", thaiName: "โอเน็ต", icon: "📄", color: "blue" },
+		{ name: "POSN", thaiName: "สอวน.", icon: "🧠", color: "green" },
+		{ name: "GAT/PAT", thaiName: "แกต/แพต", icon: "📊", color: "orange" },
+		{ name: "9 วิชาสามัญ", thaiName: "9 วิชาสามัญ", icon: "📚", color: "red" },
+		{ name: "TCAS", thaiName: "ทีแคส", icon: "✏️", color: "yellow" },
+		{ name: "มัธยมศึกษา", thaiName: "ม.1-6", icon: "🧪", color: "pink" },
+		{ name: "อื่นๆ", thaiName: "ข้อสอบอื่นๆ", icon: "✨", color: "indigo" }
+	];
+
+	// Features data
+	const features = [
+		{
+			icon: "📄",
+			title: "Exam Creation",
+			thaiTitle: "สร้างข้อสอบ",
+			description: "สร้าง แก้ไข จัดหมวดหมู่ และเผยแพร่ข้อสอบได้อย่างง่ายดาย"
+		},
+		{
+			icon: "📊",
+			title: "Test Management",
+			thaiTitle: "จัดการการสอบ",
+			description: "บริหารจัดการการสอบออนไลน์ได้อย่างมีประสิทธิภาพ"
+		},
+		{
+			icon: "🛒",
+			title: "Marketplace",
+			thaiTitle: "มาร์เก็ตเพลส",
+			description: "ซื้อขายเนื้อหาการสอบที่มีคุณภาพสูง"
+		},
+		{
+			icon: "📚",
+			title: "Flashcards",
+			thaiTitle: "แฟลชการ์ด",
+			description: "สร้างแฟลชการ์ดเพื่อทบทวนบทเรียนได้อย่างมีประสิทธิภาพ"
+		},
+		{
+			icon: "🧠",
+			title: "AI Question Generator",
+			thaiTitle: "AI สร้างคำถาม",
+			description: "ใช้ AI สร้างคำถามตามหัวข้อที่คุณสนใจ"
+		},
+		{
+			icon: "✨",
+			title: "Performance Analysis",
+			thaiTitle: "วิเคราะห์ผลการเรียน",
+			description: "วิเคราะห์จุดแข็งและจุดอ่อนหลังการสอบ"
+		}
+	];
+
 	// Academic subject buttons data - simplified names
 	const subjects = [
 		{ name: "📊 Mathematics", color: "text-blue-300" },
@@ -202,104 +254,58 @@
 				<div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
 					<!-- Left Content -->
 					<div class="space-y-4 sm:space-y-6 lg:space-y-8 text-center lg:text-left order-2 lg:order-1">
-						<!-- Status Badge -->
-						<div class="animate-fade-in-up">
-							<div class="flex flex-wrap gap-2 items-center justify-center lg:justify-start">
-								<div class="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-emerald-500/20 to-green-400/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm font-medium">
-									<div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-									{$t('heroStatusBadge')}
-								</div>
-								<div class="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-sm border border-blue-400/30 text-blue-300 text-xs sm:text-sm font-medium">
-									<svg class="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
-									</svg>
-									Open Source
-								</div>
-								<div class="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-400/20 backdrop-blur-sm border border-amber-400/30 text-amber-300 text-xs sm:text-sm font-medium">
-									<div class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
-									{$t('freeForever')}
-								</div>
+						<!-- Badge -->
+						<div class="animate-fade-in-up delay-100">
+							<div class="inline-block rounded-lg bg-purple-100 px-3 py-1 text-sm dark:bg-purple-800/20 text-purple-700 dark:text-purple-300">
+								เรียนรู้ได้ทุกที่ ทุกเวลา
 							</div>
 						</div>
 
-						<!-- Main Heading with cleaner design -->
+						<!-- Main Heading -->
 						<div class="animate-fade-in-up delay-200">
-							<h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight tracking-tight">
-								{$t('revolutionize')}
-								<span class="block mt-2 sm:mt-3 text-emerald-400">
-									{$t('studyMethod')}
-								</span>
-								<span class="block mt-2 sm:mt-3 text-white">with {$t('examTie')}</span>
+							<h1 class="text-5xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight tracking-tight">
+								Examtie
 							</h1>
-							<p class="mt-4 sm:mt-6 lg:mt-8 text-base sm:text-lg lg:text-xl text-slate-300 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-								{$t('builtByDevelopers')} • {$t('powerfulAI')} • {$t('freeForever')}
-							</p>
-							<p class="mt-3 sm:mt-4 lg:mt-6 text-sm sm:text-base lg:text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-								{$t('transformStudy')}
+							<h2 class="text-3xl sm:text-4xl font-bold tracking-tighter text-purple-300 mt-4">
+								แพลตฟอร์มการเรียนรู้ออนไลน์
+							</h2>
+							<p class="mt-4 sm:mt-6 text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto lg:mx-0">
+								เข้าถึงข้อสอบคุณภาพสูง สร้างแฟลชการ์ด และเรียนรู้ด้วย AI ที่ช่วยวิเคราะห์จุดแข็งและจุดอ่อนของคุณ
 							</p>
 						</div>
 
-						<!-- Key Features with mobile-friendly layout -->
+						<!-- CTA Buttons -->
 						<div class="animate-fade-in-up delay-300">
+							<div class="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-center lg:justify-start">
+								<button class="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-semibold rounded-xl shadow-xl hover:shadow-purple-500/25 transition-all duration-300">
+									เริ่มต้นใช้งานฟรี
+								</button>
+								<button class="px-6 sm:px-8 py-3 sm:py-4 bg-white/10 backdrop-blur-sm border border-white/30 hover:bg-white/20 hover:border-white/50 text-white font-semibold rounded-xl transition-all duration-300">
+									ดูวิดีโอแนะนำ
+								</button>
+							</div>
+						</div>
+
+						<!-- Key Features -->
+						<div class="animate-fade-in-up delay-400">
 							<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4 justify-center">
 								<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-emerald-500/20 to-green-400/20 backdrop-blur-sm rounded-full border border-emerald-400/30">
 									<svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
 									</svg>
-									<span class="text-xs sm:text-sm font-medium text-emerald-300 whitespace-nowrap">{$t('aiPowered')}</span>
+									<span class="text-xs sm:text-sm font-medium text-emerald-300 whitespace-nowrap">AI ขั้นสูง</span>
 								</div>
 								<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-blue-500/20 to-cyan-400/20 backdrop-blur-sm rounded-full border border-blue-400/30">
 									<svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
 									</svg>
-									<span class="text-xs sm:text-sm font-medium text-blue-300 whitespace-nowrap">{$t('progressTrackingShort')}</span>
+									<span class="text-xs sm:text-sm font-medium text-blue-300 whitespace-nowrap">ติดตามผลงาน</span>
 								</div>
 								<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-purple-500/20 to-pink-400/20 backdrop-blur-sm rounded-full border border-purple-400/30 sm:col-span-2 lg:col-span-1">
 									<svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
 									</svg>
-									<span class="text-xs sm:text-sm font-medium text-purple-300 whitespace-nowrap">{$t('fiveKQuestions')}</span>
-								</div>
-							</div>
-						</div>
-
-						<!-- CTA Buttons -->
-						<div class="animate-fade-in-up delay-500">
-							<div class="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-center lg:justify-start">
-								<button class="px-4 sm:px-6 py-2.5 sm:py-3 lg:px-8 lg:py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-semibold rounded-xl shadow-xl hover:shadow-emerald-500/25 transition-colors duration-300">
-									<div class="flex items-center justify-center gap-2 lg:gap-3">
-										<svg class="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-										</svg>
-										<span class="text-sm sm:text-base">{$t('startLearningNow')}</span>
-									</div>
-								</button>
-								
-								<button class="px-4 sm:px-6 py-2.5 sm:py-3 lg:px-8 lg:py-4 bg-white/10 backdrop-blur-sm border border-white/30 hover:bg-white/20 hover:border-white/50 text-white font-semibold rounded-xl transition-colors duration-300">
-									<div class="flex items-center justify-center gap-2 lg:gap-3">
-										<svg class="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-										</svg>
-										<span class="text-sm sm:text-base">{$t('tryDemo')}</span>
-									</div>
-								</button>
-							</div>
-						</div>
-
-						<!-- Stats -->
-						<div class="animate-fade-in-up delay-700">
-							<div class="grid grid-cols-3 gap-3 sm:gap-4 lg:gap-6 max-w-sm sm:max-w-md mx-auto lg:mx-0 pt-4 sm:pt-6 lg:pt-8">
-								<div class="text-center lg:text-left">
-									<div class="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-white mb-1">50K+</div>
-									<div class="text-xs lg:text-sm text-slate-400">{$t('questions')}</div>
-								</div>
-								<div class="text-center lg:text-left">
-									<div class="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-white mb-1">95%</div>
-									<div class="text-xs lg:text-sm text-slate-400">{$t('successRate')}</div>
-								</div>
-								<div class="text-center lg:text-left">
-									<div class="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-white mb-1">Free</div>
-									<div class="text-xs lg:text-sm text-slate-400">Forever</div>
+									<span class="text-xs sm:text-sm font-medium text-purple-300 whitespace-nowrap">ข้อสอบหลากหลาย</span>
 								</div>
 							</div>
 						</div>
@@ -322,10 +328,10 @@
 							<div class="absolute -top-6 -left-8 animate-float-gentle">
 								<div class="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl border border-white/50">
 									<div class="flex items-center gap-2">
-										<span class="text-2xl">📊</span>
+										<span class="text-2xl">🎓</span>
 										<div class="hidden sm:block">
-											<div class="text-sm font-semibold text-slate-800">{$t('mathSubject')}</div>
-											<div class="text-xs text-slate-600">2,847 {$t('questionsCount')}</div>
+											<div class="text-sm font-semibold text-slate-800">A-Level</div>
+											<div class="text-xs text-slate-600">2,847 ข้อสอบ</div>
 										</div>
 									</div>
 								</div>
@@ -334,10 +340,10 @@
 							<div class="absolute -top-4 -right-12 animate-float-gentle" style="animation-delay: 0.7s">
 								<div class="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl border border-white/50">
 									<div class="flex items-center gap-2">
-										<span class="text-2xl">⚗️</span>
+										<span class="text-2xl">📄</span>
 										<div class="hidden sm:block">
-											<div class="text-sm font-semibold text-slate-800">{$t('chemSubject')}</div>
-											<div class="text-xs text-slate-600">1,923 {$t('questionsCount')}</div>
+											<div class="text-sm font-semibold text-slate-800">O-NET</div>
+											<div class="text-xs text-slate-600">1,923 ข้อสอบ</div>
 										</div>
 									</div>
 								</div>
@@ -346,10 +352,10 @@
 							<div class="absolute -bottom-8 -left-6 animate-float-gentle" style="animation-delay: 1.3s">
 								<div class="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl border border-white/50">
 									<div class="flex items-center gap-2">
-										<span class="text-2xl">🚀</span>
+										<span class="text-2xl">🧠</span>
 										<div class="hidden sm:block">
-											<div class="text-sm font-semibold text-slate-800">{$t('physSubject')}</div>
-											<div class="text-xs text-slate-600">3,156 {$t('questionsCount')}</div>
+											<div class="text-sm font-semibold text-slate-800">POSN</div>
+											<div class="text-xs text-slate-600">3,156 ข้อสอบ</div>
 										</div>
 									</div>
 								</div>
@@ -358,10 +364,10 @@
 							<div class="absolute -bottom-6 -right-8 animate-float-gentle" style="animation-delay: 0.4s">
 								<div class="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl border border-white/50">
 									<div class="flex items-center gap-2">
-										<span class="text-2xl">💻</span>
+										<span class="text-2xl">�</span>
 										<div class="hidden sm:block">
-											<div class="text-sm font-semibold text-slate-800">{$t('compSciSubject')}</div>
-											<div class="text-xs text-slate-600">2,234 {$t('questionsCount')}</div>
+											<div class="text-sm font-semibold text-slate-800">9 วิชาสามัญ</div>
+											<div class="text-xs text-slate-600">2,234 ข้อสอบ</div>
 										</div>
 									</div>
 								</div>
@@ -373,39 +379,36 @@
 		</div>
 	</section>
 
-	<!-- Quiz Demo Section placed below hero -->
-	<section class="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-		<div class="max-w-7xl mx-auto">
-			<div class="text-center mb-12 sm:mb-16">
-				<div class="inline-flex items-center px-3 sm:px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mb-4 sm:mb-6">
-					<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-					</svg>
-					{$t('interactiveDemo')}
+	<!-- Exam Types Section -->
+	<section class="py-12 md:py-24 lg:py-32 bg-white dark:bg-gray-950">
+		<div class="container px-4 md:px-6 max-w-7xl mx-auto">
+			<div class="flex flex-col items-center justify-center space-y-4 text-center">
+				<div class="space-y-2">
+					<div class="inline-block rounded-lg bg-purple-100 px-3 py-1 text-sm dark:bg-purple-800/20 text-purple-700 dark:text-purple-300">
+						ข้อสอบหลากหลาย
+					</div>
+					<h2 class="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-slate-900 dark:text-white">เลือกข้อสอบที่คุณต้องการ</h2>
+					<p class="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+						Examtie มีข้อสอบหลากหลายประเภทให้คุณได้ฝึกฝนและพัฒนาทักษะการเรียนรู้
+					</p>
 				</div>
-				<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6">
-					{$t('experienceOur')} 
-					<span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-						{$t('quizPlatform')}
-					</span>
-				</h2>
-				<p class="text-lg sm:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
-					{$t('quizDemoDescription')}
-				</p>
 			</div>
-
-			<!-- Mobile-first quiz demo with touch interactions -->
-			<div class="relative">
-				<!-- Background decoration -->
-				<div class="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 rounded-2xl sm:rounded-3xl blur-3xl"></div>
-				
-				<div class="relative max-w-4xl mx-auto">
-					<QuizDemo />
-				</div>
-				
-				<!-- Interactive floating elements optimized for mobile -->
-				<div class="absolute -top-4 sm:-top-8 -left-4 sm:-left-8 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full opacity-20 animate-pulse"></div>
-				<div class="absolute -bottom-6 sm:-bottom-12 -right-6 sm:-right-12 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full opacity-15 animate-pulse delay-1000"></div>
+			<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
+				{#each examTypes as exam}
+					<div class="overflow-hidden transition-all hover:shadow-md bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+						<div class="p-0">
+							<button class="w-full h-full flex flex-col items-center justify-center gap-2 p-6 rounded-none hover:bg-{exam.color}-50 dark:hover:bg-{exam.color}-950/10 transition-colors">
+								<div class="rounded-full bg-{exam.color}-100 p-2 text-{exam.color}-600 dark:bg-{exam.color}-800/20 dark:text-{exam.color}-400">
+									<span class="text-2xl">{exam.icon}</span>
+								</div>
+								<div class="text-center">
+									<div class="font-medium text-slate-900 dark:text-white">{exam.name}</div>
+									<div class="text-sm text-gray-500 dark:text-gray-400">{exam.thaiName}</div>
+								</div>
+							</button>
+						</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</section>
@@ -537,83 +540,87 @@
 		</div>
 	</section>
 
-
-	<!-- Stats Section -->
-	<section bind:this={statsSection} class="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-indigo-900 via-purple-800 to-purple-900 relative overflow-hidden">
-		<!-- Animated background elements -->
-		<div class="absolute inset-0">
-			<div class="absolute top-10 right-1/4 w-32 h-32 bg-white/5 rounded-full animate-pulse"></div>
-			<div class="absolute bottom-20 left-1/3 w-20 h-20 bg-blue-400/10 rounded-full animate-bounce delay-300"></div>
-			<div class="absolute top-1/2 right-12 w-16 h-16 bg-purple-400/10 rounded-full animate-ping delay-700"></div>
-		</div>
-		
-		<div class="max-w-7xl mx-auto relative">
-			<div class="text-center mb-12 lg:mb-20">
-				<div class="inline-flex items-center px-3 py-2 lg:px-4 lg:py-2 bg-white/10 backdrop-blur-sm text-white/90 rounded-full text-xs lg:text-sm font-medium mb-4 lg:mb-6">
-					<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-					</svg>
-					{$t('ourImpact')}
-				</div>
-				<h2 class="text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-4 lg:mb-6">
-					{$t('trustedBy')} 
-					<span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
-						{$t('worldwide')}
-					</span>
-				</h2>
-				<p class="text-lg lg:text-xl text-rose-200/90 max-w-3xl mx-auto leading-relaxed">
-					{$t('joinThousands')}
-				</p>
-			</div>
-
-			<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
-				<div class="text-center group">
-					<div class="bg-white/10 backdrop-blur-sm rounded-xl lg:rounded-2xl p-4 lg:p-8 border border-white/20 group-hover:bg-white/15 group-hover:scale-105 transition-all duration-500">
-						<div class="stat-number text-2xl lg:text-4xl xl:text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-300">0</div>
-						<div class="text-rose-200/80 text-sm lg:text-lg font-medium">{$t('problems')}</div>
-						<div class="w-12 lg:w-16 h-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full mx-auto mt-2 lg:mt-4"></div>
+	<!-- User Types Section -->
+	<section class="py-12 md:py-24 lg:py-32 bg-white dark:bg-gray-950">
+		<div class="container px-4 md:px-6 max-w-7xl mx-auto">
+			<div class="flex flex-col items-center justify-center space-y-4 text-center">
+				<div class="space-y-2">
+					<div class="inline-block rounded-lg bg-purple-100 px-3 py-1 text-sm dark:bg-purple-800/20 text-purple-700 dark:text-purple-300">
+						สำหรับทุกคน
 					</div>
-				</div>
-				<div class="text-center group">
-					<div class="bg-white/10 backdrop-blur-sm rounded-xl lg:rounded-2xl p-4 lg:p-8 border border-white/20 group-hover:bg-white/15 group-hover:scale-105 transition-all duration-500">
-						<div class="stat-number text-2xl lg:text-4xl xl:text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-300">0</div>
-						<div class="text-rose-200/80 text-sm lg:text-lg font-medium">{$t('activeStudents')}</div>
-						<div class="w-12 lg:w-16 h-1 bg-gradient-to-r from-green-400 to-blue-400 rounded-full mx-auto mt-2 lg:mt-4"></div>
-					</div>
-				</div>
-				<div class="text-center group">
-					<div class="bg-white/10 backdrop-blur-sm rounded-xl lg:rounded-2xl p-4 lg:p-8 border border-white/20 group-hover:bg-white/15 group-hover:scale-105 transition-all duration-500">
-						<div class="stat-number text-2xl lg:text-4xl xl:text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-300">0</div>
-						<div class="text-rose-200/80 text-sm lg:text-lg font-medium">{$t('questionsSolved')}</div>
-						<div class="w-12 lg:w-16 h-1 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full mx-auto mt-2 lg:mt-4"></div>
-					</div>
-				</div>
-				<div class="text-center group">
-					<div class="bg-white/10 backdrop-blur-sm rounded-xl lg:rounded-2xl p-4 lg:p-8 border border-white/20 group-hover:bg-white/15 group-hover:scale-105 transition-all duration-500">
-						<div class="stat-number text-2xl lg:text-4xl xl:text-5xl font-bold text-white mb-2 group-hover:scale-110 transition-transform duration-300">0</div>
-						<div class="text-rose-200/80 text-sm lg:text-lg font-medium">{$t('support')}</div>
-						<div class="w-12 lg:w-16 h-1 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full mx-auto mt-2 lg:mt-4"></div>
-					</div>
+					<h2 class="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-slate-900 dark:text-white">Examtie เหมาะกับใคร?</h2>
+					<p class="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+						แพลตฟอร์มของเราออกแบบมาเพื่อตอบโจทย์ความต้องการของทุกคน
+					</p>
 				</div>
 			</div>
-
-			<!-- Free & Open Source Badge -->
-			<div class="mt-8 lg:mt-12 text-center">
-				<div class="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-emerald-500/20 to-green-400/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-300 rounded-full font-medium">
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-					</svg>
-					<span class="text-sm lg:text-base">Always Free • Forever Open Source</span>
-					<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-						<path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
-					</svg>
+			<div class="mt-8 max-w-4xl mx-auto">
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+					<button class="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors">
+						นักเรียน
+					</button>
+					<button class="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition-colors dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">
+						ครูและอาจารย์
+					</button>
+					<button class="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition-colors dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">
+						สถาบันการศึกษา
+					</button>
+				</div>
+				<div class="p-6 border rounded-lg mt-6 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+					<div class="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
+						<div class="space-y-4">
+							<h3 class="text-2xl font-bold text-slate-900 dark:text-white">สำหรับนักเรียนและผู้เรียน</h3>
+							<ul class="space-y-2">
+								<li class="flex items-center gap-2">
+									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
+										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+										</svg>
+									</div>
+									<span class="text-slate-700 dark:text-slate-300">เข้าถึงข้อสอบคุณภาพสูงจากหลากหลายวิชา</span>
+								</li>
+								<li class="flex items-center gap-2">
+									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
+										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+										</svg>
+									</div>
+									<span class="text-slate-700 dark:text-slate-300">สร้างแฟลชการ์ดเพื่อทบทวนบทเรียน</span>
+								</li>
+								<li class="flex items-center gap-2">
+									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
+										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+										</svg>
+									</div>
+									<span class="text-slate-700 dark:text-slate-300">รับการวิเคราะห์จุดแข็งและจุดอ่อนด้วย AI</span>
+								</li>
+								<li class="flex items-center gap-2">
+									<div class="rounded-full bg-green-100 p-1 text-green-600 dark:bg-green-800/20 dark:text-green-400">
+										<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+										</svg>
+									</div>
+									<span class="text-slate-700 dark:text-slate-300">ฝึกฝนกับข้อสอบเสมือนจริง</span>
+								</li>
+							</ul>
+							<button class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors mt-4">
+								เริ่มต้นเรียนรู้
+							</button>
+						</div>
+						<div class="mx-auto w-full max-w-[400px] lg:max-w-none">
+							<div class="aspect-square overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/20 dark:to-blue-900/20 flex items-center justify-center">
+								<div class="text-6xl">👨‍🎓</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
 	</section>
 
 	<!-- Call to Action Section -->
-	<section class="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-green-900 via-blue-900 to-indigo-800 relative overflow-hidden">
+	<section class="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-violet-900 via-blue-900 to-indigo-800 relative overflow-hidden">
 		<!-- Background decorations -->
 		<div class="absolute inset-0">
 			<div class="absolute top-20 left-10 w-24 h-24 bg-white/10 rounded-full animate-pulse"></div>
