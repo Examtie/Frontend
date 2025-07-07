@@ -109,6 +109,61 @@
 			}
 		}
 	}
+
+	// User types tab functionality
+	let activeUserType: 'student' | 'teacher' | 'institution' = 'student';
+	const userTypes: Record<'student' | 'teacher' | 'institution', {
+		emoji: string;
+		title: string;
+		heading: string;
+		description: string;
+		features: string[];
+		buttonText: string;
+	}> = {
+		student: {
+			emoji: '👨‍🎓',
+			title: 'นักเรียน',
+			heading: 'สำหรับนักเรียนและผู้เรียน',
+			description: 'พัฒนาทักษะการเรียนรู้ด้วยเครื่องมือที่ทันสมัยและมีประสิทธิภาพ',
+			features: [
+				'เข้าถึงข้อสอบคุณภาพสูงจากหลากหลายวิชา',
+				'สร้างแฟลชการ์ดเพื่อทบทวนบทเรียน',
+				'รับการวิเคราะห์จุดแข็งและจุดอ่อนด้วย AI',
+				'ฝึกฝนกับข้อสอบเสมือนจริง'
+			],
+			buttonText: 'เริ่มต้นเรียนรู้'
+		},
+		teacher: {
+			emoji: '👩‍🏫',
+			title: 'ครูและอาจารย์',
+			heading: 'สำหรับครูและอาจารย์',
+			description: 'เครื่องมือที่ทรงพลังสำหรับการจัดการเรียนการสอนยุคใหม่',
+			features: [
+				'สร้างและจัดการข้อสอบออนไลน์ได้อย่างง่ายดาย',
+				'ติดตามความก้าวหน้าของนักเรียนแบบเรียลไทม์',
+				'ใช้ AI ช่วยสร้างข้อสอบที่หลากหลาย',
+				'วิเคราะห์ผลการเรียนและสร้างรายงาน'
+			],
+			buttonText: 'เริ่มสอนวันนี้'
+		},
+		institution: {
+			emoji: '🏫',
+			title: 'สถาบันการศึกษา',
+			heading: 'สำหรับสถาบันการศึกษา',
+			description: 'โซลูชันครบวงจรสำหรับการจัดการการศึกษาระดับองค์กร',
+			features: [
+				'ระบบจัดการข้อสอบระดับสถาบัน',
+				'รายงานและวิเคราะห์ข้อมูลเชิงลึก',
+				'การรวมระบบกับ LMS ที่มีอยู่',
+				'การสนับสนุนและบริการเฉพาะองค์กร'
+			],
+			buttonText: 'ปรึกษาโซลูชัน'
+		}
+	};
+
+	function setActiveUserType(type: 'student' | 'teacher' | 'institution') {
+		activeUserType = type;
+	}
 	
 	// Particle system for excitement
 	const particles = Array.from({ length: 50 }, (_, i) => ({
@@ -142,25 +197,11 @@
 
 	// Intersection Observer for animations
 	let heroSection: HTMLElement;
-	let statsSection: HTMLElement;
 	
 	function handleIntersection(entries: IntersectionObserverEntry[]) {
 		entries.forEach(entry => {
 			if (entry.isIntersecting) {
 				entry.target.classList.add('animate-in');
-				
-				// Animate stats numbers when they come into view
-				if (entry.target === statsSection) {
-					const statNumbers = entry.target.querySelectorAll('.stat-number');
-					statNumbers.forEach((el, index) => {
-						const htmlEl = el as HTMLElement;
-						const targets = [50000, 100000, 95, 24];
-						const suffixes = ['', '', '%', '/7'];
-						setTimeout(() => {
-							animateNumber(htmlEl, targets[index], suffixes[index]);
-						}, index * 200);
-					});
-				}
 			}
 		});
 	}
@@ -564,7 +605,7 @@
 							Flashcards Generation
 						</h4>
 						<p class="text-slate-600 dark:text-slate-300 text-lg leading-relaxed">
-							Generate flashcards, exportable to Anki
+							Generate flashcards, exportable to <a class="dark:text-blue-200 hover:underline" href="https://apps.ankiweb.net" target="_blank">Anki</a>
 						</p>
 					</div>
 				</div>
@@ -596,22 +637,64 @@
 			<div class="max-w-5xl mx-auto">
 				<!-- User Type Tabs -->
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-					<button class="group px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-semibold hover:from-purple-500 hover:to-blue-500 transition-all duration-300 transform hover:scale-105 shadow-lg">
+					<button 
+						class="group px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+						class:bg-gradient-to-r={activeUserType === 'student'}
+						class:from-purple-600={activeUserType === 'student'}
+						class:to-blue-600={activeUserType === 'student'}
+						class:text-white={activeUserType === 'student'}
+						class:bg-white={activeUserType !== 'student'}
+						class:dark:bg-slate-800={activeUserType !== 'student'}
+						class:text-slate-700={activeUserType !== 'student'}
+						class:dark:text-slate-300={activeUserType !== 'student'}
+						class:border={activeUserType !== 'student'}
+						class:border-slate-200={activeUserType !== 'student'}
+						class:dark:border-slate-700={activeUserType !== 'student'}
+						on:click={() => setActiveUserType('student')}
+					>
 						<div class="flex items-center justify-center gap-2">
-							<span class="text-2xl">👨‍🎓</span>
-							<span>นักเรียน</span>
+							<span class="text-2xl">{userTypes.student.emoji}</span>
+							<span>{userTypes.student.title}</span>
 						</div>
 					</button>
-					<button class="group px-6 py-4 bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-semibold hover:bg-purple-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-600">
+					<button 
+						class="group px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+						class:bg-gradient-to-r={activeUserType === 'teacher'}
+						class:from-purple-600={activeUserType === 'teacher'}
+						class:to-blue-600={activeUserType === 'teacher'}
+						class:text-white={activeUserType === 'teacher'}
+						class:bg-white={activeUserType !== 'teacher'}
+						class:dark:bg-slate-800={activeUserType !== 'teacher'}
+						class:text-slate-700={activeUserType !== 'teacher'}
+						class:dark:text-slate-300={activeUserType !== 'teacher'}
+						class:border={activeUserType !== 'teacher'}
+						class:border-slate-200={activeUserType !== 'teacher'}
+						class:dark:border-slate-700={activeUserType !== 'teacher'}
+						on:click={() => setActiveUserType('teacher')}
+					>
 						<div class="flex items-center justify-center gap-2">
-							<span class="text-2xl">👩‍🏫</span>
-							<span>ครูและอาจารย์</span>
+							<span class="text-2xl">{userTypes.teacher.emoji}</span>
+							<span>{userTypes.teacher.title}</span>
 						</div>
 					</button>
-					<button class="group px-6 py-4 bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-semibold hover:bg-purple-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all duration-300 hover:border-purple-300 dark:hover:border-purple-600">
+					<button 
+						class="group px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+						class:bg-gradient-to-r={activeUserType === 'institution'}
+						class:from-purple-600={activeUserType === 'institution'}
+						class:to-blue-600={activeUserType === 'institution'}
+						class:text-white={activeUserType === 'institution'}
+						class:bg-white={activeUserType !== 'institution'}
+						class:dark:bg-slate-800={activeUserType !== 'institution'}
+						class:text-slate-700={activeUserType !== 'institution'}
+						class:dark:text-slate-300={activeUserType !== 'institution'}
+						class:border={activeUserType !== 'institution'}
+						class:border-slate-200={activeUserType !== 'institution'}
+						class:dark:border-slate-700={activeUserType !== 'institution'}
+						on:click={() => setActiveUserType('institution')}
+					>
 						<div class="flex items-center justify-center gap-2">
-							<span class="text-2xl">🏫</span>
-							<span>สถาบันการศึกษา</span>
+							<span class="text-2xl">{userTypes.institution.emoji}</span>
+							<span>{userTypes.institution.title}</span>
 						</div>
 					</button>
 				</div>
@@ -622,49 +705,27 @@
 						<div class="space-y-6">
 							<div>
 								<h3 class="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white mb-4">
-									สำหรับ
-									<span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-										นักเรียนและผู้เรียน
+									{userTypes[activeUserType].heading}
+									<span class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent block">
+										{userTypes[activeUserType].title}
 									</span>
 								</h3>
 								<p class="text-slate-600 dark:text-slate-400 text-lg">
-									พัฒนาทักษะการเรียนรู้ด้วยเครื่องมือที่ทันสมัยและมีประสิทธิภาพ
+									{userTypes[activeUserType].description}
 								</p>
 							</div>
 							
 							<ul class="space-y-4">
-								<li class="flex items-start gap-3">
-									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
-										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-										</svg>
-									</div>
-									<span class="text-slate-700 dark:text-slate-300 text-lg">เข้าถึงข้อสอบคุณภาพสูงจากหลากหลายวิชา</span>
-								</li>
-								<li class="flex items-start gap-3">
-									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
-										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-										</svg>
-									</div>
-									<span class="text-slate-700 dark:text-slate-300 text-lg">สร้างแฟลชการ์ดเพื่อทบทวนบทเรียน</span>
-								</li>
-								<li class="flex items-start gap-3">
-									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
-										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-										</svg>
-									</div>
-									<span class="text-slate-700 dark:text-slate-300 text-lg">รับการวิเคราะห์จุดแข็งและจุดอ่อนด้วย AI</span>
-								</li>
-								<li class="flex items-start gap-3">
-									<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
-										<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-										</svg>
-									</div>
-									<span class="text-slate-700 dark:text-slate-300 text-lg">ฝึกฝนกับข้อสอบเสมือนจริง</span>
-								</li>
+								{#each userTypes[activeUserType].features as feature}
+									<li class="flex items-start gap-3">
+										<div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
+											<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+											</svg>
+										</div>
+										<span class="text-slate-700 dark:text-slate-300 text-lg">{feature}</span>
+									</li>
+								{/each}
 							</ul>
 							
 							<button class="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105">
@@ -672,7 +733,7 @@
 									<svg class="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
 									</svg>
-									เริ่มต้นเรียนรู้
+									{userTypes[activeUserType].buttonText}
 								</span>
 							</button>
 						</div>
@@ -680,7 +741,7 @@
 						<div class="flex justify-center">
 							<div class="relative">
 								<div class="w-80 h-80 bg-gradient-to-br from-purple-100 via-blue-100 to-indigo-100 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-3xl flex items-center justify-center shadow-2xl">
-									<div class="text-8xl animate-bounce">👨‍🎓</div>
+									<div class="text-8xl animate-bounce">{userTypes[activeUserType].emoji}</div>
 								</div>
 								<!-- Floating elements -->
 								<div class="absolute -top-4 -right-4 w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center animate-float-gentle">
