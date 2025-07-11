@@ -1,881 +1,2174 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { auth } from '$lib/stores/auth';
-	import { goto } from '$app/navigation';
-	import { t } from '$lib/i18n';
+    import { auth } from '$lib/stores/auth';
+    import { API_BASE_URL } from '$lib/config';
+    import { toastStore } from '$lib/stores/toast';
+    import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
+    import { t } from '$lib/i18n';
     import Header from '../components/Header.svelte';
 
-	type User = {
-		id: string;
-		email: string;
-		full_name: string;
-		username: string;
-		roles: string[];
-		bio?: string;
-		profile_image?: string;
-		token?: string;
-	};
+    type AdminUser = {
+        id: string;
+        email: string;
+        full_name: string;
+        username: string;
+        roles: string[];
+        bio?: string;
+        profile_image?: string;
+        created_at?: string;
+    };
 
-	type SystemStats = {
-		total_users: number;
-		total_quizzes: number;
-		active_sessions: number;
-		total_questions: number;
-	};
+    type ExamFile = {
+        id: string;
+        title: string;
+        description: string;
+        tags: string[];
+        url: string;
+        uploaded_by: string;
+        essay_count: number;
+        choice_count: number;
+        created_at?: string;
+    };
 
-	type UserDetail = {
-		id: string;
-		email: string;
-		full_name: string;
-		username: string;
-		roles: string[];
-		bio?: string;
-		profile_image?: string;
-		created_at?: string;
-		last_login?: string;
-		is_active?: boolean;
-	};
+    type SystemStats = {
+        users: {
+            total: number;
+            by_role: Record<string, number>;
+        };
+        exam_files: {
+            total: number;
+        };
+    };
 
-	let users: User[] = [];
-	let stats: SystemStats | null = null;
-	let loading = true;
-	let error: string | null = null;
-	let selectedUser: UserDetail | null = null;
-	let showUserModal = false;
-	let showDeleteConfirm = false;
-	let showEditUserModal = false;
-	let userToDelete: User | null = null;
-	let isLoadingUserDetail = false;
-	let isUpdatingUser = false;
 
-	// Edit user form
-	let editUserForm = {
-		full_name: '',
-		bio: '',
-		profile_image: ''
-	};
 
-	// Pagination
-	let currentPage = 1;
-	let usersPerPage = 10;
-	let totalUsers = 0;
+    let activeTab = 'users';
+    let users: AdminUser[] = [];
+    let examFiles: ExamFile[] = [];
+    let stats: SystemStats | null = null;
+    let loading = false;
+    let skeletonLoading = true;
+    let error = '';
+    let successMessage = '';
 
-	// Search and filters
-	let searchTerm = '';
-	let roleFilter = 'all';
+    // User management
+    let userPage = 1;
+    let userLimit = 10;
+    let userSearch = '';
+    let userRoleFilter = '';
+    let selectedUsers: string[] = [];
+    let bulkAction = '';
+    let userSortBy = 'created_at';
+    let userSortOrder: 'asc' | 'desc' = 'desc';
+    let totalUsers = 0;
+    let totalUserPages = 0;
 
-	// Dashboard tabs
-	let activeTab = 'overview';
+    // Exam file management
+    let examFilePage = 1;
+    let examFileLimit = 10;
+    let examFileSortBy = 'created_at';
+    let examFileSortOrder: 'asc' | 'desc' = 'desc';
+    let totalExamFiles = 0;
+    let totalExamFilePages = 0;
 
-	onMount(async () => {
-		// Check if user is admin
-		if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
-			goto('/');
-			return;
-		}
+    // Infinite scroll
+    let loadingMore = false;
+    let enableInfiniteScroll = false;
 
-		await Promise.all([loadUsers(), loadStats()]);
-		loading = false;
-	});
+    // Modals
+    let showUserModal = false;
+    let showExamFileModal = false;
+    let showUploadModal = false;
+    let editingUser: AdminUser | null = null;
+    let editingExamFile: ExamFile | null = null;
 
-	async function loadUsers() {
-		try {
-			const response = await fetch('https://examtieapi.breadtm.xyz/admin/api/v1/users', {
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+    // Form data
+    let userForm = {
+        full_name: '',
+        bio: '',
+        profile_image: ''
+    };
 
-			if (!response.ok) {
-				throw new Error('Failed to load users');
-			}
+    let examFileForm = {
+        title: '',
+        description: '',
+        tags: '',
+        essay_count: 0,
+        choice_count: 0
+    };
 
-			users = await response.json();
-			totalUsers = users.length;
-		} catch (err: any) {
-			error = err.message;
-		}
-	}
+    // Upload form
+    let uploadForm = {
+        title: '',
+        description: '',
+        tags: '',
+        essay_count: 0,
+        choice_count: 0,
+        file: null as File | null
+    };
 
-	async function loadStats() {
-		try {
-			const response = await fetch('https://examtieapi.breadtm.xyz/admin/api/v1/stats', {
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+    onMount(async () => {
+        // Wait for auth to initialize before checking authentication
+        if (!$auth.isInitialized) {
+            // Wait for auth initialization to complete
+            const unsubscribe = auth.subscribe((authState) => {
+                if (authState.isInitialized) {
+                    unsubscribe();
+                    // Now check authentication and admin role after initialization
+                    if (!authState.isAuthenticated || !authState.user?.roles.includes('admin')) {
+                        goto('/');
+                        return;
+                    }
+                    // Auth is valid and user is admin, load data
+                    loadData();
+                }
+            });
+        } else {
+            // Auth already initialized, check immediately
+            if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
+                goto('/');
+                return;
+            }
+            await loadData();
+        }
+    });
 
-			if (!response.ok) {
-				throw new Error('Failed to load stats');
-			}
+    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
+        const token = $auth.token;
+        if (!token) {
+            throw new Error('No authentication token');
+        }
 
-			stats = await response.json();
-		} catch (err: any) {
-			console.error('Failed to load stats:', err.message);
-		}
-	}
+        // Don't set Content-Type if body is FormData (for file uploads)
+        const isFormData = options.body instanceof FormData;
+        const headers = new Headers(options.headers);
+        headers.set('Authorization', `Bearer ${token}`);
+        
+        // Only set Content-Type for non-FormData requests
+        if (!isFormData && !headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
+        }
 
-	async function loadUserDetail(userId: string) {
-		isLoadingUserDetail = true;
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/@data?user_id=${userId}`, {
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+        const response = await fetch(url, {
+            ...options,
+            headers,
+        });
 
-			if (!response.ok) {
-				throw new Error('Failed to load user details');
-			}
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Request failed' })) as any;
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
 
-			selectedUser = await response.json();
-		} catch (err: any) {
-			error = err.message;
-		} finally {
-			isLoadingUserDetail = false;
-		}
-	}
+        return response.json();
+    }
 
-	async function updateUserRole(userId: string, newRole: string) {
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/${userId}/role?role=${newRole}`, {
-				method: 'PATCH',
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+    async function loadData() {
+        loading = true;
+        if (users.length === 0 && examFiles.length === 0) {
+            skeletonLoading = true;
+        }
+        error = '';
+        
+        try {
+            await Promise.all([
+                loadUsers(),
+                loadExamFiles(),
+                loadStats()
+            ]);
+        } catch (err: any) {
+            error = err.message;
+        } finally {
+            loading = false;
+            skeletonLoading = false;
+        }
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to update user role');
-			}
+    async function loadUsers() {
+        const params = new URLSearchParams({
+            page: userPage.toString(),
+            limit: userLimit.toString(),
+            sort_by: userSortBy,
+            sort_order: userSortOrder,
+        });
+        
+        if (userSearch) params.append('search', userSearch);
+        if (userRoleFilter) params.append('role', userRoleFilter);
 
-			await loadUsers();
-			if (selectedUser && selectedUser.id === userId) {
-				await loadUserDetail(userId);
-			}
+        const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
+        users = response.users || response; // Handle both paginated and non-paginated responses
+        totalUsers = response.total || users.length;
+        totalUserPages = Math.ceil(totalUsers / userLimit);
+    }
 
-			// If the current user's role was changed, update the auth store
-			if ($auth.user && $auth.user.id === userId) {
-				auth.updateUserRoles(userId, [newRole]);
-			}
-		} catch (err: any) {
-			error = err.message;
-		}
-	}
+    async function loadExamFiles() {
+        const params = new URLSearchParams({
+            page: examFilePage.toString(),
+            limit: examFileLimit.toString(),
+            sort_by: examFileSortBy,
+            sort_order: examFileSortOrder,
+        });
 
-	async function updateUserProfile(userId: string) {
-		isUpdatingUser = true;
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/${userId}`, {
-				method: 'PATCH',
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(editUserForm)
-			});
+        const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
+        examFiles = response.exam_files || response; // Handle both paginated and non-paginated responses
+        totalExamFiles = response.total || examFiles.length;
+        totalExamFilePages = Math.ceil(totalExamFiles / examFileLimit);
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to update user profile');
-			}
+    async function loadStats() {
+        stats = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`) as SystemStats;
+    }
 
-			await loadUsers();
-			await loadUserDetail(userId);
-			showEditUserModal = false;
-		} catch (err: any) {
-			error = err.message;
-		} finally {
-			isUpdatingUser = false;
-		}
-	}
+    async function getUserDetail(userId: string) {
+        try {
+            const userDetail = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/@data?user_id=${userId}`);
+            return userDetail;
+        } catch (err: any) {
+            error = err.message;
+            return null;
+        }
+    }
 
-	async function deleteUser(userId: string) {
-		try {
-			const response = await fetch(`https://examtieapi.breadtm.xyz/admin/api/v1/users/${userId}`, {
-				method: 'DELETE',
-				headers: {
-					'Authorization': `Bearer ${$auth.token}`
-				}
-			});
+    async function updateUserRole(userId: string, role: string) {
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/${userId}/role`, {
+                method: 'PATCH',
+                body: JSON.stringify({ role }),
+            });
+            successMessage = `User role updated to ${role} successfully`;
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-			if (!response.ok) {
-				throw new Error('Failed to delete user');
-			}
+    async function deleteUser(userId: string) {
+        const user = users.find(u => u.id === userId);
+        const userName = user ? `${user.full_name} (${user.email})` : 'this user';
+        
+        if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) return;
 
-			await loadUsers();
-			showDeleteConfirm = false;
-			userToDelete = null;
-			if (showUserModal) {
-				closeUserModal();
-			}
-		} catch (err: any) {
-			error = err.message;
-		}
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/${userId}`, {
+                method: 'DELETE',
+            });
+            successMessage = 'User deleted successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	async function openUserModal(user: User) {
-		showUserModal = true;
-		await loadUserDetail(user.id);
-	}
+    async function bulkUpdateUserRoles() {
+        if (selectedUsers.length === 0 || !bulkAction) return;
 
-	function closeUserModal() {
-		selectedUser = null;
-		showUserModal = false;
-	}
+        if (!confirm(`Are you sure you want to update the role of ${selectedUsers.length} user(s) to "${bulkAction}"?`)) return;
 
-	function openEditUserModal() {
-		if (selectedUser) {
-			editUserForm = {
-				full_name: selectedUser.full_name || '',
-				bio: selectedUser.bio || '',
-				profile_image: selectedUser.profile_image || ''
-			};
-			showEditUserModal = true;
-		}
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/bulk/role`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    user_ids: selectedUsers,
+                    role: bulkAction
+                }),
+            });
+            selectedUsers = [];
+            bulkAction = '';
+            successMessage = 'User roles updated successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function confirmDelete(user: User) {
-		userToDelete = user;
-		showDeleteConfirm = true;
-	}
+    async function bulkDeleteUsers() {
+        if (selectedUsers.length === 0) return;
+        if (!confirm(`Are you sure you want to delete ${selectedUsers.length} users? This action cannot be undone.`)) return;
 
-	function clearError() {
-		error = null;
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/bulk`, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    user_ids: selectedUsers
+                }),
+            });
+            selectedUsers = [];
+            successMessage = 'Users deleted successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	// Computed properties
-	$: filteredUsers = users.filter(user => {
-		const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.email.toLowerCase().includes(searchTerm.toLowerCase());
-		
-		const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter);
-		
-		return matchesSearch && matchesRole;
-	});
+    async function updateUserProfile() {
+        if (!editingUser) return;
 
-	$: paginatedUsers = filteredUsers.slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage);
-	$: totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users/${editingUser.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(userForm),
+            });
+            showUserModal = false;
+            editingUser = null;
+            successMessage = 'User profile updated successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadUsers();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function nextPage() {
-		if (currentPage < totalPages) currentPage++;
-	}
+    async function deleteExamFile(fileId: string) {
+        const examFile = examFiles.find(f => f.id === fileId);
+        const fileName = examFile ? examFile.title : 'this file';
+        
+        if (!confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) return;
 
-	function prevPage() {
-		if (currentPage > 1) currentPage--;
-	}
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${fileId}`, {
+                method: 'DELETE',
+            });
+            successMessage = 'Exam file deleted successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadExamFiles();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 
-	function getRoleColor(roles: string[]) {
-		if (roles.includes('admin')) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-		if (roles.includes('staff')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-		return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-	}
+    async function updateExamFile() {
+        if (!editingExamFile) return;
+
+        try {
+            // Validation: At least one question type must be greater than 0
+            if (examFileForm.essay_count < 1 && examFileForm.choice_count < 1) {
+                error = 'At least one question type (essay or multiple choice) must be 1 or greater';
+                toastStore.error('At least one question type must be 1 or greater');
+                return;
+            }
+
+            const tags = examFileForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${editingExamFile.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    title: examFileForm.title,
+                    description: examFileForm.description,
+                    tags: tags,
+                    essay_count: examFileForm.essay_count,
+                    choice_count: examFileForm.choice_count
+                }),
+            });
+            showExamFileModal = false;
+            editingExamFile = null;
+            successMessage = 'Exam file updated successfully';
+            toastStore.success('Exam file updated successfully');
+            setTimeout(() => successMessage = '', 3000);
+            await loadExamFiles();
+        } catch (err: any) {
+            error = err.message;
+            toastStore.error(err.message || 'Failed to update exam file');
+        }
+    }
+
+    async function uploadExamFile() {
+        // Clear previous errors
+        error = '';
+        
+        // Validation
+        if (!uploadForm.file) {
+            error = 'Please select a file to upload';
+            toastStore.error('Please select a file to upload');
+            return;
+        }
+        
+        if (!uploadForm.title.trim()) {
+            error = 'Please enter a title';
+            toastStore.error('Please enter a title');
+            return;
+        }
+        
+        if (!uploadForm.description.trim()) {
+            error = 'Please enter a description';
+            toastStore.error('Please enter a description');
+            return;
+        }
+
+        // Validate that at least one question type has a count > 0
+        const essayCount = Number(uploadForm.essay_count) || 0;
+        const choiceCount = Number(uploadForm.choice_count) || 0;
+        
+        if (essayCount < 1 && choiceCount < 1) {
+            error = 'At least one of essay_count or choice_count must be 1 or greater';
+            toastStore.error('At least one of essay_count or choice_count must be 1 or greater');
+            return;
+        }
+
+        // File size validation (optional, but good practice)
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (uploadForm.file.size > maxSize) {
+            error = 'File size must be less than 50MB';
+            toastStore.error('File size must be less than 50MB');
+            return;
+        }
+
+        try {
+            // Show loading state
+            loading = true;
+            toastStore.info('Uploading file...');
+
+            const formData = new FormData();
+            formData.append('file', uploadForm.file);
+            formData.append('title', uploadForm.title.trim());
+            formData.append('description', uploadForm.description.trim());
+            formData.append('tags', uploadForm.tags.trim() || '');
+            formData.append('essay_count', essayCount.toString());
+            formData.append('choice_count', choiceCount.toString());
+
+            // Debug log
+            console.log('Upload form data:', {
+                fileName: uploadForm.file.name,
+                fileSize: uploadForm.file.size,
+                fileType: uploadForm.file.type,
+                title: uploadForm.title.trim(),
+                description: uploadForm.description.trim(),
+                tags: uploadForm.tags.trim(),
+                essay_count: essayCount,
+                choice_count: choiceCount
+            });
+
+            // Use the improved makeAuthenticatedRequest function
+            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            
+            // Reset form and close modal
+            showUploadModal = false;
+            uploadForm = { title: '', description: '', tags: '', essay_count: 0, choice_count: 0, file: null };
+            
+            // Show success message
+            successMessage = 'File uploaded successfully';
+            toastStore.success('File uploaded successfully');
+            setTimeout(() => successMessage = '', 3000);
+            
+            // Reload the files list
+            await loadExamFiles();
+            
+        } catch (err: any) {
+            console.error('Upload error:', err);
+            error = err.message || 'Unknown error occurred during upload';
+            
+            // Provide more helpful error messages
+            if (err.message.includes('R2 storage is not configured')) {
+                toastStore.error('File storage is not configured. Please contact the administrator.');
+            } else if (err.message.includes('File upload service error')) {
+                toastStore.error('File storage service error. Please try again or contact support.');
+            } else if (err.message.includes('No authentication token')) {
+                toastStore.error('Please login again.');
+            } else {
+                toastStore.error(`Upload failed: ${err.message || 'Unknown error'}`);
+            }
+        } finally {
+            loading = false;
+        }
+    }
+
+    // Debug function to test R2 configuration
+    async function testR2Config() {
+        try {
+            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/test-r2`);
+            console.log('R2 Configuration Test:', result);
+            
+            if (result.r2_configured && result.bucket_accessible) {
+                toastStore.success('R2 storage is properly configured and accessible!');
+            } else {
+                let errorMsg = 'R2 Configuration Issues:\n';
+                if (!result.r2_configured) errorMsg += '- R2 not configured (missing environment variables)\n';
+                if (!result.bucket_accessible) errorMsg += `- Bucket not accessible: ${result.bucket_test_error}\n`;
+                toastStore.error(errorMsg);
+            }
+        } catch (error: any) {
+            toastStore.error(`R2 test failed: ${error.message}`);
+        }
+    }
+
+    // Debug function to test upload
+    async function debugUpload() {
+        try {
+            const token = $auth.token;
+            if (!token) {
+                toastStore.error('No authentication token found');
+                return;
+            }
+            
+            toastStore.info('Running upload test...');
+            // await testApiConnection(API_BASE_URL, token);
+            // await testUpload(API_BASE_URL, token);
+            toastStore.success('Upload test completed successfully!');
+            
+            // Reload files to see the test file
+            await loadExamFiles();
+        } catch (error: any) {
+            toastStore.error(`Upload test failed: ${error.message}`);
+        }
+    }
+
+    function openUserModal(user: AdminUser) {
+        editingUser = user;
+        userForm = {
+            full_name: user.full_name,
+            bio: user.bio || '',
+            profile_image: user.profile_image || ''
+        };
+        showUserModal = true;
+    }
+
+    function openExamFileModal(examFile: ExamFile) {
+        editingExamFile = examFile;
+        examFileForm = {
+            title: examFile.title,
+            description: examFile.description,
+            tags: examFile.tags.join(', '),
+            essay_count: examFile.essay_count,
+            choice_count: examFile.choice_count
+        };
+        showExamFileModal = true;
+    }
+
+    function toggleUserSelection(userId: string) {
+        if (selectedUsers.includes(userId)) {
+            selectedUsers = selectedUsers.filter(id => id !== userId);
+        } else {
+            selectedUsers = [...selectedUsers, userId];
+        }
+    }
+
+    function selectAllUsers() {
+        if (selectedUsers.length === users.length) {
+            selectedUsers = [];
+        } else {
+            selectedUsers = users.map(user => user.id);
+        }
+    }
+
+    async function handleSearch() {
+        userPage = 1;
+        await loadUsers();
+    }
+
+    async function handleRoleFilter() {
+        userPage = 1;
+        await loadUsers();
+    }
+
+    // Debounced search function
+    let searchTimeout: ReturnType<typeof setTimeout>;
+    function debounceSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(handleSearch, 300);
+    }
+
+    function getRoleColor(role: string): string {
+        switch (role) {
+            case 'admin': return 'bg-red-500/20 text-red-300 border border-red-500/30';
+            case 'staff': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+            case 'seller': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+            default: return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+        }
+    }
+
+    // Sorting functions
+    function sortUsers(column: string) {
+        if (userSortBy === column) {
+            userSortOrder = userSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            userSortBy = column;
+            userSortOrder = 'desc';
+        }
+        userPage = 1;
+        loadUsers();
+    }
+
+    function sortExamFiles(column: string) {
+        if (examFileSortBy === column) {
+            examFileSortOrder = examFileSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            examFileSortBy = column;
+            examFileSortOrder = 'desc';
+        }
+        examFilePage = 1;
+        loadExamFiles();
+    }
+
+    // Pagination functions
+    function goToUserPage(page: number) {
+        userPage = page;
+        loadUsers();
+    }
+
+    function goToExamFilePage(page: number) {
+        examFilePage = page;
+        loadExamFiles();
+    }
+
+    // Infinite scroll function
+    function handleScroll(event: Event) {
+        if (!enableInfiniteScroll || loadingMore) return;
+        
+        const target = event.target as HTMLElement;
+        const { scrollTop, scrollHeight, clientHeight } = target;
+        
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+            loadMoreItems();
+        }
+    }
+
+    async function loadMoreItems() {
+        if (loadingMore) return;
+        
+        loadingMore = true;
+        try {
+            if (activeTab === 'users' && userPage < totalUserPages) {
+                userPage++;
+                const params = new URLSearchParams({
+                    page: userPage.toString(),
+                    limit: userLimit.toString(),
+                    sort_by: userSortBy,
+                    sort_order: userSortOrder,
+                });
+                
+                if (userSearch) params.append('search', userSearch);
+                if (userRoleFilter) params.append('role', userRoleFilter);
+
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
+                users = [...users, ...(response.users || response)];
+            } else if (activeTab === 'exam-files' && examFilePage < totalExamFilePages) {
+                examFilePage++;
+                const params = new URLSearchParams({
+                    page: examFilePage.toString(),
+                    limit: examFileLimit.toString(),
+                    sort_by: examFileSortBy,
+                    sort_order: examFileSortOrder,
+                });
+
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
+                examFiles = [...examFiles, ...(response.exam_files || response)];
+            }
+        } catch (err: any) {
+            error = err.message;
+        } finally {
+            loadingMore = false;
+        }
+    }
+
+    function toggleInfiniteScroll() {
+        enableInfiniteScroll = !enableInfiniteScroll;
+        if (!enableInfiniteScroll) {
+            // Reset to normal pagination
+            userPage = 1;
+            examFilePage = 1;
+            loadData();
+        }
+    }
 </script>
 
 <svelte:head>
-	<title>{$t('adminDashboard')} - Examtie</title>
+    <title>Admin Dashboard - ExamTie</title>
+    <meta name="description" content="Administrative dashboard for ExamTie" />
 </svelte:head>
 
-<Header></Header>
+<Header />
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-	{#if loading}
-		<div class="flex items-center justify-center min-h-screen">
-			<div class="flex flex-col items-center space-y-4">
-				<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-				<p class="text-gray-600 dark:text-gray-400">{$t('loadingDashboard')}</p>
-			</div>
-		</div>
-	{:else}
-		<!-- Enhanced Header with gradient background -->
-		<div class="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 shadow-xl">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex justify-between items-center py-8">
-					<div>
-						<h1 class="text-3xl font-bold text-white flex items-center">
-							<svg class="w-8 h-8 mr-3 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-							</svg>
-							{$t('adminDashboard')}
-						</h1>
-						<p class="text-blue-100 mt-1">{$t('manageUsers')}</p>
-					</div>
-					<div class="flex items-center space-x-4">
-						<button
-							on:click={() => { loadUsers(); loadStats(); }}
-							class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white focus:ring-offset-blue-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-						>
-							<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-							</svg>
-							{$t('refresh')}
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 relative overflow-hidden">
+    <!-- Background decoration -->
+    <div class="absolute inset-0">
+        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95"></div>
+        <!-- Floating particles -->
+        {#each Array.from({length: 30}) as _, i}
+            <div 
+                class="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-float-gentle"
+                style="left: {Math.random() * 100}%; top: {Math.random() * 100}%; animation-delay: {Math.random() * 4}s;"
+            ></div>
+        {/each}
+        <!-- Geometric shapes -->
+        <div class="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-green-400/10 rounded-full blur-xl animate-float-gentle"></div>
+        <div class="absolute bottom-32 right-16 w-24 h-24 bg-gradient-to-br from-purple-500/20 to-pink-400/10 rounded-full blur-lg animate-float" style="animation-delay: 1s"></div>
+    </div>
 
-		<!-- Error Banner -->
-		{#if error}
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-				<div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
-					<div class="flex">
-						<div class="flex-shrink-0">
-							<svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
-							</svg>
-						</div>
-						<div class="ml-3 flex-1">
-							<p class="text-sm text-red-700">{error}</p>
-						</div>
-						<div class="ml-auto pl-3">
-							<button on:click={clearError} class="text-red-400 hover:text-red-600" aria-label="Close error message">
-								<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-								</svg>
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
+    <!-- Header -->
+    <div class="relative z-10 bg-gradient-to-r from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-lg shadow-2xl border-b border-gray-700/30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-8">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-bold text-gradient bg-gradient-to-r from-blue-300 via-purple-300 to-blue-300 bg-clip-text text-transparent">Admin Dashboard</h1>
+                        <p class="mt-1 text-sm text-gray-300">Manage users, exam files, and system settings with ease</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 text-sm text-gray-300">
+                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Online</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-		<!-- Main Content -->
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-			<!-- Navigation Tabs -->
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 mb-8">
-				<div class="border-b border-gray-200 dark:border-slate-700">
-					<nav class="flex space-x-8 px-6" aria-label="Tabs">
-						<button
-							on:click={() => activeTab = 'overview'}
-							class="py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 {activeTab === 'overview' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
-						>
-							<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-							</svg>
-							Overview
-						</button>
-						<button
-							on:click={() => activeTab = 'users'}
-							class="py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 {activeTab === 'users' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
-						>
-							<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-							</svg>
-							{$t('userManagement')}
-						</button>
-					</nav>
-				</div>
-			</div>
+    <!-- Error Message -->
+    {#if error}
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-red-900/20 backdrop-blur-lg border border-red-500/30 rounded-xl p-4 shadow-lg animate-in slide-in-from-top-2 duration-300">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+                            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-300">Error</h3>
+                        <p class="mt-1 text-sm text-red-200">{error}</p>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <button
+                            on:click={() => error = ''}
+                            class="inline-flex text-red-400 hover:text-red-300 transition-colors p-1 rounded-md hover:bg-red-500/20"
+                        >
+                            <span class="sr-only">Dismiss</span>
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/if}
 
-			<!-- Tab Content -->
-			{#if activeTab === 'overview'}
-				<!-- Stats Cards -->
-				{#if stats}
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-						<div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-blue-600 dark:text-blue-400">{$t('totalUsers')}</p>
-									<p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.total_users.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
+    <!-- Success Message -->
+    {#if successMessage}
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div class="bg-green-900/20 backdrop-blur-lg border border-green-500/30 rounded-xl p-4 shadow-lg animate-in slide-in-from-top-2 duration-300">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                            <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-green-300">Success</h3>
+                        <p class="mt-1 text-sm text-green-200">{successMessage}</p>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <button
+                            on:click={() => successMessage = ''}
+                            class="inline-flex text-green-400 hover:text-green-300 transition-colors p-1 rounded-md hover:bg-green-500/20"
+                        >
+                            <span class="sr-only">Dismiss</span>
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/if}
 
-						<div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-green-600 dark:text-green-400">{$t('totalQuizzes')}</p>
-									<p class="text-2xl font-bold text-green-900 dark:text-green-100">{stats.total_quizzes.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Stats Cards with Skeleton Loading -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {#if skeletonLoading}
+                <!-- Skeleton Loading Cards -->
+                {#each Array.from({length: 4}) as _, i}
+                    <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 animate-pulse">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-12 h-12 bg-slate-700/50 rounded-xl"></div>
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="h-4 bg-slate-700/50 rounded-md mb-2 w-20"></div>
+                                <div class="h-8 bg-slate-600/50 rounded-md mb-2 w-16"></div>
+                                <div class="h-3 bg-slate-700/50 rounded-md w-12"></div>
+                            </div>
+                        </div>
+                    </div>
+                {/each}
+            {:else if stats}
+                <!-- Total Users Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-blue-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Material Symbols by Google - https://github.com/google/material-design-icons/blob/master/LICENSE --><path fill="white" d="M9.775 12q-.9 0-1.5-.675T7.8 9.75l.325-2.45q.2-1.425 1.3-2.363T12 4t2.575.938t1.3 2.362l.325 2.45q.125.9-.475 1.575t-1.5.675zm0-2h4.45L13.9 7.6q-.1-.7-.637-1.15T12 6t-1.263.45T10.1 7.6zM4 20v-2.8q0-.85.438-1.562T5.6 14.55q1.55-.775 3.15-1.162T12 13t3.25.388t3.15 1.162q.725.375 1.163 1.088T20 17.2V20zm2-2h12v-.8q0-.275-.137-.5t-.363-.35q-1.35-.675-2.725-1.012T12 15t-2.775.338T6.5 16.35q-.225.125-.363.35T6 17.2zm6 0"/></svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Total Users</p>
+                            <p class="text-3xl font-bold text-white">{stats.users.total.toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-green-400 font-medium">Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-						<div class="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 border border-yellow-200 dark:border-yellow-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-yellow-600 dark:text-yellow-400">{$t('activeSessions')}</p>
-									<p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{stats.active_sessions.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
+                <!-- Admins Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-red-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+<svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="32" height="32" viewBox="0 0 36 36"><!-- Icon from Clarity by VMware - https://github.com/vmware/clarity-assets/blob/master/LICENSE --><path fill="currentColor" d="M14.68 14.81a6.76 6.76 0 1 1 6.76-6.75a6.77 6.77 0 0 1-6.76 6.75m0-11.51a4.76 4.76 0 1 0 4.76 4.76a4.76 4.76 0 0 0-4.76-4.76" class="clr-i-outline clr-i-outline-path-1"/><path fill="currentColor" d="M16.42 31.68A2.14 2.14 0 0 1 15.8 30H4v-5.78a14.8 14.8 0 0 1 11.09-4.68h.72a2.2 2.2 0 0 1 .62-1.85l.12-.11c-.47 0-1-.06-1.46-.06A16.47 16.47 0 0 0 2.2 23.26a1 1 0 0 0-.2.6V30a2 2 0 0 0 2 2h12.7Z" class="clr-i-outline clr-i-outline-path-2"/><path fill="currentColor" d="M26.87 16.29a.4.4 0 0 1 .15 0a.4.4 0 0 0-.15 0" class="clr-i-outline clr-i-outline-path-3"/><path fill="currentColor" d="m33.68 23.32l-2-.61a7.2 7.2 0 0 0-.58-1.41l1-1.86A.38.38 0 0 0 32 19l-1.45-1.45a.36.36 0 0 0-.44-.07l-1.84 1a7 7 0 0 0-1.43-.61l-.61-2a.36.36 0 0 0-.36-.24h-2.05a.36.36 0 0 0-.35.26l-.61 2a7 7 0 0 0-1.44.6l-1.82-1a.35.35 0 0 0-.43.07L17.69 19a.38.38 0 0 0-.06.44l1 1.82a6.8 6.8 0 0 0-.63 1.43l-2 .6a.36.36 0 0 0-.26.35v2.05A.35.35 0 0 0 16 26l2 .61a7 7 0 0 0 .6 1.41l-1 1.91a.36.36 0 0 0 .06.43l1.45 1.45a.38.38 0 0 0 .44.07l1.87-1a7 7 0 0 0 1.4.57l.6 2a.38.38 0 0 0 .35.26h2.05a.37.37 0 0 0 .35-.26l.61-2.05a7 7 0 0 0 1.38-.57l1.89 1a.36.36 0 0 0 .43-.07L32 30.4a.35.35 0 0 0 0-.4l-1-1.88a7 7 0 0 0 .58-1.39l2-.61a.36.36 0 0 0 .26-.35v-2.1a.36.36 0 0 0-.16-.35M24.85 28a3.34 3.34 0 1 1 3.33-3.33A3.34 3.34 0 0 1 24.85 28" class="clr-i-outline clr-i-outline-path-4"/><path fill="none" d="M0 0h36v36H0z"/></svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Admins</p>
+                            <p class="text-3xl font-bold text-white">{(stats.users.by_role.admin || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-red-400 font-medium">Privileged</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-						<div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
-							<div class="flex items-center">
-								<div class="flex-shrink-0">
-									<div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-										<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-										</svg>
-									</div>
-								</div>
-								<div class="ml-4">
-									<p class="text-sm font-medium text-purple-600 dark:text-purple-400">{$t('totalQuestions')}</p>
-									<p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.total_questions.toLocaleString()}</p>
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
-			{:else if activeTab === 'users'}
-				<!-- User Management Section -->
-				<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-					<!-- Search and Filter Header -->
-					<div class="p-6 border-b border-gray-200 dark:border-slate-700">
-						<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-							<div class="flex-1 max-w-lg">
-								<div class="relative">
-									<svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-									</svg>
-									<input
-										bind:value={searchTerm}
-										type="text"
-										placeholder={$t('searchUsers')}
-										class="pl-10 pr-4 py-2.5 w-full border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-									/>
-								</div>
-							</div>
-							<div class="flex items-center space-x-3">
-								<select
-									bind:value={roleFilter}
-									class="px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-								>
-									<option value="all">{$t('allRoles')}</option>
-									<option value="admin">Admin</option>
-									<option value="staff">Staff</option>
-									<option value="user">{$t('user')}</option>
-								</select>
-							</div>
-						</div>
-					</div>
+                <!-- Staff Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-yellow-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+<svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Material Design Icons by Pictogrammers - https://github.com/Templarian/MaterialDesign/blob/master/LICENSE --><path fill="currentColor" d="M17.5 9a2.5 2.5 0 0 1 0-5a2.5 2.5 0 0 1 0 5m-3.07-.85L2 20.59L3.41 22L15.85 9.57c-.6-.33-1.09-.82-1.42-1.42M13 5l.63-1.37L15 3l-1.37-.63L13 1l-.62 1.37L11 3l1.38.63zm8 0l.63-1.37L23 3l-1.37-.63L21 1l-.62 1.37L19 3l1.38.63zm0 4l-.62 1.37L19 11l1.38.63L21 13l.63-1.37L23 11l-1.37-.63z"/></svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Staff</p>
+                            <p class="text-3xl font-bold text-white">{(stats.users.by_role.staff || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-yellow-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-yellow-400 font-medium">Moderators</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-					<!-- Users Table -->
-					<div class="overflow-hidden">
-						<div class="overflow-x-auto">
-							<table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-								<thead class="bg-gray-50 dark:bg-slate-800/50">
-									<tr>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('user')}
-										</th>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											Email
-										</th>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('role')}
-										</th>
-										<th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('status')}
-										</th>
-										<th class="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-											{$t('actions')}
-										</th>
-									</tr>
-								</thead>
-								<tbody class="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
-									{#each paginatedUsers as user (user.id)}
-										<tr class="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors duration-150">
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="flex items-center">
-													<div class="flex-shrink-0 h-10 w-10">
-														{#if user.profile_image}
-															<img src={user.profile_image} alt={user.full_name} class="h-10 w-10 rounded-full object-cover" />
-														{:else}
-															<div class="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-																<span class="text-white text-sm font-medium">{user.username.charAt(0).toUpperCase()}</span>
-															</div>
-														{/if}
-													</div>
-													<div class="ml-4">
-														<div class="text-sm font-medium text-gray-900 dark:text-white">
-															{user.full_name}
-														</div>
-														<div class="text-sm text-gray-500 dark:text-gray-400">
-															@{user.username}
-														</div>
-													</div>
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-												{user.email}
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="flex flex-wrap gap-1">
-													{#each user.roles as role}
-														<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getRoleColor(user.roles)}">
-															{role}
-														</span>
-													{/each}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-													{$t('active')}
-												</span>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-												<div class="flex items-center justify-end space-x-2">
-													<button
-														on:click={() => openUserModal(user)}
-														class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-150"
-													>
-														{$t('view')}
-													</button>
-													<button
-														on:click={() => confirmDelete(user)}
-														class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-150"
-													>
-														{$t('delete')}
-													</button>
-												</div>
-											</td>
-										</tr>
-									{:else}
-										<tr>
-											<td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-												<svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-												</svg>
-												<p class="mt-4 text-sm">No users found matching your criteria.</p>
-											</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					</div>
+                <!-- Exam Files Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-green-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Exam Files</p>
+                            <p class="text-3xl font-bold text-white">{(stats.exam_files?.total || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-green-400 font-medium">Available</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+        </div>
 
-					<!-- Pagination -->
-					{#if totalPages > 1}
-						<div class="bg-white dark:bg-slate-800 px-6 py-4 border-t border-gray-200 dark:border-slate-700">
-							<div class="flex items-center justify-between">
-								<div class="text-sm text-gray-700 dark:text-gray-300">
-									{$t('showing')} <span class="font-medium">{((currentPage - 1) * usersPerPage) + 1}</span>
-									{$t('to')} <span class="font-medium">{Math.min(currentPage * usersPerPage, filteredUsers.length)}</span>
-									{$t('of')} <span class="font-medium">{filteredUsers.length}</span> {$t('results')}
-								</div>
-								<div class="flex items-center space-x-2">
-									<button
-										on:click={prevPage}
-										disabled={currentPage === 1}
-										class="relative inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-									>
-										{$t('previous')}
-									</button>
-									<div class="flex space-x-1">
-										{#each Array(totalPages) as _, i}
-											<button
-												on:click={() => currentPage = i + 1}
-												class="relative inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md transition-all duration-150 {currentPage === i + 1 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600'}"
-											>
-												{i + 1}
-											</button>
-										{/each}
-									</div>
-									<button
-										on:click={nextPage}
-										disabled={currentPage === totalPages}
-										class="relative inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-									>
-										{$t('next')}
-									</button>
-								</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	{/if}
+        <!-- Modern Tabs -->
+        <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl shadow-2xl overflow-hidden">
+            <div class="border-b border-gray-700/30 bg-slate-800/30 backdrop-blur-lg">
+                <nav class="flex space-x-1 p-2">
+                    <button
+                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
+                        on:click={() => activeTab = 'users'}
+                    >
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                            </svg>
+                            <span>Users</span>
+                        </div>
+                        {#if activeTab === 'users'}
+                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
+                        {/if}
+                    </button>
+                    <button
+                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'exam-files' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
+                        on:click={() => activeTab = 'exam-files'}
+                    >
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span>Exam Files</span>
+                        </div>
+                        {#if activeTab === 'exam-files'}
+                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
+                        {/if}
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Users Tab -->
+            {#if activeTab === 'users'}
+                <div class="p-6 bg-slate-800/10 backdrop-blur-lg">
+                    <div class="pt-6 border-t border-gray-700/50">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                        <h3 class="text-sm font-semibold text-gray-400">View Options</h3>
+                        <div class="flex items-center space-x-3">
+                            <label class="flex items-center space-x-2 text-sm text-gray-300">
+                                <input
+                                    type="checkbox"
+                                    bind:checked={enableInfiniteScroll}
+                                    class="h-4 w-4 text-blue-600 border-gray-600 bg-slate-700 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <span>Infinite Scroll</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Search and Filters -->
+                    <div class="mb-8 flex flex-col lg:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="search" class="sr-only">Search users</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                                <input
+                                    id="search"
+                                    bind:value={userSearch}
+                                    on:input={debounceSearch}
+                                    type="text"
+                                    placeholder="Search by email, username, or full name..."
+                                    class="block w-full pl-12 pr-4 py-3 bg-slate-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:bg-slate-700/70 backdrop-blur-sm"
+                                />
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <select
+                                bind:value={userRoleFilter}
+                                on:change={handleRoleFilter}
+                                class="px-4 py-3 bg-slate-700/50 border border-gray-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-slate-700/70 transition-all duration-300 backdrop-blur-sm"
+                            >
+                                <option value="">All Roles</option>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                                <option value="staff">Staff</option>
+                                <option value="seller">Seller</option>
+                            </select>
+                            <button
+                                on:click={loadUsers}
+                                class="px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 border border-gray-600/50 text-gray-300 rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
+                                title="Refresh users"
+                                aria-label="Refresh users list"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Bulk Actions -->
+                    {#if selectedUsers.length > 0}
+                        <div class="mb-6 p-4 bg-blue-900/20 backdrop-blur-lg rounded-2xl border border-blue-500/30 shadow-lg">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold text-blue-200">
+                                            {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
+                                        </span>
+                                        <p class="text-xs text-blue-300 mt-1">Choose an action to apply to selected users</p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <select
+                                        bind:value={bulkAction}
+                                        class="text-sm border border-blue-500/30 bg-slate-700/50 text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm"
+                                    >
+                                        <option value="">Select Action</option>
+                                        <option value="user">Set as User</option>
+                                        <option value="staff">Set as Staff</option>
+                                        <option value="admin">Set as Admin</option>
+                                        <option value="seller">Set as Seller</option>
+                                    </select>
+                                    <button
+                                        on:click={bulkUpdateUserRoles}
+                                        disabled={!bulkAction}
+                                        class="text-sm bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
+                                    >
+                                        Update Roles
+                                    </button>
+                                    <button
+                                        on:click={bulkDeleteUsers}
+                                        class="text-sm bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-4 py-2 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
+                                    >
+                                        Delete Users
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- Enhanced Users Table with Infinite Scroll Container -->
+                    <div class="{enableInfiniteScroll ? 'max-h-96 overflow-y-auto' : ''}" on:scroll={enableInfiniteScroll ? handleScroll : undefined}>
+                        {#if skeletonLoading}
+                            <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
+                                <table class="min-w-full divide-y divide-slate-700/50">
+                                    <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
+                                        <tr>
+                                            <th class="w-8 px-6 py-4">
+                                                <div class="w-4 h-4 bg-slate-600/50 rounded animate-pulse"></div>
+                                            </th>
+                                            <th class="min-w-[12rem] py-4 pl-4 pr-3 text-left text-sm font-semibold text-gray-200">
+                                                User Information
+                                            </th>
+                                            <th class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
+                                                Role & Status
+                                            </th>
+                                            <th class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
+                                                Creation Date
+                                            </th>
+                                            <th class="px-3 py-4 text-center text-sm font-semibold text-gray-200">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
+                                        {#each Array.from({length: 8}) as _, i}
+                                            <tr class="animate-pulse">
+                                                <td class="px-6 py-4">
+                                                    <div class="w-4 h-4 bg-slate-600/50 rounded"></div>
+                                                </td>
+                                                <td class="py-4 pl-4 pr-3">
+                                                    <div class="flex items-center">
+                                                        <div class="h-12 w-12 bg-slate-600/50 rounded-full"></div>
+                                                        <div class="ml-4 space-y-2">
+                                                            <div class="h-4 bg-slate-600/50 rounded w-24"></div>
+                                                            <div class="h-3 bg-slate-700/50 rounded w-32"></div>
+                                                            <div class="h-3 bg-slate-700/50 rounded w-20"></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-4">
+                                                    <div class="h-6 bg-slate-600/50 rounded-full w-16"></div>
+                                                </td>
+                                                <td class="px-3 py-4">
+                                                    <div class="space-y-1">
+                                                        <div class="h-4 bg-slate-600/50 rounded w-20"></div>
+                                                        <div class="h-3 bg-slate-700/50 rounded w-16"></div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-4">
+                                                    <div class="flex justify-center gap-2">
+                                                        <div class="h-8 bg-slate-600/50 rounded w-16"></div>
+                                                        <div class="h-8 bg-slate-600/50 rounded w-20"></div>
+                                                        <div class="h-8 bg-slate-600/50 rounded w-16"></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {:else if users.length > 0}
+                            <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
+                                <table class="min-w-full divide-y divide-slate-700/50">
+                                    <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
+                                        <tr>
+                                            <th scope="col" class="relative px-6 py-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedUsers.length === users.length && users.length > 0}
+                                                    on:change={selectAllUsers}
+                                                    class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                                />
+                                            </th>
+                                            <th scope="col" class="min-w-[12rem] py-4 pl-4 pr-3 text-left">
+                                                <button
+                                                    on:click={() => sortUsers('full_name')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                    </svg>
+                                                    User Information
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {userSortBy === 'full_name' ? (userSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortUsers('roles')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                                    </svg>
+                                                    Role & Status
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {userSortBy === 'roles' ? (userSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortUsers('created_at')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    Creation Date
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {userSortBy === 'created_at' ? (userSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-center">
+                                                <div class="flex items-center justify-center space-x-1">
+                                                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                                    </svg>
+                                                    <span class="text-sm font-semibold text-gray-200">Actions</span>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
+                                    {#each users as user (user.id)}
+                                        <tr class="hover:bg-slate-700/30 transition-colors duration-150">
+                                            <td class="relative px-6 py-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedUsers.includes(user.id)}
+                                                    on:change={() => toggleUserSelection(user.id)}
+                                                    class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                                />
+                                            </td>
+                                            <td class="py-4 pl-4 pr-3 text-sm">
+                                                <div class="flex items-center">
+                                                    <div class="h-12 w-12 flex-shrink-0">
+                                                        <img class="h-12 w-12 rounded-full object-cover ring-2 ring-gray-600" src={user.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`} alt={user.full_name} />
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="font-semibold text-gray-200">{user.full_name}</div>
+                                                        <div class="text-gray-400 text-sm">{user.email}</div>
+                                                        <div class="text-gray-500 text-xs">@{user.username}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-4 text-sm">
+                                                <div class="flex flex-wrap gap-2">
+                                                    {#each user.roles as role}
+                                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium shadow-sm {getRoleColor(role)}">
+                                                            {role}
+                                                        </span>
+                                                    {/each}
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-4 text-sm text-gray-400">
+                                                <div class="flex flex-col">
+                                                    <span>{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span>
+                                                    <span class="text-xs text-gray-500">{user.created_at ? new Date(user.created_at).toLocaleTimeString() : ''}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-4 text-sm font-medium">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <button
+                                                        on:click={() => openUserModal(user)}
+                                                        class="inline-flex items-center text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 px-3 py-2 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                        </svg>
+                                                        <span>Edit</span>
+                                                    </button>
+                                                    <select
+                                                        on:change={(e) => {
+                                                            const target = e.target as HTMLSelectElement;
+                                                            if (target.value) {
+                                                                updateUserRole(user.id, target.value);
+                                                                target.value = ''; // Reset selection
+                                                            }
+                                                        }}
+                                                        class="text-xs border border-gray-600/50 bg-slate-700/50 text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm transition-all duration-300"
+                                                    >
+                                                        <option value="">Change Role</option>
+                                                        <option value="user">User</option>
+                                                        <option value="staff">Staff</option>
+                                                        <option value="admin">Admin</option>
+                                                        <option value="seller">Seller</option>
+                                                    </select>
+                                                    <button
+                                                        on:click={() => deleteUser(user.id)}
+                                                        class="inline-flex items-center text-red-400 hover:text-red-300 hover:bg-red-500/20 px-3 py-2 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                        </svg>
+                                                        <span>Delete</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                                </table>
+                            </div>
+                        {:else}
+                            <div class="text-center py-16 bg-slate-800/20 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-700/30">
+                                <div class="mx-auto w-24 h-24 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center mb-6">
+                                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold text-gray-200 mb-2">No users found</h3>
+                                <p class="text-gray-400 mb-6">No users match your current search and filter criteria.</p>
+                                <button
+                                    on:click={() => { userSearch = ''; userRoleFilter = ''; loadUsers(); }}
+                                    class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
+                                >
+                                    Clear Filters
+                                </button>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- Enhanced Pagination -->
+                    {#if !enableInfiniteScroll}
+                        <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-slate-800/20 backdrop-blur-lg rounded-xl p-4 shadow-sm border border-gray-700/30">
+                            <div class="flex items-center text-sm text-gray-300 mb-4 sm:mb-0">
+                                <span class="font-medium">Page {userPage} of {totalUserPages || Math.max(1, Math.ceil(users.length / userLimit))}</span>
+                                <span class="mx-2 text-gray-500">•</span>
+                                <span>{totalUsers || users.length} total users</span>
+                                <span class="mx-2 text-gray-500">•</span>
+                                <span>{userLimit} per page</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button
+                                    on:click={() => goToUserPage(Math.max(1, userPage - 1))}
+                                    disabled={userPage === 1}
+                                    class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 border border-gray-600/50 text-gray-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm text-sm font-medium"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                    <span>Previous</span>
+                                </button>
+                                <div class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl border border-blue-500/30 shadow-lg backdrop-blur-sm">
+                                    {userPage}
+                                </div>
+                                <button
+                                    on:click={() => goToUserPage(userPage + 1)}
+                                    disabled={userPage >= (totalUserPages || Math.max(1, Math.ceil(users.length / userLimit)))}
+                                    class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 border border-gray-600/50 text-gray-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm text-sm font-medium"
+                                >
+                                    <span>Next</span>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    {:else if loadingMore && activeTab === 'users'}
+                        <div class="mt-8 flex justify-center">
+                            <div class="flex items-center space-x-3 bg-slate-800/20 backdrop-blur-lg rounded-xl p-4 border border-gray-700/30">
+                                <div class="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-spin">
+                                    <div class="absolute w-4 h-4 bg-slate-800/50 rounded-full top-1 left-1"></div>
+                                </div>
+                                <span class="text-gray-300 font-medium">Loading more users...</span>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            <!-- Enhanced Exam Files Tab -->
+            {#if activeTab === 'exam-files'}
+                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
+                    <!-- Upload Button Header -->
+                    <div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-200 mb-2">Exam Files Management</h3>
+                            <p class="text-gray-400">Upload, organize, and manage exam files for your platform</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button
+                                on:click={loadExamFiles}
+                                class="px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:from-slate-700 hover:to-slate-800 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm border border-gray-600/50"
+                                title="Refresh exam files"
+                                aria-label="Refresh exam files list"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </button>
+                            <button
+                                on:click={testR2Config}
+                                class="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm border border-gray-600/50"
+                                title="Test R2 storage configuration"
+                                aria-label="Test R2 storage configuration"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </button>
+                            <button
+                                on:click={() => showUploadModal = true}
+                                class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                <span>Upload New File</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Enhanced Exam Files Table with Skeleton Loading -->
+                    <div class="{enableInfiniteScroll ? 'max-h-96 overflow-y-auto' : ''}" on:scroll={enableInfiniteScroll ? handleScroll : undefined}>
+                        {#if skeletonLoading}
+                            <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
+                                <table class="min-w-full divide-y divide-slate-700/50">
+                                    <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
+                                        <tr>
+                                            <th scope="col" class="py-4 pl-6 pr-3 text-left text-sm font-semibold text-gray-200">
+                                                <div class="flex items-center space-x-2">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                    </svg>
+                                                    <span>File Information</span>
+                                                </div>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
+                                                <div class="flex items-center space-x-2">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                                    </svg>
+                                                    <span>Tags</span>
+                                                </div>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
+                                                <div class="flex items-center space-x-2">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                    </svg>
+                                                    <span>Uploaded By</span>
+                                                </div>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortExamFiles('created_at')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    Creation Date
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'created_at' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-center">
+                                                <div class="flex items-center justify-center space-x-1">
+                                                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                                    </svg>
+                                                    <span class="text-sm font-semibold text-gray-200">Actions</span>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
+                                        {#each Array.from({length: 5}) as _, i}
+                                            <tr class="animate-pulse">
+                                                <td class="py-6 pl-6 pr-3">
+                                                    <div class="flex items-center">
+                                                        <div class="w-12 h-12 bg-slate-600/50 rounded-xl"></div>
+                                                        <div class="ml-4 space-y-2">
+                                                            <div class="h-4 bg-slate-600/50 rounded w-32"></div>
+                                                            <div class="h-3 bg-slate-700/50 rounded w-48"></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6">
+                                                    <div class="flex gap-2">
+                                                        <div class="h-6 bg-slate-600/50 rounded-full w-16"></div>
+                                                        <div class="h-6 bg-slate-600/50 rounded-full w-12"></div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6">
+                                                    <div class="flex items-center">
+                                                        <div class="w-8 h-8 bg-slate-600/50 rounded-full mr-3"></div>
+                                                        <div class="h-4 bg-slate-600/50 rounded w-20"></div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6">
+                                                    <div class="space-y-1">
+                                                        <div class="h-4 bg-slate-600/50 rounded w-20"></div>
+                                                        <div class="h-3 bg-slate-700/50 rounded w-16"></div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6">
+                                                    <div class="flex justify-center gap-2">
+                                                        <div class="h-8 bg-slate-600/50 rounded w-20"></div>
+                                                        <div class="h-8 bg-slate-600/50 rounded w-16"></div>
+                                                        <div class="h-8 bg-slate-600/50 rounded w-16"></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {:else if examFiles.length > 0}
+                            <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
+                                <table class="min-w-full divide-y divide-slate-700/50">
+                                    <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
+                                        <tr>
+                                            <th scope="col" class="py-4 pl-6 pr-3 text-left">
+                                                <button
+                                                    on:click={() => sortExamFiles('title')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                    </svg>
+                                                    File Information
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'title' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
+                                                <div class="flex items-center space-x-2">
+                                                    <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                                    </svg>
+                                                    <span>Tags</span>
+                                                </div>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortExamFiles('uploaded_by')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                    </svg>
+                                                    Uploaded By
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'uploaded_by' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortExamFiles('created_at')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    Creation Date
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'created_at' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" class="px-3 py-4 text-center">
+                                                <div class="flex items-center justify-center space-x-1">
+                                                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                                    </svg>
+                                                    <span class="text-sm font-semibold text-gray-200">Actions</span>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
+                                        {#each examFiles as examFile (examFile.id)}
+                                            <tr class="hover:bg-slate-700/30 transition-colors duration-150">
+                                                <td class="py-6 pl-6 pr-3 text-sm">
+                                                    <div class="flex items-center">
+                                                        <div class="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-500/30">
+                                                            <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                            </svg>
+                                                        </div>
+                                                        <div class="ml-4">
+                                                            <div class="font-semibold text-gray-200 text-base">{examFile.title}</div>
+                                                            <div class="text-gray-400 text-sm mt-1">{examFile.description}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6 text-sm">
+                                                    <div class="flex flex-wrap gap-2">
+                                                        {#each examFile.tags as tag}
+                                                            <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-gray-600/50 to-gray-700/50 text-gray-300 shadow-sm border border-gray-600/50">
+                                                                {tag}
+                                                            </span>
+                                                        {/each}
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6 text-sm">
+                                                    <div class="flex items-center">
+                                                        <div class="w-8 h-8 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-full flex items-center justify-center mr-3 border border-green-500/30">
+                                                            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                            </svg>
+                                                        </div>
+                                                        <span class="text-gray-300 font-medium">{examFile.uploaded_by}</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6 text-sm text-gray-400">
+                                                    <div class="flex flex-col">
+                                                        <span>{examFile.created_at ? new Date(examFile.created_at).toLocaleDateString() : 'N/A'}</span>
+                                                        <span class="text-xs text-gray-500">{examFile.created_at ? new Date(examFile.created_at).toLocaleTimeString() : ''}</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-6 text-sm font-medium">
+                                                    <div class="flex items-center justify-center gap-2">
+                                                        <a
+                                                            href={examFile.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            class="inline-flex items-center px-3 py-2 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                        >
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                            </svg>
+                                                            <span>Download</span>
+                                                        </a>
+                                                        <button
+                                                            on:click={() => openExamFileModal(examFile)}
+                                                            class="inline-flex items-center px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                        >
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                        </button>
+                                                        <button
+                                                            on:click={() => deleteExamFile(examFile.id)}
+                                                            class="inline-flex items-center px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                        >
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                            </svg>
+                                                            <span>Delete</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {:else}
+                            <div class="text-center py-16 bg-slate-800/20 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-700/30">
+                                <div class="mx-auto w-24 h-24 bg-gradient-to-br from-green-600/20 to-emerald-600/20 rounded-full flex items-center justify-center mb-6 border border-green-500/30">
+                                    <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold text-gray-200 mb-2">No exam files yet</h3>
+                                <p class="text-gray-400 mb-8">Get started by uploading your first exam file to help students prepare for their exams.</p>
+                                <button
+                                    on:click={() => showUploadModal = true}
+                                    class="inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm space-x-3"
+                                >
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    <span class="font-semibold">Upload Your First File</span>
+                                </button>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- Enhanced Pagination for Exam Files -->
+                    {#if !enableInfiniteScroll}
+                        <div class="mt-8 flex flex-col sm:flex-row items-center justify-between bg-slate-800/20 backdrop-blur-lg rounded-xl p-4 shadow-sm border border-gray-700/30">
+                            <div class="flex items-center text-sm text-gray-300 mb-4 sm:mb-0">
+                                <span class="font-medium">Page {examFilePage} of {totalExamFilePages || Math.max(1, Math.ceil(examFiles.length / examFileLimit))}</span>
+                                <span class="mx-2 text-gray-500">•</span>
+                                <span>{totalExamFiles || examFiles.length} total files</span>
+                                <span class="mx-2 text-gray-500">•</span>
+                                <span>{examFileLimit} per page</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button
+                                    on:click={() => goToExamFilePage(Math.max(1, examFilePage - 1))}
+                                    disabled={examFilePage === 1}
+                                    class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 border border-gray-600/50 text-gray-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm text-sm font-medium"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                    <span>Previous</span>
+                                </button>
+                                <div class="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-medium rounded-xl border border-green-500/30 shadow-lg backdrop-blur-sm">
+                                    {examFilePage}
+                                </div>
+                                <button
+                                    on:click={() => goToExamFilePage(examFilePage + 1)}
+                                    disabled={examFilePage >= (totalExamFilePages || Math.max(1, Math.ceil(examFiles.length / examFileLimit)))}
+                                    class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 border border-gray-600/50 text-gray-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm text-sm font-medium"
+                                >
+                                    <span>Next</span>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    {:else if loadingMore && activeTab === 'exam-files'}
+                        <div class="mt-8 flex justify-center">
+                            <div class="flex items-center space-x-3 bg-slate-800/20 backdrop-blur-lg rounded-xl p-4 border border-gray-700/30">
+                                <div class="w-6 h-6 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full animate-spin">
+                                    <div class="absolute w-4 h-4 bg-slate-800/50 rounded-full top-1 left-1"></div>
+                                </div>
+                                <span class="text-gray-300 font-medium">Loading more files...</span>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+        </div>
+    </div>
 </div>
 
-<!-- User Detail Modal -->
-{#if showUserModal && selectedUser}
-	<div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-		<div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-			<div class="p-6">
-				{#if isLoadingUserDetail}
-					<div class="flex items-center justify-center py-8">
-						<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-						<p class="ml-3 text-gray-600 dark:text-gray-400">Loading user details...</p>
-					</div>
-				{:else}
-					<!-- Modal Header -->
-					<div class="flex items-center justify-between mb-6">
-						<h3 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-							<svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-							</svg>
-							{$t('userDetails')}
-						</h3>					<button 
-						on:click={closeUserModal}
-						class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
-						aria-label="Close modal"
-					>
-							<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-					</div>
-
-					<!-- User Profile Card -->
-					<div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 mb-6">
-						<div class="flex items-start space-x-4">
-							<div class="flex-shrink-0">
-								{#if selectedUser.profile_image}
-									<img src={selectedUser.profile_image} alt={selectedUser.full_name} class="h-20 w-20 rounded-full object-cover ring-4 ring-white dark:ring-slate-700" />
-								{:else}
-									<div class="h-20 w-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-700">
-										<span class="text-white font-bold text-2xl">{selectedUser.full_name.charAt(0).toUpperCase()}</span>
-									</div>
-								{/if}
-							</div>
-							<div class="flex-1">
-								<h4 class="text-xl font-semibold text-gray-900 dark:text-white">{selectedUser.full_name}</h4>
-								<p class="text-blue-600 dark:text-blue-400 font-medium">@{selectedUser.username}</p>
-								<p class="text-gray-600 dark:text-gray-400 mt-1">{selectedUser.email}</p>
-								<div class="flex flex-wrap gap-2 mt-3">
-									{#each selectedUser.roles as role}
-										<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {getRoleColor(selectedUser.roles)}">
-											{role}
-										</span>
-									{/each}
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- User Information -->
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-						<div class="space-y-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-								<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg">
-									{selectedUser.email}
-								</div>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
-								<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg">
-									@{selectedUser.username}
-								</div>
-							</div>
-						</div>
-						<div class="space-y-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID</label>
-								<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg font-mono">
-									{selectedUser.id}
-								</div>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-								<div class="flex items-center">
-									<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-										<svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-											<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-										</svg>
-										{$t('active')}
-									</span>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					{#if selectedUser.bio}
-						<div class="mb-6">
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bio</label>
-							<div class="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700 px-4 py-3 rounded-lg">
-								{selectedUser.bio}
-							</div>
-						</div>
-					{/if}
-
-					<!-- Role Management -->
-					<div class="border-t border-gray-200 dark:border-slate-700 pt-6 mb-6">
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-							<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-							</svg>
-							{$t('changeRole')}
-						</label>
-						<select
-							on:change={(e) => selectedUser && updateUserRole(selectedUser.id, (e.target as HTMLSelectElement).value)}
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-						>
-							<option value="user" selected={selectedUser.roles.includes('user')}>{$t('user')}</option>
-							<option value="staff" selected={selectedUser.roles.includes('staff')}>Staff</option>
-							<option value="admin" selected={selectedUser.roles.includes('admin')}>Admin</option>
-						</select>
-					</div>
-
-					<!-- Action Buttons -->
-					<div class="flex justify-between pt-6 border-t border-gray-200 dark:border-slate-700">
-						<button
-							on:click={() => selectedUser && confirmDelete({ id: selectedUser.id, email: selectedUser.email, full_name: selectedUser.full_name, username: selectedUser.username, roles: selectedUser.roles })}
-							class="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30 transition-all duration-200"
-						>
-							<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-							</svg>
-							{$t('deleteUser')}
-						</button>
-						<div class="flex space-x-3">
-							<button
-								on:click={openEditUserModal}
-								class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-							>
-								<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-								</svg>
-								Edit Profile
-							</button>
-							<button
-								on:click={closeUserModal}
-								class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-							>
-								Close
-							</button>
-						</div>
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
+<!-- Enhanced User Edit Modal -->
+{#if showUserModal && editingUser}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-200">Edit User Profile</h3>
+                            <p class="text-sm text-gray-400">Update user information</p>
+                        </div>
+                    </div>
+                    <button
+                        on:click={() => showUserModal = false}
+                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
+                        aria-label="Close user edit modal"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form on:submit|preventDefault={updateUserProfile} class="space-y-4">
+                    <div>
+                        <label for="full_name" class="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                        <input
+                            id="full_name"
+                            type="text"
+                            bind:value={userForm.full_name}
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter full name"
+                        />
+                    </div>
+                    <div>
+                        <label for="bio" class="block text-sm font-medium text-gray-300 mb-2">Bio</label>
+                        <textarea
+                            id="bio"
+                            bind:value={userForm.bio}
+                            rows="3"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Tell us about yourself..."
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="profile_image" class="block text-sm font-medium text-gray-300 mb-2">Profile Image URL</label>
+                        <input
+                            id="profile_image"
+                            type="url"
+                            bind:value={userForm.profile_image}
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="https://example.com/image.jpg"
+                        />
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                        >
+                            Save Changes
+                        </button>
+                        <button
+                            type="button"
+                            on:click={() => showUserModal = false}
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {/if}
 
-<!-- Edit User Modal -->
-{#if showEditUserModal && selectedUser}
-	<div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-		<div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4">
-			<div class="p-6">
-				<div class="flex items-center justify-between mb-6">
-					<h3 class="text-xl font-bold text-gray-900 dark:text-white">Edit User Profile</h3>				<button 
-					on:click={() => showEditUserModal = false}
-					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
-					aria-label="Close edit modal"
-				>
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				</div>
-
-				<form on:submit|preventDefault={() => selectedUser && updateUserProfile(selectedUser.id)} class="space-y-4">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
-						<input
-							bind:value={editUserForm.full_name}
-							type="text"
-							required
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-						/>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bio</label>
-						<textarea
-							bind:value={editUserForm.bio}
-							rows="3"
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-							placeholder="Tell us about yourself..."
-						></textarea>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profile Image URL</label>
-						<input
-							bind:value={editUserForm.profile_image}
-							type="url"
-							class="block w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200"
-							placeholder="https://example.com/image.jpg"
-						/>
-					</div>
-
-					<div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-slate-700">
-						<button
-							type="button"
-							on:click={() => showEditUserModal = false}
-							class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-						>
-							{$t('cancel')}
-						</button>
-						<button
-							type="submit"
-							disabled={isUpdatingUser}
-							class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-						>
-							{#if isUpdatingUser}
-								<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-							{/if}
-							Save Changes
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
-	</div>
+<!-- Enhanced Exam File Edit Modal -->
+{#if showExamFileModal && editingExamFile}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-200">Edit Exam File</h3>
+                            <p class="text-sm text-gray-400">Update file information</p>
+                        </div>
+                    </div>
+                    <button
+                        on:click={() => showExamFileModal = false}
+                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
+                        aria-label="Close exam file edit modal"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form on:submit|preventDefault={updateExamFile} class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-300 mb-2">Title</label>
+                        <input
+                            id="title"
+                            type="text"
+                            bind:value={examFileForm.title}
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter file title"
+                        />
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                        <textarea
+                            id="description"
+                            bind:value={examFileForm.description}
+                            rows="3"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Describe the exam file..."
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="tags" class="block text-sm font-medium text-gray-300 mb-2">Tags (comma separated)</label>
+                        <input
+                            id="tags"
+                            type="text"
+                            bind:value={examFileForm.tags}
+                            placeholder="math, grade10, final"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                        />
+                        <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="essay_count" class="block text-sm font-medium text-gray-300 mb-2">Essay Questions</label>
+                            <input
+                                id="essay_count"
+                                type="number"
+                                min="0"
+                                bind:value={examFileForm.essay_count}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <label for="choice_count" class="block text-sm font-medium text-gray-300 mb-2">Multiple Choice</label>
+                            <input
+                                id="choice_count"
+                                type="number"
+                                min="0"
+                                bind:value={examFileForm.choice_count}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                        >
+                            Save Changes
+                        </button>
+                        <button
+                            type="button"
+                            on:click={() => showExamFileModal = false}
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {/if}
 
-<!-- Delete Confirmation Modal -->
-{#if showDeleteConfirm && userToDelete}
-	<div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-		<div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4">
-			<div class="p-6">
-				<div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/20 rounded-full mb-4">
-					<svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.112 16.5c-.77.833.192 2.5 1.732 2.5z" />
-					</svg>
-				</div>
-				
-				<h3 class="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">{$t('deleteUser')}</h3>
-				<p class="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-					{$t('deleteConfirmMessage')}
-				</p>
-				<p class="text-sm font-medium text-gray-900 dark:text-white text-center mb-6">
-					<strong>{userToDelete.full_name}</strong> (@{userToDelete.username})
-				</p>
-				
-				<div class="flex justify-center space-x-4">
-					<button
-						on:click={() => { showDeleteConfirm = false; userToDelete = null; }}
-						class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-					>
-						{$t('cancel')}
-					</button>
-					<button
-						on:click={() => userToDelete && deleteUser(userToDelete.id)}
-						class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
-					>
-						{$t('delete')}
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
+<!-- Enhanced File Upload Modal -->
+{#if showUploadModal}
+    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-200">Upload Exam File</h3>
+                            <p class="text-sm text-gray-400">Add a new exam file to the platform</p>
+                        </div>
+                    </div>
+                    <button
+                        on:click={() => showUploadModal = false}
+                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
+                        aria-label="Close upload modal"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form on:submit|preventDefault={uploadExamFile} class="space-y-4">
+                    <div>
+                        <label for="upload_title" class="block text-sm font-medium text-gray-300 mb-2">
+                            Title <span class="text-red-400">*</span>
+                        </label>
+                        <input
+                            id="upload_title"
+                            type="text"
+                            bind:value={uploadForm.title}
+                            required
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter file title"
+                        />
+                    </div>
+                    <div>
+                        <label for="upload_description" class="block text-sm font-medium text-gray-300 mb-2">
+                            Description <span class="text-red-400">*</span>
+                        </label>
+                        <textarea
+                            id="upload_description"
+                            bind:value={uploadForm.description}
+                            required
+                            rows="3"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Describe the exam file..."
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="upload_tags" class="block text-sm font-medium text-gray-300 mb-2">Tags (comma separated)</label>
+                        <input
+                            id="upload_tags"
+                            type="text"
+                            bind:value={uploadForm.tags}
+                            placeholder="math, grade10, final"
+                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                        />
+                        <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
+                    </div>
+                    
+                    <!-- Question Type Counts -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="upload_essay_count" class="block text-sm font-medium text-gray-300 mb-2">
+                                Essay Questions <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                id="upload_essay_count"
+                                type="number"
+                                min="0"
+                                max="1000"
+                                bind:value={uploadForm.essay_count}
+                                on:input={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.essay_count = Math.max(0, parseInt(target.value) || 0);
+                                }}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <label for="upload_choice_count" class="block text-sm font-medium text-gray-300 mb-2">
+                                Choice Questions <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                id="upload_choice_count"
+                                type="number"
+                                min="0"
+                                max="1000"
+                                bind:value={uploadForm.choice_count}
+                                on:input={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.choice_count = Math.max(0, parseInt(target.value) || 0);
+                                }}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 -mt-2">At least one type must have 1 or more questions</p>
+                    
+                    <div>
+                        <label for="upload_file" class="block text-sm font-medium text-gray-300 mb-2">
+                            File <span class="text-red-400">*</span>
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="upload_file"
+                                type="file"
+                                accept=".pdf,.doc,.docx,.txt,.json"
+                                on:change={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    const file = target.files?.[0] || null;
+                                    uploadForm.file = file;
+                                    
+                                    // Clear any previous file-related errors
+                                    if (file && error && error.includes('file')) {
+                                        error = '';
+                                    }
+                                }}
+                                required
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-500/20 file:text-purple-300 hover:file:bg-purple-500/30"
+                            />
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">Supported formats: PDF, DOC, DOCX, TXT, JSON (Max: 50MB)</p>
+                        {#if uploadForm.file}
+                            <div class="mt-2 p-3 bg-green-500/20 rounded-lg border border-green-500/30">
+                                <div class="flex items-center space-x-2">
+                                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span class="text-sm text-green-300 font-medium">Selected: {uploadForm.file.name}</span>
+                                    <span class="text-xs text-gray-400">({(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center gap-2"
+                        >
+                            {#if loading}
+                                <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Uploading...
+                            {:else}
+                                Upload File
+                            {/if}
+                        </button>
+                        <button
+                            type="button"
+                            on:click={() => showUploadModal = false}
+                            disabled={loading}
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {/if}
+
+{#if loading}
+    <div class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-8 flex flex-col items-center shadow-2xl">
+            <div class="relative">
+                <div class="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-spin">
+                    <div class="absolute top-1 left-1 w-14 h-14 bg-slate-800/50 rounded-full backdrop-blur-sm"></div>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-6 text-center">
+                <h3 class="text-lg font-semibold text-white mb-2">Loading Admin Dashboard</h3>
+                <p class="text-gray-300">Please wait while we fetch the latest data...</p>
+            </div>
+        </div>
+    </div>
+{/if}
+
+<style>
+    /* Custom animation keyframes for the admin dashboard */
+    @keyframes float-gentle {
+        0%, 100% { 
+            transform: translateY(0px) translateX(0px); 
+            opacity: 0.3;
+        }
+        25% { 
+            transform: translateY(-6px) translateX(2px); 
+            opacity: 0.5;
+        }
+        50% { 
+            transform: translateY(-12px) translateX(-1px); 
+            opacity: 0.7;
+        }
+        75% { 
+            transform: translateY(-6px) translateX(1px); 
+            opacity: 0.5;
+        }
+    }
+    
+    @keyframes float {
+        0%, 100% { 
+            transform: translateY(0px); 
+        }
+        50% { 
+            transform: translateY(-8px); 
+        }
+    }
+
+    @keyframes glow {
+        0%, 100% { 
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); 
+        }
+        50% { 
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); 
+        }
+    }
+
+    .animate-float-gentle {
+        animation: float-gentle 6s ease-in-out infinite;
+    }
+
+    .animate-float {
+        animation: float 4s ease-in-out infinite;
+    }
+
+    .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+    }
+
+    /* Glassmorphism effects for the admin dashboard */
+    .glass-card {
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: rgba(51, 65, 85, 0.3);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.5);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.7);
+    }
+
+    /* Enhanced focus states for accessibility */
+    .focus-ring:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.6);
+        outline-offset: 2px;
+    }
+
+    /* Smooth transitions for all interactive elements */
+    button, select, input {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Loading spinner animation */
+    .animate-spin-slow {
+        animation: spin 3s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Dark theme select option styling */
+    select option {
+        background-color: rgb(51, 65, 85);
+        color: white;
+    }
+
+    /* Enhanced backdrop blur support */
+    @supports not (backdrop-filter: blur(16px)) {
+        .glass-card {
+            background-color: rgba(51, 65, 85, 0.8);
+        }
+    }
+</style>
