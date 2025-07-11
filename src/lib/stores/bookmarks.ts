@@ -15,7 +15,7 @@ interface BookmarkState {
     lastUpdate: number; // Add timestamp for cache invalidation
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const initialState: BookmarkState = {
     bookmarks: [],
