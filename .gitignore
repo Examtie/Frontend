@@ -20,3 +20,5 @@ vite.config.ts.timestamp-*
 .dev.vars*
 
 .DS_Store
+
+.env
