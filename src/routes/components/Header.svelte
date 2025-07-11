@@ -152,9 +152,9 @@
 					<span>{$t('home')}</span>
 					<div class="absolute bottom-0 left-0 {isActiveRoute('/') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
 				</a>
-				<a href="/quiz" class="relative text-{isActiveRoute('/quiz') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
-					<span>{$t('quiz')}</span>
-					<div class="absolute bottom-0 left-0 {isActiveRoute('/quiz') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
+				<a href="/exams" class="relative text-{isActiveRoute('/exams') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
+					<span>{$t('exams')}</span>
+					<div class="absolute bottom-0 left-0 {isActiveRoute('/exams') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
 				</a>
 				<a href="/marketplace" class="relative text-{isActiveRoute('/marketplace') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
 					<span>{$t('marketplace')}</span>
@@ -358,8 +358,8 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 							</svg>
 						</a>
-						<a href="/quiz" onclick={closeMenu} class="flex items-center text-{isActiveRoute('/quiz') ? 'blue-300' : 'gray-300'} hover:text-white transition-all duration-300 py-4 px-4 rounded-xl hover:bg-slate-700/50 {isActiveRoute('/quiz') ? 'bg-blue-500/20' : ''} group">
-							<span class="font-medium text-base">{$t('quiz')}</span>
+						<a href="/exams" onclick={closeMenu} class="flex items-center text-{isActiveRoute('/exams') ? 'blue-300' : 'gray-300'} hover:text-white transition-all duration-300 py-4 px-4 rounded-xl hover:bg-slate-700/50 {isActiveRoute('/exams') ? 'bg-blue-500/20' : ''} group">
+							<span class="font-medium text-base">{$t('exams')}</span>
 							<svg class="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 							</svg>

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { auth } from '$lib/stores/auth';
+    import { toastStore } from '$lib/stores/toast';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { t } from '$lib/i18n';
@@ -23,6 +24,8 @@
         tags: string[];
         url: string;
         uploaded_by: string;
+        essay_count: number;
+        choice_count: number;
         created_at?: string;
     };
 
@@ -36,7 +39,7 @@
         };
     };
 
-    const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://examtieapi.breadtm.xyz';
 
     let activeTab = 'users';
     let users: AdminUser[] = [];
@@ -90,7 +93,9 @@
     let examFileForm = {
         title: '',
         description: '',
-        tags: ''
+        tags: '',
+        essay_count: 0,
+        choice_count: 0
     };
 
     // Upload form
@@ -98,17 +103,35 @@
         title: '',
         description: '',
         tags: '',
+        essay_count: 0,
+        choice_count: 0,
         file: null as File | null
     };
 
     onMount(async () => {
-        // Check if user is admin
-        if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
-            goto('/');
-            return;
+        // Wait for auth to initialize before checking authentication
+        if (!$auth.isInitialized) {
+            // Wait for auth initialization to complete
+            const unsubscribe = auth.subscribe((authState) => {
+                if (authState.isInitialized) {
+                    unsubscribe();
+                    // Now check authentication and admin role after initialization
+                    if (!authState.isAuthenticated || !authState.user?.roles.includes('admin')) {
+                        goto('/');
+                        return;
+                    }
+                    // Auth is valid and user is admin, load data
+                    loadData();
+                }
+            });
+        } else {
+            // Auth already initialized, check immediately
+            if (!$auth.isAuthenticated || !$auth.user?.roles.includes('admin')) {
+                goto('/');
+                return;
+            }
+            await loadData();
         }
-
-        await loadData();
     });
 
     async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
@@ -117,13 +140,19 @@
             throw new Error('No authentication token');
         }
 
+        // Don't set Content-Type if body is FormData (for file uploads)
+        const isFormData = options.body instanceof FormData;
+        const headers = new Headers(options.headers);
+        headers.set('Authorization', `Bearer ${token}`);
+        
+        // Only set Content-Type for non-FormData requests
+        if (!isFormData && !headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
+        }
+
         const response = await fetch(url, {
             ...options,
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
+            headers,
         });
 
         if (!response.ok) {
@@ -348,6 +377,13 @@
         if (!editingExamFile) return;
 
         try {
+            // Validation: At least one question type must be greater than 0
+            if (examFileForm.essay_count < 1 && examFileForm.choice_count < 1) {
+                error = 'At least one question type (essay or multiple choice) must be 1 or greater';
+                toastStore.error('At least one question type must be 1 or greater');
+                return;
+            }
+
             const tags = examFileForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
             
             await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${editingExamFile.id}`, {
@@ -355,77 +391,163 @@
                 body: JSON.stringify({
                     title: examFileForm.title,
                     description: examFileForm.description,
-                    tags: tags
+                    tags: tags,
+                    essay_count: examFileForm.essay_count,
+                    choice_count: examFileForm.choice_count
                 }),
             });
             showExamFileModal = false;
             editingExamFile = null;
             successMessage = 'Exam file updated successfully';
+            toastStore.success('Exam file updated successfully');
             setTimeout(() => successMessage = '', 3000);
             await loadExamFiles();
         } catch (err: any) {
             error = err.message;
+            toastStore.error(err.message || 'Failed to update exam file');
         }
     }
 
     async function uploadExamFile() {
-        if (!uploadForm.file || !uploadForm.title || !uploadForm.description) {
-            error = 'Please fill in all required fields and select a file';
+        // Clear previous errors
+        error = '';
+        
+        // Validation
+        if (!uploadForm.file) {
+            error = 'Please select a file to upload';
+            toastStore.error('Please select a file to upload');
+            return;
+        }
+        
+        if (!uploadForm.title.trim()) {
+            error = 'Please enter a title';
+            toastStore.error('Please enter a title');
+            return;
+        }
+        
+        if (!uploadForm.description.trim()) {
+            error = 'Please enter a description';
+            toastStore.error('Please enter a description');
+            return;
+        }
+
+        // Validate that at least one question type has a count > 0
+        const essayCount = Number(uploadForm.essay_count) || 0;
+        const choiceCount = Number(uploadForm.choice_count) || 0;
+        
+        if (essayCount < 1 && choiceCount < 1) {
+            error = 'At least one of essay_count or choice_count must be 1 or greater';
+            toastStore.error('At least one of essay_count or choice_count must be 1 or greater');
+            return;
+        }
+
+        // File size validation (optional, but good practice)
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (uploadForm.file.size > maxSize) {
+            error = 'File size must be less than 50MB';
+            toastStore.error('File size must be less than 50MB');
             return;
         }
 
         try {
-            const token = $auth.token;
-            if (!token) {
-                throw new Error('No authentication token');
-            }
+            // Show loading state
+            loading = true;
+            toastStore.info('Uploading file...');
 
             const formData = new FormData();
             formData.append('file', uploadForm.file);
+            formData.append('title', uploadForm.title.trim());
+            formData.append('description', uploadForm.description.trim());
+            formData.append('tags', uploadForm.tags.trim() || '');
+            formData.append('essay_count', essayCount.toString());
+            formData.append('choice_count', choiceCount.toString());
 
-            // Send tags as a comma-separated string in query params
-            const params = new URLSearchParams({
-                title: uploadForm.title,
-                description: uploadForm.description,
-                tags: uploadForm.tags || ''
+            // Debug log
+            console.log('Upload form data:', {
+                fileName: uploadForm.file.name,
+                fileSize: uploadForm.file.size,
+                fileType: uploadForm.file.type,
+                title: uploadForm.title.trim(),
+                description: uploadForm.description.trim(),
+                tags: uploadForm.tags.trim(),
+                essay_count: essayCount,
+                choice_count: choiceCount
             });
 
-            const response = await fetch(`${API_BASE_URL}/admin/api/v1/upload?${params}`, {
+            // Use the improved makeAuthenticatedRequest function
+            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/upload`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: formData,
             });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: 'Upload failed' })) as any;
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
-            }
-
+            
+            // Reset form and close modal
             showUploadModal = false;
-            uploadForm = { title: '', description: '', tags: '', file: null };
+            uploadForm = { title: '', description: '', tags: '', essay_count: 0, choice_count: 0, file: null };
+            
+            // Show success message
             successMessage = 'File uploaded successfully';
+            toastStore.success('File uploaded successfully');
             setTimeout(() => successMessage = '', 3000);
+            
+            // Reload the files list
             await loadExamFiles();
-            await loadStats(); // Refresh stats after upload
+            
         } catch (err: any) {
-            error = err.message;
+            console.error('Upload error:', err);
+            error = err.message || 'Unknown error occurred during upload';
+            
+            // Provide more helpful error messages
+            if (err.message.includes('R2 storage is not configured')) {
+                toastStore.error('File storage is not configured. Please contact the administrator.');
+            } else if (err.message.includes('File upload service error')) {
+                toastStore.error('File storage service error. Please try again or contact support.');
+            } else if (err.message.includes('No authentication token')) {
+                toastStore.error('Please login again.');
+            } else {
+                toastStore.error(`Upload failed: ${err.message || 'Unknown error'}`);
+            }
+        } finally {
+            loading = false;
         }
     }
 
-    async function downloadExamFile(fileId: string) {
+    // Debug function to test R2 configuration
+    async function testR2Config() {
         try {
-            const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files/${fileId}/download`);
+            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/test-r2`);
+            console.log('R2 Configuration Test:', result);
             
-            // Open the download URL in a new tab
-            if (response.download_url) {
-                window.open(response.download_url, '_blank');
+            if (result.r2_configured && result.bucket_accessible) {
+                toastStore.success('R2 storage is properly configured and accessible!');
             } else {
-                error = 'Download URL not available';
+                let errorMsg = 'R2 Configuration Issues:\n';
+                if (!result.r2_configured) errorMsg += '- R2 not configured (missing environment variables)\n';
+                if (!result.bucket_accessible) errorMsg += `- Bucket not accessible: ${result.bucket_test_error}\n`;
+                toastStore.error(errorMsg);
             }
-        } catch (err: any) {
-            error = err.message;
+        } catch (error: any) {
+            toastStore.error(`R2 test failed: ${error.message}`);
+        }
+    }
+
+    // Debug function to test upload
+    async function debugUpload() {
+        try {
+            const token = $auth.token;
+            if (!token) {
+                toastStore.error('No authentication token found');
+                return;
+            }
+            
+            toastStore.info('Running upload test...');
+            // await testApiConnection(API_BASE_URL, token);
+            // await testUpload(API_BASE_URL, token);
+            toastStore.success('Upload test completed successfully!');
+            
+            // Reload files to see the test file
+            await loadExamFiles();
+        } catch (error: any) {
+            toastStore.error(`Upload test failed: ${error.message}`);
         }
     }
 
@@ -444,7 +566,9 @@
         examFileForm = {
             title: examFile.title,
             description: examFile.description,
-            tags: examFile.tags.join(', ')
+            tags: examFile.tags.join(', '),
+            essay_count: examFile.essay_count,
+            choice_count: examFile.choice_count
         };
         showExamFileModal = true;
     }
@@ -742,9 +866,7 @@
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-                                </svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Material Symbols by Google - https://github.com/google/material-design-icons/blob/master/LICENSE --><path fill="white" d="M9.775 12q-.9 0-1.5-.675T7.8 9.75l.325-2.45q.2-1.425 1.3-2.363T12 4t2.575.938t1.3 2.362l.325 2.45q.125.9-.475 1.575t-1.5.675zm0-2h4.45L13.9 7.6q-.1-.7-.637-1.15T12 6t-1.263.45T10.1 7.6zM4 20v-2.8q0-.85.438-1.562T5.6 14.55q1.55-.775 3.15-1.162T12 13t3.25.388t3.15 1.162q.725.375 1.163 1.088T20 17.2V20zm2-2h12v-.8q0-.275-.137-.5t-.363-.35q-1.35-.675-2.725-1.012T12 15t-2.775.338T6.5 16.35q-.225.125-.363.35T6 17.2zm6 0"/></svg>
                             </div>
                         </div>
                         <div class="ml-4">
@@ -763,8 +885,7 @@
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+<svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="32" height="32" viewBox="0 0 36 36"><!-- Icon from Clarity by VMware - https://github.com/vmware/clarity-assets/blob/master/LICENSE --><path fill="currentColor" d="M14.68 14.81a6.76 6.76 0 1 1 6.76-6.75a6.77 6.77 0 0 1-6.76 6.75m0-11.51a4.76 4.76 0 1 0 4.76 4.76a4.76 4.76 0 0 0-4.76-4.76" class="clr-i-outline clr-i-outline-path-1"/><path fill="currentColor" d="M16.42 31.68A2.14 2.14 0 0 1 15.8 30H4v-5.78a14.8 14.8 0 0 1 11.09-4.68h.72a2.2 2.2 0 0 1 .62-1.85l.12-.11c-.47 0-1-.06-1.46-.06A16.47 16.47 0 0 0 2.2 23.26a1 1 0 0 0-.2.6V30a2 2 0 0 0 2 2h12.7Z" class="clr-i-outline clr-i-outline-path-2"/><path fill="currentColor" d="M26.87 16.29a.4.4 0 0 1 .15 0a.4.4 0 0 0-.15 0" class="clr-i-outline clr-i-outline-path-3"/><path fill="currentColor" d="m33.68 23.32l-2-.61a7.2 7.2 0 0 0-.58-1.41l1-1.86A.38.38 0 0 0 32 19l-1.45-1.45a.36.36 0 0 0-.44-.07l-1.84 1a7 7 0 0 0-1.43-.61l-.61-2a.36.36 0 0 0-.36-.24h-2.05a.36.36 0 0 0-.35.26l-.61 2a7 7 0 0 0-1.44.6l-1.82-1a.35.35 0 0 0-.43.07L17.69 19a.38.38 0 0 0-.06.44l1 1.82a6.8 6.8 0 0 0-.63 1.43l-2 .6a.36.36 0 0 0-.26.35v2.05A.35.35 0 0 0 16 26l2 .61a7 7 0 0 0 .6 1.41l-1 1.91a.36.36 0 0 0 .06.43l1.45 1.45a.38.38 0 0 0 .44.07l1.87-1a7 7 0 0 0 1.4.57l.6 2a.38.38 0 0 0 .35.26h2.05a.37.37 0 0 0 .35-.26l.61-2.05a7 7 0 0 0 1.38-.57l1.89 1a.36.36 0 0 0 .43-.07L32 30.4a.35.35 0 0 0 0-.4l-1-1.88a7 7 0 0 0 .58-1.39l2-.61a.36.36 0 0 0 .26-.35v-2.1a.36.36 0 0 0-.16-.35M24.85 28a3.34 3.34 0 1 1 3.33-3.33A3.34 3.34 0 0 1 24.85 28" class="clr-i-outline clr-i-outline-path-4"/><path fill="none" d="M0 0h36v36H0z"/></svg>
                             </div>
                         </div>
                         <div class="ml-4">
@@ -783,9 +904,7 @@
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2V6"/>
-                                </svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Material Design Icons by Pictogrammers - https://github.com/Templarian/MaterialDesign/blob/master/LICENSE --><path fill="currentColor" d="M17.5 9a2.5 2.5 0 0 1 0-5a2.5 2.5 0 0 1 0 5m-3.07-.85L2 20.59L3.41 22L15.85 9.57c-.6-.33-1.09-.82-1.42-1.42M13 5l.63-1.37L15 3l-1.37-.63L13 1l-.62 1.37L11 3l1.38.63zm8 0l.63-1.37L23 3l-1.37-.63L21 1l-.62 1.37L19 3l1.38.63zm0 4l-.62 1.37L19 11l1.38.63L21 13l.63-1.37L23 11l-1.37-.63z"/></svg>
                             </div>
                         </div>
                         <div class="ml-4">
@@ -1269,6 +1388,16 @@
                                 </svg>
                             </button>
                             <button
+                                on:click={testR2Config}
+                                class="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm border border-gray-600/50"
+                                title="Test R2 storage configuration"
+                                aria-label="Test R2 storage configuration"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </button>
+                            <button
                                 on:click={() => showUploadModal = true}
                                 class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
                             >
@@ -1352,17 +1481,25 @@
                                                     <span>Uploaded By</span>
                                                 </div>
                                             </th>
-                                            <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
-                                                <div class="flex items-center space-x-2">
-                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <th scope="col" class="px-3 py-4 text-left">
+                                                <button
+                                                    on:click={() => sortExamFiles('created_at')}
+                                                    class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                     </svg>
-                                                    <span>Creation Date</span>
-                                                </div>
+                                                    Creation Date
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'created_at' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
+                                                </button>
                                             </th>
                                             <th scope="col" class="px-3 py-4 text-center">
                                                 <div class="flex items-center justify-center space-x-1">
-                                                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                                                     </svg>
                                                     <span class="text-sm font-semibold text-gray-200">Actions</span>
@@ -1766,6 +1903,30 @@
                         />
                         <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
                     </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="essay_count" class="block text-sm font-medium text-gray-300 mb-2">Essay Questions</label>
+                            <input
+                                id="essay_count"
+                                type="number"
+                                min="0"
+                                bind:value={examFileForm.essay_count}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <label for="choice_count" class="block text-sm font-medium text-gray-300 mb-2">Multiple Choice</label>
+                            <input
+                                id="choice_count"
+                                type="number"
+                                min="0"
+                                bind:value={examFileForm.choice_count}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
                     <div class="flex gap-3 pt-4">
                         <button
                             type="submit"
@@ -1852,6 +2013,48 @@
                         />
                         <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
                     </div>
+                    
+                    <!-- Question Type Counts -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="upload_essay_count" class="block text-sm font-medium text-gray-300 mb-2">
+                                Essay Questions <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                id="upload_essay_count"
+                                type="number"
+                                min="0"
+                                max="1000"
+                                bind:value={uploadForm.essay_count}
+                                on:input={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.essay_count = Math.max(0, parseInt(target.value) || 0);
+                                }}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <label for="upload_choice_count" class="block text-sm font-medium text-gray-300 mb-2">
+                                Choice Questions <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                id="upload_choice_count"
+                                type="number"
+                                min="0"
+                                max="1000"
+                                bind:value={uploadForm.choice_count}
+                                on:input={(e) => {
+                                    const target = e.target as HTMLInputElement;
+                                    uploadForm.choice_count = Math.max(0, parseInt(target.value) || 0);
+                                }}
+                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 -mt-2">At least one type must have 1 or more questions</p>
+                    
                     <div>
                         <label for="upload_file" class="block text-sm font-medium text-gray-300 mb-2">
                             File <span class="text-red-400">*</span>
@@ -1860,14 +2063,22 @@
                             <input
                                 id="upload_file"
                                 type="file"
+                                accept=".pdf,.doc,.docx,.txt,.json"
                                 on:change={(e) => {
                                     const target = e.target as HTMLInputElement;
-                                    uploadForm.file = target.files?.[0] || null;
+                                    const file = target.files?.[0] || null;
+                                    uploadForm.file = file;
+                                    
+                                    // Clear any previous file-related errors
+                                    if (file && error && error.includes('file')) {
+                                        error = '';
+                                    }
                                 }}
                                 required
                                 class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-500/20 file:text-purple-300 hover:file:bg-purple-500/30"
                             />
                         </div>
+                        <p class="text-xs text-gray-400 mt-1">Supported formats: PDF, DOC, DOCX, TXT, JSON (Max: 50MB)</p>
                         {#if uploadForm.file}
                             <div class="mt-2 p-3 bg-green-500/20 rounded-lg border border-green-500/30">
                                 <div class="flex items-center space-x-2">
@@ -1875,6 +2086,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
                                     <span class="text-sm text-green-300 font-medium">Selected: {uploadForm.file.name}</span>
+                                    <span class="text-xs text-gray-400">({(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB)</span>
                                 </div>
                             </div>
                         {/if}
@@ -1882,14 +2094,24 @@
                     <div class="flex gap-3 pt-4">
                         <button
                             type="submit"
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                            disabled={loading}
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center gap-2"
                         >
-                            Upload File
+                            {#if loading}
+                                <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Uploading...
+                            {:else}
+                                Upload File
+                            {/if}
                         </button>
                         <button
                             type="button"
                             on:click={() => showUploadModal = false}
-                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
+                            disabled={loading}
+                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>
