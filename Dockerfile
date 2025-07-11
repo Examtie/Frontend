@@ -16,6 +16,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Build-time API base override
+ARG API_BASE_URL=http://localhost:9765
+ENV VITE_API_BASE_URL=$API_BASE_URL
+
 # ---> Set the variable to choose the Node.js adapter <---
 ENV DEPLOY_TARGET=docker
 

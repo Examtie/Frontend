@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PdfViewer from '$lib/components/PdfViewer.svelte';
     import { page } from '$app/stores';
     import { auth } from '$lib/stores/auth';
     import { toastStore } from '$lib/stores/toast';
@@ -30,7 +31,7 @@
         answer: string | string[];
     };
 
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://examtieapi.breadtm.xyz';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
     // Reactive variables
     let examId: string;
@@ -828,15 +829,8 @@
                         </div>
                         <div class="flex-1 overflow-hidden">
                             {#if pdfUrl}
-                                <iframe 
-                                    src={pdfUrl} 
-                                    class="w-full h-full border-0"
-                                    title="Exam PDF"
-                                    width="100%"
-                                    height="100%"
-                                    style="width: 100%; height: 100%;"
-                                ></iframe>
-                            {:else}
+                                <PdfViewer src={pdfUrl} />
+                             {:else}
                                 <div class="flex items-center justify-center h-full">
                                     <div class="text-center">
                                         <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1053,20 +1047,14 @@
                         </div>
                         <div class="flex-1 overflow-hidden">
                             {#if pdfUrl}
-                                <iframe 
-                                    src={pdfUrl} 
-                                    class="w-full h-full border-0 {isResizing ? 'pointer-events-none' : ''}"
-                                    title="Exam PDF"
-                                    width="100%"
-                                    height="100%"
-                                    style="width: 100%; height: 100%;"
-                                ></iframe>
-                            {:else}
+                                <PdfViewer src={pdfUrl} />
+                             {:else}
                                 <div class="flex items-center justify-center h-full">
                                     <div class="text-center">
                                         <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                                             <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
                                         </div>
                                         <p class="text-gray-500">No PDF available</p>
                                     </div>
