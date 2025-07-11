@@ -30,7 +30,7 @@
         answer: string | string[];
     };
 
-    const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://examtieapi.breadtm.xyz';
 
     // Reactive variables
     let examId: string;

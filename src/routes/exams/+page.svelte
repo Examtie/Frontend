@@ -52,7 +52,7 @@
         submission_id: string;
     };
 
-    const API_BASE_URL = 'https://examtieapi.breadtm.xyz';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://examtieapi.breadtm.xyz';
 
     let exams: ExamFile[] = [];
     let categories: ExamCategory[] = [];
