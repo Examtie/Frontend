@@ -31,5 +31,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/examtie/examtie-frontend:latest
-            ghcr.io/examtie/examtie-frontend:${{ github.sha }}
+            ghcr.io/examtie/frontend:latest
+            ghcr.io/examtie/frontend:${{ github.sha }}
