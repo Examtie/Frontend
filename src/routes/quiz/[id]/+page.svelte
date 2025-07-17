@@ -32,6 +32,7 @@
     };
 
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
     // Reactive variables
     let examId: string;
@@ -44,6 +45,8 @@
     let submitting = false;
     let showSubmitConfirmation = false;
     let pdfUrl = '';
+
+
 
     // UI state
     let showQuestionList = false;
@@ -161,7 +164,14 @@
             };
 
             // Set PDF URL
-            pdfUrl = examData.url;
+            if (examData.url.startsWith('http')) {
+                pdfUrl = examData.url;
+            } else {
+                // Ensure no double slashes
+                const base = STORAGE_BASE_URL.endsWith('/') ? STORAGE_BASE_URL.slice(0, -1) : STORAGE_BASE_URL;
+                const path = examData.url.startsWith('/') ? examData.url : `/${examData.url}`;
+                pdfUrl = `${base}${path}`;
+            }
 
             // Load questions - note: the API returns questions as array of objects
             const questionsResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/questions`);
@@ -461,7 +471,7 @@
             
             // Redirect to results or exams page
             setTimeout(() => {
-                goto('/exams');
+                goto(`/quiz/${examId}/result`);
             }, 2000);
 
         } catch (err: any) {
@@ -819,13 +829,15 @@
                 {#if showPdfViewer}
                     <div class="fixed inset-0 bg-white z-50 flex flex-col">
                         <div class="bg-gray-100 px-4 py-3 border-b flex items-center justify-between">
-                            <h3 class="font-semibold text-gray-800">Exam Paper</h3>
-                            <button
-                                on:click={() => showPdfViewer = false}
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm"
-                            >
-                                Close
-                            </button>
+                            <h3 class="font-semibold text-gray-800 truncate">Exam Paper</h3>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    on:click={() => showPdfViewer = false}
+                                    class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                         <div class="flex-1 overflow-hidden">
                             {#if pdfUrl}
@@ -1042,8 +1054,8 @@
                 <!-- Left Panel - PDF Viewer -->
                 <div class="bg-white border-r border-gray-300 {isResizing ? 'shadow-lg' : 'transition-all duration-200'}" style="width: {pdfWidth}%;">
                     <div class="h-full flex flex-col">
-                        <div class="bg-gray-100 px-4 py-3 border-b">
-                            <h3 class="font-semibold text-gray-800">{exam?.title || 'Exam Paper'}</h3>
+                        <div class="bg-gray-100 px-4 py-3 border-b flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-800 truncate">{exam?.title || 'Exam Paper'}</h3>
                         </div>
                         <div class="flex-1 overflow-hidden">
                             {#if pdfUrl}
