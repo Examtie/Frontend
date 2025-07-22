@@ -133,7 +133,7 @@
 <!-- Modern responsive header with enhanced UI -->
 <header class="sticky top-0 bg-gradient-to-r from-slate-900 via-stone-900 to-slate-900 border-b border-gray-700/30 backdrop-blur-lg relative z-50 shadow-lg {className}">
 	<nav class="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
-		<div class="flex justify-between items-center h-16 sm:h-[72px]">
+		<div class="flex justify-between items-center h-12 sm:h-14">
 			<!-- Enhanced Logo with better responsive sizing -->
 			<div class="flex items-center min-w-0 flex-shrink-0">
 				<a href="/" class="flex items-center space-x-2 sm:space-x-3 group">
@@ -159,6 +159,10 @@
 				<a href="/marketplace" class="relative text-{isActiveRoute('/marketplace') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
 					<span>{$t('marketplace')}</span>
 					<div class="absolute bottom-0 left-0 {isActiveRoute('/marketplace') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
+				</a>
+				<a href="/pdf-to-flashcards" class="relative text-{isActiveRoute('/pdf-to-flashcards') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
+					<span>Flashcards</span>
+					<div class="absolute bottom-0 left-0 {isActiveRoute('/pdf-to-flashcards') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
 				</a>
 				{#if $auth.isAuthenticated && $auth.user?.roles.includes('admin')}
 					<a href="/admin" class="relative text-{isActiveRoute('/admin') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
