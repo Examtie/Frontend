@@ -86,8 +86,8 @@
                     unsubscribe();
                     // Now check authentication after initialization
                     if (!authState.isAuthenticated) {
-                        goto('/login');
-                        return;
+                        // public access – no redirect
+                        // continue without auth
                     }
                     // Auth is valid, load data
                     loadData();
@@ -96,8 +96,8 @@
         } else {
             // Auth already initialized, check immediately
             if (!$auth.isAuthenticated) {
-                goto('/login');
-                return;
+                // public access – no redirect
+                // continue without auth
             }
             loadData();
         }
@@ -157,12 +157,11 @@
         error = '';
         
         try {
-            await Promise.all([
-                loadExams(),
-                loadCategories(),
-                loadExamProgress(),
-                loadInProgressExams()
-            ]);
+            const tasks = [$auth.isAuthenticated ? loadCategories() : Promise.resolve(), loadExams()];
+            if ($auth.isAuthenticated) {
+                tasks.push(loadExamProgress(), loadInProgressExams());
+            }
+            await Promise.all(tasks);
         } catch (err: any) {
             error = err.message;
         } finally {
@@ -186,12 +185,21 @@
             limit: limit.toString(),
         });
 
-        let endpoint = `${API_BASE_URL}/user/api/v1/exams`;
+        let endpoint = $auth.isAuthenticated ? `${API_BASE_URL}/user/api/v1/exams` : `${API_BASE_URL}/public/api/v1/exams`;
         if (selectedCategory) {
             endpoint = `${API_BASE_URL}/user/api/v1/exams/by-category/${selectedCategory}`;
         }
 
-        const response = await makeAuthenticatedRequest(`${endpoint}?${params}`);
+        let response;
+        if ($auth.isAuthenticated) {
+            response = await makeAuthenticatedRequest(`${endpoint}?${params}`);
+        } else {
+            const res = await fetch(`${endpoint}?${params}`);
+            if (!res.ok) {
+                throw new Error('Failed to fetch exams');
+            }
+            response = await res.json();
+        }
         exams = Array.isArray(response) ? response : response.exams || [];
         totalExams = response.total || exams.length;
         totalPages = Math.ceil(totalExams / limit);

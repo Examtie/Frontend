@@ -71,10 +71,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
     $: examId = $page.params.id;
 
     onMount(() => {
-        if (!$auth.isAuthenticated) {
-            goto('/login');
-            return;
-        }
+        // Guest users are now allowed – no redirect to login
 
         // Check if mobile
         function checkMobile() {
@@ -119,17 +116,17 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
     async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
         const token = $auth.token;
-        if (!token) {
-            throw new Error('No authentication token');
+        const headers: Record<string, string> = { ...(options.headers as Record<string, string> ?? {}) };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
         const response = await fetch(url, {
             ...options,
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
+                ...headers,
+                'Content-Type': 'application/json'
+            }
         });
 
         if (!response.ok) {
@@ -146,7 +143,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
         try {
             // Load exam details first
-            const examResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams`);
+            const examEndpoint = $auth.token ? `${API_BASE_URL}/user/api/v1/exams` : `${API_BASE_URL}/public/api/v1/exams`;
+            const examResponse = await makeAuthenticatedRequest(examEndpoint);
             const examData = examResponse.find((e: any) => e.id === examId);
             
             if (!examData) {
@@ -174,7 +172,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             }
 
             // Load questions - note: the API returns questions as array of objects
-            const questionsResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/questions`);
+            const questionsEndpoint = $auth.token ? `${API_BASE_URL}/user/api/v1/exams/${examId}/questions` : `${API_BASE_URL}/public/api/v1/exams/${examId}/questions`;
+            const questionsResponse = await makeAuthenticatedRequest(questionsEndpoint);
             questions = questionsResponse || [];
 
             // Generate answer sheet based on essay_count and choice_count if no questions returned
@@ -205,6 +204,34 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             userAnswers = new Map();
             
             // --- FIXED RESUME LOGIC ---
+            // Load local saved progress
+            let localProgress: any = null;
+            if (typeof localStorage !== 'undefined') {
+                const raw = localStorage.getItem(`exam_${examId}_progress`);
+                if (raw) {
+                    try { localProgress = JSON.parse(raw); } catch {}
+                }
+            }
+
+            // Compare local vs remote (if any)
+            if (localProgress && localProgress.answers) {
+                const localTime = new Date(localProgress.lastSave || 0);
+                const remoteTime = lastSaveTime || new Date(0);
+
+                let useLocal = false;
+                if (!$auth.isAuthenticated) {
+                    // Guest: always use local
+                    useLocal = true;
+                } else {
+                    // Ask user which to keep
+                    useLocal = confirm(`Local save found (${localTime.toLocaleString()})\nRemote save (${remoteTime.toLocaleString()})\nClick OK to use LOCAL, Cancel for REMOTE`);
+                }
+
+                if (useLocal) {
+                    userAnswers = new Map(localProgress.answers.map((a: any) => [a.question_id, a]));
+                    lastSaveTime = localTime;
+                }
+            }
             // Try to load saved progress first
             try {
                 // 1. Fetch all exams that are in progress
@@ -328,15 +355,26 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
 
             const saveData = {
-                answers: answers,
-                is_draft: true, // This indicates it's an auto-save, not final submission
+                answers,
+                is_draft: true, // auto-save
                 time_spent: timeSpent
             };
 
-            await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/save-progress`, {
-                method: 'POST',
-                body: JSON.stringify(saveData)
-            });
+            // Save locally so guests or offline users don't lose progress
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(`exam_${examId}_progress`, JSON.stringify({ answers, lastSave: new Date().toISOString() }));
+            }
+
+            // If logged in, sync to remote as well
+            if ($auth.isAuthenticated) {
+                await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/save-progress`, {
+                    method: 'POST',
+                    body: JSON.stringify(saveData)
+                });
+            }
+
+            lastSaveTime = new Date();
+            showAutoSaveIndicator();
 
             lastSaveTime = new Date();
             

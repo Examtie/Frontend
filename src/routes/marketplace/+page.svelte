@@ -61,9 +61,9 @@
 		try {
 			let url: string;
 			if (searchTerm) {
-				url = `${baseApiUrl}/market/api/v1/items/search?keyword=${encodeURIComponent(searchTerm)}`;
+				url = `${baseApiUrl}/public/api/v1/market/items/search?keyword=${encodeURIComponent(searchTerm)}`;
 			} else {
-				url = `${baseApiUrl}/market/api/v1/items`;
+				url = `${baseApiUrl}/public/api/v1/market/items`;
 			}
 
 			const token = get(auth).token;
@@ -111,7 +111,7 @@
 				headers['Authorization'] = `Bearer ${token}`;
 			}
 
-			const response = await fetch(`${baseApiUrl}/market/api/v1/items/${itemId}`, { headers });
+			const response = await fetch(`${baseApiUrl}/public/api/v1/market/items/${itemId}`, { headers });
 			
 			if (!response.ok) {
 				throw new Error('Failed to fetch item details');
