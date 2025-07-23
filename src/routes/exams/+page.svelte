@@ -288,8 +288,11 @@
     }
 
     function handleExamClick(exam: ExamFile) {
-        // Navigate to exam detail/quiz page
-        goto(`/quiz/${exam.id}`);
+        if (!$auth.isAuthenticated) {
+            goto(`/login?redirect=/quiz/${exam.id}`);
+        } else {
+            goto(`/quiz/${exam.id}`);
+        }
     }
 
     function getTagColor(index: number): string {

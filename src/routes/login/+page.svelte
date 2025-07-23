@@ -1,6 +1,7 @@
 <script lang="ts">
     import { auth } from '$lib/stores/auth';
     import { goto } from '$app/navigation';
+    import { page } from '$app/stores';
     import { t } from '$lib/i18n';
 
     let email = '';
@@ -12,6 +13,7 @@
 
     let loading = false;
     let successMessage = ''; // Added for success messages
+    $: redirectPath = $page.url.searchParams.get('redirect') || '/';
     let formErrors: { [key: string]: string } = {};
 
     // Form validation
@@ -66,7 +68,7 @@
         }
 
         if (success) {
-            setTimeout(() => goto('/'), 1500); // Redirect after a short delay
+            setTimeout(() => goto(redirectPath), 1500); // Redirect after a short delay
         } 
         loading = false;
     }

@@ -298,7 +298,7 @@
 						{/if}
 					</div>
 				{:else}
-					<a href="/login" class="hidden md:flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2.5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 backdrop-blur-sm group text-sm font-medium">
+					<a href={`/login?redirect=${$page.url.pathname}`} class="hidden md:flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2.5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 backdrop-blur-sm group text-sm font-medium">
 						<svg class="w-4 h-4 mr-2 group-hover:translate-x-0.5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
 						</svg>
@@ -447,7 +447,7 @@
 								<span class="font-medium">{$t('logout')}</span>
 							</button>
 						{:else}
-							<a href="/login" onclick={closeMenu} class="block w-full text-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 backdrop-blur-sm font-medium">
+							<a href={`/login?redirect=${$page.url.pathname}`} onclick={closeMenu} class="block w-full text-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 backdrop-blur-sm font-medium">
 								{$t('login')}
 							</a>
 						{/if}
