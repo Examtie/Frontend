@@ -677,8 +677,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 </script>
 
 <svelte:head>
-    <title>{exam?.title || 'Quiz'} - ExamTie</title>
-    <meta name="description" content={exam?.description || 'Practice quiz on ExamTie'} />
+    <title>{exam?.title || 'Quiz'} - Examtie</title>
+    <meta name="description" content={exam?.description || 'Practice quiz on Examtie'} />
 </svelte:head>
 
 <style>

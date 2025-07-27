@@ -384,7 +384,7 @@
 </script>
 
 <svelte:head>
-    <title>Exams - ExamTie</title>
+    <title>Exams - Examtie</title>
     <meta name="description" content="Browse and practice with our extensive collection of exam papers" />
 </svelte:head>
 

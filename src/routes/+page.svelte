@@ -1,4 +1,4 @@
-<!-- ExamTie Homepage -->
+<!-- Examtie Homepage -->
 <script lang="ts">
 	import Header from './components/Header.svelte';
 	import QuizDemo from './components/QuizDemo.svelte';
@@ -321,33 +321,6 @@
 								<button class="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-semibold rounded-xl shadow-xl hover:shadow-purple-500/25 transition-all duration-300">
 									เริ่มต้นใช้งานฟรี
 								</button>
-								<button class="px-6 sm:px-8 py-3 sm:py-4 bg-white/10 backdrop-blur-sm border border-white/30 hover:bg-white/20 hover:border-white/50 text-white font-semibold rounded-xl transition-all duration-300">
-									ดูวิดีโอแนะนำ
-								</button>
-							</div>
-						</div>
-
-						<!-- Key Features -->
-						<div class="animate-fade-in-up delay-400">
-							<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4 justify-center">
-								<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-emerald-500/20 to-green-400/20 backdrop-blur-sm rounded-full border border-emerald-400/30">
-									<svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-									</svg>
-									<span class="text-xs sm:text-sm font-medium text-emerald-300 whitespace-nowrap">AI ขั้นสูง</span>
-								</div>
-								<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-blue-500/20 to-cyan-400/20 backdrop-blur-sm rounded-full border border-blue-400/30">
-									<svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-									</svg>
-									<span class="text-xs sm:text-sm font-medium text-blue-300 whitespace-nowrap">ติดตามผลงาน</span>
-								</div>
-								<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 lg:px-4 lg:py-2 bg-gradient-to-r from-purple-500/20 to-pink-400/20 backdrop-blur-sm rounded-full border border-purple-400/30 sm:col-span-2 lg:col-span-1">
-									<svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-									</svg>
-									<span class="text-xs sm:text-sm font-medium text-purple-300 whitespace-nowrap">ข้อสอบหลากหลาย</span>
-								</div>
 							</div>
 						</div>
 					</div>
@@ -636,7 +609,7 @@
 			
 			<div class="max-w-5xl mx-auto">
 				<!-- User Type Tabs -->
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
 					<button 
 						class="group px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
 						class:bg-gradient-to-r={activeUserType === 'student'}
@@ -675,26 +648,6 @@
 						<div class="flex items-center justify-center gap-2">
 							<span class="text-2xl">{userTypes.teacher.emoji}</span>
 							<span>{userTypes.teacher.title}</span>
-						</div>
-					</button>
-					<button 
-						class="group px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
-						class:bg-gradient-to-r={activeUserType === 'institution'}
-						class:from-purple-600={activeUserType === 'institution'}
-						class:to-blue-600={activeUserType === 'institution'}
-						class:text-white={activeUserType === 'institution'}
-						class:bg-white={activeUserType !== 'institution'}
-						class:dark:bg-slate-800={activeUserType !== 'institution'}
-						class:text-slate-700={activeUserType !== 'institution'}
-						class:dark:text-slate-300={activeUserType !== 'institution'}
-						class:border={activeUserType !== 'institution'}
-						class:border-slate-200={activeUserType !== 'institution'}
-						class:dark:border-slate-700={activeUserType !== 'institution'}
-						on:click={() => setActiveUserType('institution')}
-					>
-						<div class="flex items-center justify-center gap-2">
-							<span class="text-2xl">{userTypes.institution.emoji}</span>
-							<span>{userTypes.institution.title}</span>
 						</div>
 					</button>
 				</div>
@@ -803,13 +756,6 @@
 						{$t('exploreExams')}
 					</span>
 				</button>
-			</div>
-
-			<!-- Additional free messaging -->
-			<div class="mt-6 lg:mt-8">
-				<p class="text-green-200 text-sm lg:text-base font-medium">
-					✨ No login required • 100% Free forever • Open source community
-				</p>
 			</div>
 		</div>
 	</section>

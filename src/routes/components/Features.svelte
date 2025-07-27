@@ -54,7 +54,7 @@
 			<h2 class="text-4xl md:text-5xl font-bold text-accent-900 dark:text-white mb-6">
 				Why Choose 
 				<span class="bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
-					ExamTie
+					Examtie
 				</span>
 			</h2>
 			<p class="text-xl text-accent-600 dark:text-accent-300 max-w-3xl mx-auto">

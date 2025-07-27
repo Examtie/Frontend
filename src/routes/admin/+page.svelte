@@ -732,8 +732,8 @@
 </script>
 
 <svelte:head>
-    <title>Admin Dashboard - ExamTie</title>
-    <meta name="description" content="Administrative dashboard for ExamTie" />
+    <title>Admin Dashboard - Examtie</title>
+    <meta name="description" content="Administrative dashboard for Examtie" />
 </svelte:head>
 
 <Header />

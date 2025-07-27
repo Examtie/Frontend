@@ -333,13 +333,13 @@ export const translations: Record<'en' | 'th', Translations> = {
 		marketplaceNoItems: 'No items found. Try a different search.',
 		
 		// Hero Section
-		heroTitle: 'ExamTie',
+		heroTitle: 'Examtie',
 		heroDescription: 'Transform your study experience with AI-powered practice questions, instant feedback, and personalized learning paths tailored to your success.',
 		heroSubtitle: 'Master Your Exams with AI-Powered Practice',
 		heroStatusBadge: '🚀 AI-Powered Learning Platform',
 		masterYour: 'Master Your',
 		examsWith: 'Exams with',
-		examTie: 'ExamTie',
+		examTie: 'Examtie',
 		transformStudy: 'Experience the future of exam preparation with our completely free, open source learning platform. AI-powered questions, personalized feedback, and progress tracking - all available to everyone, forever.',
 		startLearningNow: 'Start Learning Now',
 		tryDemo: 'Try Demo',
@@ -380,7 +380,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		tryInteractive: 'Try our interactive quiz interface with real-time feedback and detailed explanations',
 		
 		// Features Section
-		featuresTitle: 'Why Choose ExamTie?',
+		featuresTitle: 'Why Choose Examtie?',
 		featuresDescription: 'Powerful features designed to accelerate your learning journey and maximize your exam success',
 		powerfulFeatures: 'Powerful Features',
 		whyChoose: 'Why Choose',
@@ -412,9 +412,9 @@ export const translations: Record<'en' | 'th', Translations> = {
 		
 		// Testimonials Section
 		testimonialsTitle: 'What Our Students Say',
-		testimonialsDescription: 'Real stories from students who transformed their academic performance with ExamTie',
+		testimonialsDescription: 'Real stories from students who transformed their academic performance with Examtie',
 		whatStudentsSay: 'What Our Students Say',
-		realStories: 'Real stories from students who transformed their academic performance with ExamTie',
+		realStories: 'Real stories from students who transformed their academic performance with Examtie',
 		transformedPerformance: 'transformed their academic performance',
 		
 		// Call to Action
@@ -453,16 +453,16 @@ export const translations: Record<'en' | 'th', Translations> = {
 		footerTermsOfService: 'Terms of Service',
 		footerCookiePolicy: 'Cookie Policy',
 		footerLicenses: 'Licenses',
-		footerCopyright: '© 2024 ExamTie. All rights reserved.',
-		footerMadeWithLove: 'Made with ❤️ for students worldwide',
+		footerCopyright: '© 2025 Examtie. All rights reserved.',
+		footerMadeWithLove: 'Made with ❤️ for students',
 		aboutUs: 'About Us',
 		contactUs: 'Contact Us',
 		privacyPolicy: 'Privacy Policy',
 		termsOfService: 'Terms of Service',
 		
 		// Meta Information
-		pageTitle: 'ExamTie - Master Your Exams with AI-Powered Practice',
-		pageDescription: 'Take your learning to the next level with ExamTie. Practice with thousands of questions, get intelligent feedback, and track your progress across multiple subjects.',
+		pageTitle: 'Examtie - Master Your Exams with AI-Powered Practice',
+		pageDescription: 'Take your learning to the next level with Examtie. Practice with thousands of questions, get intelligent feedback, and track your progress across multiple subjects.',
 		
 		// Floating Subject Cards
 		mathSubject: 'Mathematics',
@@ -626,7 +626,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		heroStatusBadge: 'ใหม่',
 		masterYour: 'ฝึกฝน',
 		examsWith: 'ข้อสอบของคุณด้วย',
-		examTie: 'ExamTie',
+		examTie: 'Examtie',
 		transformStudy: 'เปลี่ยนวิธีการเรียนของคุณ',
 		startLearningNow: 'เริ่มเรียนรู้ตอนนี้',
 		tryDemo: 'ลองใช้เดโม',
@@ -704,7 +704,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		testimonialsDescription: 'สิ่งที่นักเรียนของเราพูด',
 		whatStudentsSay: 'สิ่งที่นักเรียนของเราพูด',
 		realStories: 'เรื่องราวจริงจากนักเรียนจริง',
-		transformedPerformance: '“ExamTie เปลี่ยนแปลงการเรียนของฉันไปอย่างสิ้นเชิง!”',
+		transformedPerformance: '“Examtie เปลี่ยนแปลงการเรียนของฉันไปอย่างสิ้นเชิง!”',
 
 		// Call to Action
 		ctaTitle: 'เริ่มต้นเส้นทางสู่ความสำเร็จของคุณ',
@@ -742,7 +742,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		footerTermsOfService: 'ข้อกำหนดในการให้บริการ',
 		footerCookiePolicy: 'นโยบายคุกกี้',
 		footerLicenses: 'ใบอนุญาต',
-		footerCopyright: '© 2024 ExamTie สงวนลิขสิทธิ์',
+		footerCopyright: '© 2025 Examtie สงวนลิขสิทธิ์',
 		footerMadeWithLove: 'สร้างด้วย ❤️ ในประเทศไทย',
 		aboutUs: 'เกี่ยวกับเรา',
 		contactUs: 'ติดต่อเรา',
@@ -750,8 +750,8 @@ export const translations: Record<'en' | 'th', Translations> = {
 		termsOfService: 'ข้อกำหนดในการให้บริการ',
 
 		// Meta Information
-		pageTitle: 'ExamTie - การเรียนรู้ด้วย AI',
-		pageDescription: 'เปลี่ยนแปลงวิธีการเรียนของคุณด้วยแพลตฟอร์ม AI ของ ExamTie',
+		pageTitle: 'Examtie - การเรียนรู้ด้วย AI',
+		pageDescription: 'เปลี่ยนแปลงวิธีการเรียนของคุณด้วยแพลตฟอร์ม AI ของ Examtie',
 
 		// Floating Subject Cards
 		mathSubject: 'คณิตศาสตร์',
@@ -788,7 +788,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		getStarted: 'เริ่มต้นใช้งาน',
 
 		// Auth Modal & Validation
-		authModalTitle: 'เริ่มต้นใช้งาน ExamTie',
+		authModalTitle: 'เริ่มต้นใช้งาน Examtie',
 		authModalSubtitle: 'สร้างบัญชีหรือลงชื่อเข้าใช้เพื่อปลดล็อกศักยภาพการเรียนรู้ของคุณ',
 		continueWithGoogle: 'ดำเนินการต่อด้วย Google',
 		orContinueWith: 'หรือดำเนินการต่อด้วย',

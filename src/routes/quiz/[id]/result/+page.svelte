@@ -84,7 +84,7 @@ import Header from '../../../components/Header.svelte';
 </script>
 
 <svelte:head>
-    <title>สรุปผลข้อสอบ - ExamTie</title>
+    <title>สรุปผลข้อสอบ - Examtie</title>
     <meta name="description" content="ผลการทำข้อสอบและคำแนะนำสำหรับการทบทวน" />
 </svelte:head>
 
