@@ -5,6 +5,7 @@
     import { goto } from '$app/navigation';
     import { t } from '$lib/i18n';
     import Header from '../components/Header.svelte';
+    import ExamUploadModal from '$lib/components/ExamUploadModal.svelte';
 
     type AdminUser = {
         id: string;
@@ -44,6 +45,7 @@
     let activeTab = 'users';
     let users: AdminUser[] = [];
     let examFiles: ExamFile[] = [];
+    let categories: any[] = [];
     let stats: SystemStats | null = null;
     let loading = false;
     let skeletonLoading = true;
@@ -98,15 +100,7 @@
         choice_count: 0
     };
 
-    // Upload form
-    let uploadForm = {
-        title: '',
-        description: '',
-        tags: '',
-        essay_count: 0,
-        choice_count: 0,
-        file: null as File | null
-    };
+    // Upload form (simplified - now using shared component)
 
     onMount(async () => {
         // Wait for auth to initialize before checking authentication
@@ -174,6 +168,7 @@
             await Promise.all([
                 loadUsers(),
                 loadExamFiles(),
+                loadCategories(),
                 loadStats()
             ]);
         } catch (err: any) {
@@ -246,6 +241,15 @@
 
     async function loadStats() {
         stats = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`) as SystemStats;
+    }
+
+    async function loadCategories() {
+        try {
+            categories = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exam-categories`);
+        } catch (err: any) {
+            console.warn('Failed to load categories:', err.message);
+            categories = [];
+        }
     }
 
     async function getUserDetail(userId: string) {
@@ -408,107 +412,15 @@
         }
     }
 
-    async function uploadExamFile() {
-        // Clear previous errors
-        error = '';
-        
-        // Validation
-        if (!uploadForm.file) {
-            error = 'Please select a file to upload';
-            toastStore.error('Please select a file to upload');
-            return;
-        }
-        
-        if (!uploadForm.title.trim()) {
-            error = 'Please enter a title';
-            toastStore.error('Please enter a title');
-            return;
-        }
-        
-        if (!uploadForm.description.trim()) {
-            error = 'Please enter a description';
-            toastStore.error('Please enter a description');
-            return;
-        }
+    // Upload modal functions for shared component
+    function closeUploadModal() {
+        showUploadModal = false;
+    }
 
-        // Validate that at least one question type has a count > 0
-        const essayCount = Number(uploadForm.essay_count) || 0;
-        const choiceCount = Number(uploadForm.choice_count) || 0;
-        
-        if (essayCount < 1 && choiceCount < 1) {
-            error = 'At least one of essay_count or choice_count must be 1 or greater';
-            toastStore.error('At least one of essay_count or choice_count must be 1 or greater');
-            return;
-        }
-
-        // File size validation (optional, but good practice)
-        const maxSize = 50 * 1024 * 1024; // 50MB
-        if (uploadForm.file.size > maxSize) {
-            error = 'File size must be less than 50MB';
-            toastStore.error('File size must be less than 50MB');
-            return;
-        }
-
-        try {
-            // Show loading state
-            loading = true;
-            toastStore.info('Uploading file...');
-
-            const formData = new FormData();
-            formData.append('file', uploadForm.file);
-            formData.append('title', uploadForm.title.trim());
-            formData.append('description', uploadForm.description.trim());
-            formData.append('tags', uploadForm.tags.trim() || '');
-            formData.append('essay_count', essayCount.toString());
-            formData.append('choice_count', choiceCount.toString());
-
-            // Debug log
-            console.log('Upload form data:', {
-                fileName: uploadForm.file.name,
-                fileSize: uploadForm.file.size,
-                fileType: uploadForm.file.type,
-                title: uploadForm.title.trim(),
-                description: uploadForm.description.trim(),
-                tags: uploadForm.tags.trim(),
-                essay_count: essayCount,
-                choice_count: choiceCount
-            });
-
-            // Use the improved makeAuthenticatedRequest function
-            const result = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            
-            // Reset form and close modal
-            showUploadModal = false;
-            uploadForm = { title: '', description: '', tags: '', essay_count: 0, choice_count: 0, file: null };
-            
-            // Show success message
-            successMessage = 'File uploaded successfully';
-            toastStore.success('File uploaded successfully');
-            setTimeout(() => successMessage = '', 3000);
-            
-            // Reload the files list
-            await loadExamFiles();
-            
-        } catch (err: any) {
-            console.error('Upload error:', err);
-            error = err.message || 'Unknown error occurred during upload';
-            
-            // Provide more helpful error messages
-            if (err.message.includes('R2 storage is not configured')) {
-                toastStore.error('File storage is not configured. Please contact the administrator.');
-            } else if (err.message.includes('File upload service error')) {
-                toastStore.error('File storage service error. Please try again or contact support.');
-            } else if (err.message.includes('No authentication token')) {
-                toastStore.error('Please login again.');
-            } else {
-                toastStore.error(`Upload failed: ${err.message || 'Unknown error'}`);
-            }
-        } finally {
-            loading = false;
-        }
+    function handleExamUploadSuccess(newExam: any) {
+        // Add the new exam to the beginning of the list
+        examFiles = [newExam, ...examFiles];
+        loadStats(); // Refresh stats
     }
 
     // Debug function to test R2 configuration
@@ -1949,178 +1861,12 @@
 {/if}
 
 <!-- Enhanced File Upload Modal -->
-{#if showUploadModal}
-    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-6">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-200">Upload Exam File</h3>
-                            <p class="text-sm text-gray-400">Add a new exam file to the platform</p>
-                        </div>
-                    </div>
-                    <button
-                        on:click={() => showUploadModal = false}
-                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
-                        aria-label="Close upload modal"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <form on:submit|preventDefault={uploadExamFile} class="space-y-4">
-                    <div>
-                        <label for="upload_title" class="block text-sm font-medium text-gray-300 mb-2">
-                            Title <span class="text-red-400">*</span>
-                        </label>
-                        <input
-                            id="upload_title"
-                            type="text"
-                            bind:value={uploadForm.title}
-                            required
-                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Enter file title"
-                        />
-                    </div>
-                    <div>
-                        <label for="upload_description" class="block text-sm font-medium text-gray-300 mb-2">
-                            Description <span class="text-red-400">*</span>
-                        </label>
-                        <textarea
-                            id="upload_description"
-                            bind:value={uploadForm.description}
-                            required
-                            rows="3"
-                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Describe the exam file..."
-                        ></textarea>
-                    </div>
-                    <div>
-                        <label for="upload_tags" class="block text-sm font-medium text-gray-300 mb-2">Tags (comma separated)</label>
-                        <input
-                            id="upload_tags"
-                            type="text"
-                            bind:value={uploadForm.tags}
-                            placeholder="math, grade10, final"
-                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                        />
-                        <p class="text-xs text-gray-400 mt-1">Separate tags with commas</p>
-                    </div>
-                    
-                    <!-- Question Type Counts -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="upload_essay_count" class="block text-sm font-medium text-gray-300 mb-2">
-                                Essay Questions <span class="text-red-400">*</span>
-                            </label>
-                            <input
-                                id="upload_essay_count"
-                                type="number"
-                                min="0"
-                                max="1000"
-                                bind:value={uploadForm.essay_count}
-                                on:input={(e) => {
-                                    const target = e.target as HTMLInputElement;
-                                    uploadForm.essay_count = Math.max(0, parseInt(target.value) || 0);
-                                }}
-                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                                placeholder="0"
-                            />
-                        </div>
-                        <div>
-                            <label for="upload_choice_count" class="block text-sm font-medium text-gray-300 mb-2">
-                                Choice Questions <span class="text-red-400">*</span>
-                            </label>
-                            <input
-                                id="upload_choice_count"
-                                type="number"
-                                min="0"
-                                max="1000"
-                                bind:value={uploadForm.choice_count}
-                                on:input={(e) => {
-                                    const target = e.target as HTMLInputElement;
-                                    uploadForm.choice_count = Math.max(0, parseInt(target.value) || 0);
-                                }}
-                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                                placeholder="0"
-                            />
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-400 -mt-2">At least one type must have 1 or more questions</p>
-                    
-                    <div>
-                        <label for="upload_file" class="block text-sm font-medium text-gray-300 mb-2">
-                            File <span class="text-red-400">*</span>
-                        </label>
-                        <div class="relative">
-                            <input
-                                id="upload_file"
-                                type="file"
-                                accept=".pdf,.doc,.docx,.txt,.json"
-                                on:change={(e) => {
-                                    const target = e.target as HTMLInputElement;
-                                    const file = target.files?.[0] || null;
-                                    uploadForm.file = file;
-                                    
-                                    // Clear any previous file-related errors
-                                    if (file && error && error.includes('file')) {
-                                        error = '';
-                                    }
-                                }}
-                                required
-                                class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-500/20 file:text-purple-300 hover:file:bg-purple-500/30"
-                            />
-                        </div>
-                        <p class="text-xs text-gray-400 mt-1">Supported formats: PDF, DOC, DOCX, TXT, JSON (Max: 50MB)</p>
-                        {#if uploadForm.file}
-                            <div class="mt-2 p-3 bg-green-500/20 rounded-lg border border-green-500/30">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                    <span class="text-sm text-green-300 font-medium">Selected: {uploadForm.file.name}</span>
-                                    <span class="text-xs text-gray-400">({(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-                    <div class="flex gap-3 pt-4">
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center gap-2"
-                        >
-                            {#if loading}
-                                <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Uploading...
-                            {:else}
-                                Upload File
-                            {/if}
-                        </button>
-                        <button
-                            type="button"
-                            on:click={() => showUploadModal = false}
-                            disabled={loading}
-                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-{/if}
+<ExamUploadModal 
+    bind:showModal={showUploadModal}
+    {categories}
+    onClose={closeUploadModal}
+    onSuccess={handleExamUploadSuccess}
+/>
 
 {#if loading}
     <div class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50">

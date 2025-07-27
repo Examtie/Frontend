@@ -314,6 +314,38 @@ export interface Translations {
 	profileImageUrlPlaceholder: string;
 	updating: string;
 	pleaseLogInToViewProfile: string;
+	
+	// Exam Upload
+	uploadExam: string;
+	uploadNewExam: string;
+	examFile: string;
+	examTitle: string;
+	examDescription: string;
+	essayQuestions: string;
+	multipleChoiceQuestions: string;
+	selectCategory: string;
+	newCategory: string;
+	createNewCategory: string;
+	categoryName: string;
+	categoryNameLocal: string;
+	englishName: string;
+	createCategory: string;
+	answerKey: string;
+	requiredFields: string;
+	uploadingExam: string;
+	examUploadedSuccessfully: string;
+	examUploadFailed: string;
+	selectPdfFile: string;
+	clickToUpload: string;
+	dragAndDrop: string;
+	pdfFilesOnly: string;
+	enterExamTitle: string;
+	enterExamDescription: string;
+	enterAnswerKey: string;
+	provideCorrectAnswers: string;
+	noPermissionUpload: string;
+	categoryCreated: string;
+	categoryCreationFailed: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -499,6 +531,13 @@ export const translations: Record<'en' | 'th', Translations> = {
 		getStarted: 'Get Started',
 		
 		// Auth Modal & Validation
+		authModalTitle: 'Get Started with Examtie',
+		authModalSubtitle: 'Sign in or create an account to continue',
+		continueWithGoogle: 'Continue with Google',
+		emailPlaceholder: 'Enter your email address',
+		passwordConfirmation: 'Confirm Password',
+		passwordConfirmationPlaceholder: 'Enter your password again',
+		fieldRequired: 'This field is required',
 		loginTitle: 'Welcome Back',
 		signupTitle: 'Create Account',
 		loginDescriptionModal: 'Sign in to access your personalized learning dashboard',
@@ -523,9 +562,28 @@ export const translations: Record<'en' | 'th', Translations> = {
 		language: 'Language',
 		logout: 'Logout',
 		userProfile: 'User Profile',
+		myProfile: 'My Profile',
+		settings: 'Settings',
+
+		// PDF to Flashcards
+		pdfToFlashcards: 'PDF to Flashcards',
+		pdfToFlashcardsDescription: 'Convert your PDF documents into interactive flashcards instantly',
+		uploadPDF: 'Upload PDF',
+		generateFlashcards: 'Generate Flashcards',
+		generatingFlashcards: 'Generating flashcards...',
+		flashcardGenerationSuccess: 'Flashcards generated successfully!',
+		flashcardGenerationError: 'Failed to generate flashcards',
+		viewFlashcards: 'View Flashcards',
+		noFileSelected: 'No file selected',
+		fileSelected: 'File selected',
+		uploading: 'Uploading...',
+
+		// User Profile
+		profile: 'Profile',
 		
 		// Admin Dashboard
 		adminDashboard: 'Admin Dashboard',
+		dashboard: 'Dashboard',
 		manageUsers: 'Manage users and system settings',
 		systemSettings: 'System Settings',
 		totalUsers: 'Total Users',
@@ -602,7 +660,39 @@ export const translations: Record<'en' | 'th', Translations> = {
 		profileUpdateError: 'Failed to update profile.',
 		profileImageUrlPlaceholder: 'Enter profile image URL...',
 		updating: 'Updating...',
-		pleaseLogInToViewProfile: 'Please log in to view your profile.'
+		pleaseLogInToViewProfile: 'Please log in to view your profile.',
+		
+		// Exam Upload
+		uploadExam: 'Upload Exam',
+		uploadNewExam: 'Upload New Exam',
+		examFile: 'Exam File (PDF)',
+		examTitle: 'Exam Title',
+		examDescription: 'Description',
+		essayQuestions: 'Essay Questions',
+		multipleChoiceQuestions: 'Multiple Choice Questions',
+		selectCategory: 'Select a category (optional)',
+		newCategory: 'New',
+		createNewCategory: 'Create New Category',
+		categoryName: 'Category Name',
+		categoryNameLocal: 'Category Name (Local)',
+		englishName: 'English Name',
+		createCategory: 'Create Category',
+		answerKey: 'Answer Key',
+		requiredFields: 'Required fields',
+		uploadingExam: 'Uploading...',
+		examUploadedSuccessfully: 'Exam uploaded successfully!',
+		examUploadFailed: 'Failed to upload exam',
+		selectPdfFile: 'Please select a PDF file.',
+		clickToUpload: 'Click to upload',
+		dragAndDrop: 'or drag and drop',
+		pdfFilesOnly: 'PDF files only',
+		enterExamTitle: 'Enter exam title...',
+		enterExamDescription: 'Enter exam description...',
+		enterAnswerKey: 'Enter the answer key (JSON format or structured text)',
+		provideCorrectAnswers: 'Provide the correct answers for the exam questions',
+		noPermissionUpload: 'You do not have permission to upload exams.',
+		categoryCreated: 'Category created successfully!',
+		categoryCreationFailed: 'Failed to create category'
 	},
 	th: {
 		// Navigation
@@ -817,6 +907,8 @@ export const translations: Record<'en' | 'th', Translations> = {
 		// Additional Navigation & UI
 		admin: 'ผู้ดูแลระบบ',
 		language: 'ภาษา',
+		logout: 'ออกจากระบบ',
+		userProfile: 'โปรไฟล์ผู้ใช้',
 		myProfile: 'โปรไฟล์ของฉัน',
 		settings: 'การตั้งค่า',
 
@@ -915,6 +1007,38 @@ export const translations: Record<'en' | 'th', Translations> = {
 		apply: 'ปรับใช้',
 		noUsersFound: 'ไม่พบผู้ใช้',
 		adjustSearchFilters: 'ลองปรับการค้นหาหรือตัวกรองของคุณ',
-		loadingUsers: 'กำลังโหลดรายชื่อผู้ใช้...'
+		loadingUsers: 'กำลังโหลดรายชื่อผู้ใช้...',
+		
+		// Exam Upload
+		uploadExam: 'อัปโหลดข้อสอบ',
+		uploadNewExam: 'อัปโหลดข้อสอบใหม่',
+		examFile: 'ไฟล์ข้อสอบ (PDF)',
+		examTitle: 'ชื่อข้อสอบ',
+		examDescription: 'คำอธิบาย',
+		essayQuestions: 'คำถามอัตนัย',
+		multipleChoiceQuestions: 'คำถามปรนัย',
+		selectCategory: 'เลือกหมวดหมู่ (ไม่บังคับ)',
+		newCategory: 'ใหม่',
+		createNewCategory: 'สร้างหมวดหมู่ใหม่',
+		categoryName: 'ชื่อหมวดหมู่',
+		categoryNameLocal: 'ชื่อหมวดหมู่ (ภาษาไทย)',
+		englishName: 'ชื่อภาษาอังกฤษ',
+		createCategory: 'สร้างหมวดหมู่',
+		answerKey: 'เฉลย',
+		requiredFields: 'ช่องที่จำเป็น',
+		uploadingExam: 'กำลังอัปโหลด...',
+		examUploadedSuccessfully: 'อัปโหลดข้อสอบสำเร็จ!',
+		examUploadFailed: 'ไม่สามารถอัปโหลดข้อสอบได้',
+		selectPdfFile: 'กรุณาเลือกไฟล์ PDF',
+		clickToUpload: 'คลิกเพื่ออัปโหลด',
+		dragAndDrop: 'หรือลากและวาง',
+		pdfFilesOnly: 'ไฟล์ PDF เท่านั้น',
+		enterExamTitle: 'ใส่ชื่อข้อสอบ...',
+		enterExamDescription: 'ใส่คำอธิบายข้อสอบ...',
+		enterAnswerKey: 'ใส่เฉลย (รูปแบบ JSON หรือข้อความที่มีโครงสร้าง)',
+		provideCorrectAnswers: 'ให้คำตอบที่ถูกต้องสำหรับคำถามในข้อสอบ',
+		noPermissionUpload: 'คุณไม่มีสิทธิ์ในการอัปโหลดข้อสอบ',
+		categoryCreated: 'สร้างหมวดหมู่สำเร็จ!',
+		categoryCreationFailed: 'ไม่สามารถสร้างหมวดหมู่ได้'
 	}
 };

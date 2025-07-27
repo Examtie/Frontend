@@ -7,6 +7,7 @@
     import { t } from '$lib/i18n';
     import Header from '../components/Header.svelte';
     import ToastContainer from '../components/ToastContainer.svelte';
+    import ExamUploadModal from '$lib/components/ExamUploadModal.svelte';
 
     type ExamFile = {
         id: string;
@@ -76,6 +77,9 @@
     let sortBy: 'title' | 'created_at' | 'popularity' = 'title';
     let sortOrder: 'asc' | 'desc' = 'asc';
     let bookmarkingExams: Set<string> = new Set(); // Track which exams are being bookmarked
+
+    // Upload modal state
+    let showUploadModal = false;
 
     onMount(() => {
         // Wait for auth to initialize before checking authentication
@@ -373,10 +377,42 @@
     }
 
     function formatTimeSpent(seconds: number): string {
-        if (seconds < 60) return `${seconds}s`;
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-        return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        }
+        return `${minutes}m`;
     }
+
+    // Check if user can upload exams (Admin/Staff/Seller role)
+    function canUploadExams(): boolean {
+        const user = $auth.user;
+        if (!user || !user.roles) return false;
+        return user.roles.includes('admin') || user.roles.includes('staff') || user.roles.includes('seller');
+    }
+
+    // Upload modal functions
+    function openUploadModal() {
+        if (!canUploadExams()) {
+            toastStore.error($t('noPermissionUpload'));
+            return;
+        }
+        showUploadModal = true;
+    }
+
+    function closeUploadModal() {
+        showUploadModal = false;
+    }
+
+    function handleExamUploadSuccess(newExam: ExamFile) {
+        // Add the new exam to the beginning of the list
+        exams = [newExam, ...exams];
+        totalExams += 1;
+    }
+
+    // Reactive bookmark count for stats
 
     // Reactive bookmark count for stats
     $: bookmarks = $bookmarkStore.bookmarks;
@@ -425,80 +461,101 @@
             <!-- Filters and Search -->
             <div class="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 mb-8">
                 <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                    <!-- Search -->
-                    <div class="relative flex-1 max-w-md">
-                        <input
-                            type="text"
-                            bind:value={searchQuery}
-                            on:input={handleSearch}
-                            placeholder="Search exams..."
-                            class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <svg class="absolute right-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                    </div>
-
-                    <!-- Category Filter -->
-                    <div class="relative">
-                        <select
-                            bind:value={selectedCategory}
-                            on:change={handleCategoryFilter}
-                            class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
-                        >
-                            <option value="">All Categories</option>
-                            {#each categories as category}
-                                <option 
-                                    value={category.id} 
-                                    class="bg-slate-800 text-white"
-                                    title={category.description || category.name}
-                                >
-                                    {category.english_name || category.name}
-                                    {#if category.english_name && category.name !== category.english_name}
-                                        ({category.name})
-                                    {/if}
-                                </option>
-                            {/each}
-                        </select>
-                        <svg class="absolute right-2 top-3 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </div>
-
-                    <!-- View Mode Toggle -->
-                    <div class="flex bg-white/10 rounded-lg p-1">
-                        <button
-                            class="px-3 py-1 rounded {viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
-                            on:click={() => viewMode = 'grid'}
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-                            </svg>
-                        </button>
-                        <button
-                            class="px-3 py-1 rounded {viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
-                            on:click={() => viewMode = 'list'}
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <!-- In Progress Toggle -->
-                    <div class="flex items-center gap-2">
-                        <label class="inline-flex items-center cursor-pointer">
+                    <!-- Left side - Search and Category Filter -->
+                    <div class="flex flex-col sm:flex-row gap-4 flex-1">
+                        <!-- Search -->
+                        <div class="relative flex-1 max-w-md">
                             <input
-                                type="checkbox"
-                                bind:checked={showInProgressOnly}
-                                class="sr-only"
+                                type="text"
+                                bind:value={searchQuery}
+                                on:input={handleSearch}
+                                placeholder="Search exams..."
+                                class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <div class="relative">
-                                <div class="w-10 h-6 bg-white/20 rounded-full shadow-inner"></div>
-                                <div class="absolute w-4 h-4 bg-white rounded-full shadow inset-y-1 left-1 transition-transform duration-200 {showInProgressOnly ? 'transform translate-x-4 bg-blue-500' : ''}"></div>
-                            </div>
-                            <span class="ml-2 text-sm text-gray-300">In Progress Only</span>
-                        </label>
+                            <svg class="absolute right-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="relative">
+                            <select
+                                bind:value={selectedCategory}
+                                on:change={handleCategoryFilter}
+                                class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
+                            >
+                                <option value="">All Categories</option>
+                                {#each categories as category}
+                                    <option 
+                                        value={category.id} 
+                                        class="bg-slate-800 text-white"
+                                        title={category.description || category.name}
+                                    >
+                                        {category.english_name || category.name}
+                                        {#if category.english_name && category.name !== category.english_name}
+                                            ({category.name})
+                                        {/if}
+                                    </option>
+                                {/each}
+                            </select>
+                            <svg class="absolute right-2 top-3 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Right side - Controls -->
+                    <div class="flex items-center gap-4">
+                        <!-- Upload Button (Admin/Staff/Seller only) -->
+                        {#if $auth.isAuthenticated && canUploadExams()}
+                            <button
+                                on:click={openUploadModal}
+                                class="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                {$t('uploadExam')}
+                            </button>
+                        {/if}
+
+                        <!-- View Mode Toggle -->
+                        <div class="flex bg-white/10 rounded-lg p-1">
+                            <button
+                                class="px-3 py-1 rounded {viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
+                                on:click={() => viewMode = 'grid'}
+                                aria-label="Grid view"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                                </svg>
+                            </button>
+                            <button
+                                class="px-3 py-1 rounded {viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
+                                on:click={() => viewMode = 'list'}
+                                aria-label="List view"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- In Progress Toggle -->
+                        <div class="flex items-center gap-2">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    bind:checked={showInProgressOnly}
+                                    class="sr-only"
+                                />
+                                <div class="relative">
+                                    <div class="w-10 h-6 bg-white/20 rounded-full shadow-inner"></div>
+                                    <div class="absolute w-4 h-4 bg-white rounded-full shadow inset-y-1 left-1 transition-transform duration-200 {showInProgressOnly ? 'transform translate-x-4 bg-blue-500' : ''}"></div>
+                                </div>
+                                <span class="ml-2 text-sm text-gray-300">In Progress Only</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -554,6 +611,7 @@
                                         on:click={() => clearExamProgress(inProgressExam.exam_id)}
                                         class="text-gray-400 hover:text-red-400 p-1 rounded"
                                         title="Clear progress"
+                                        aria-label="Clear progress for this exam"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -922,6 +980,14 @@
     </div>
 </div>
 
+<!-- Upload Exam Modal -->
+<ExamUploadModal 
+    bind:showModal={showUploadModal}
+    {categories}
+    onClose={closeUploadModal}
+    onSuccess={handleExamUploadSuccess}
+/>
+
 <!-- Toast notifications -->
 <ToastContainer />
 
@@ -929,6 +995,7 @@
     .line-clamp-2 {
         display: -webkit-box;
         -webkit-line-clamp: 2;
+        line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
@@ -936,6 +1003,7 @@
     .line-clamp-3 {
         display: -webkit-box;
         -webkit-line-clamp: 3;
+        line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
