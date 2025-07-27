@@ -42,6 +42,8 @@
 		]
 	},
 	"dependencies": {
+		"@types/katex": "^0.16.7",
+		"katex": "^0.16.22",
 		"pdfjs-dist": "^5.3.93"
 	}
 }
