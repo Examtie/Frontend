@@ -346,6 +346,7 @@ export interface Translations {
 	noPermissionUpload: string;
 	categoryCreated: string;
 	categoryCreationFailed: string;
+	flashcards: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -566,6 +567,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		settings: 'Settings',
 
 		// PDF to Flashcards
+		flashcards: 'Flashcards',
 		pdfToFlashcards: 'PDF to Flashcards',
 		pdfToFlashcardsDescription: 'Convert your PDF documents into interactive flashcards instantly',
 		uploadPDF: 'Upload PDF',
@@ -913,6 +915,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		settings: 'การตั้งค่า',
 
 		// PDF to Flashcards
+		flashcards: 'แฟลชการ์ด',
 		pdfToFlashcards: 'PDF เป็นแฟลชการ์ด',
 		pdfToFlashcardsDescription: 'แปลงไฟล์ PDF ของคุณให้เป็นแฟลชการ์ดเชิงโต้ตอบได้ทันที',
 		uploadPDF: 'อัปโหลด PDF',

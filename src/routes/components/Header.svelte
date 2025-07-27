@@ -160,9 +160,9 @@
 					<span>{$t('marketplace')}</span>
 					<div class="absolute bottom-0 left-0 {isActiveRoute('/marketplace') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
 				</a>
-				<a href="/pdf-to-flashcards" class="relative text-{isActiveRoute('/pdf-to-flashcards') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
+				<a href="/flashcards" class="relative text-{isActiveRoute('/flashcards') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
 					<span>Flashcards</span>
-					<div class="absolute bottom-0 left-0 {isActiveRoute('/pdf-to-flashcards') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
+					<div class="absolute bottom-0 left-0 {isActiveRoute('/flashcards') ? 'w-full' : 'w-0'} h-0.5 bg-blue-400 transition-all duration-300 group-hover:w-full"></div>
 				</a>
 				{#if $auth.isAuthenticated && $auth.user?.roles.includes('admin')}
 					<a href="/admin" class="relative text-{isActiveRoute('/admin') ? 'blue-300' : 'gray-300'} font-medium hover:text-white transition-all duration-300 px-3 py-2 rounded-lg hover:bg-white/5 group">
@@ -374,6 +374,12 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 							</svg>
 						</a>
+						<a href="/flashcards" onclick={closeMenu} class="flex items-center text-{isActiveRoute('/flashcards') ? 'blue-300' : 'gray-300'} hover:text-white transition-all duration-300 py-4 px-4 rounded-xl hover:bg-slate-700/50 {isActiveRoute('/flashcards') ? 'bg-blue-500/20' : ''} group">
+							<span class="font-medium text-base">{$t('flashcards')}</span>
+							<svg class="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+							</svg>
+						</a>	
 						{#if $auth.isAuthenticated && $auth.user?.roles.includes('admin')}
 							<a href="/admin" onclick={closeMenu} class="flex items-center text-{isActiveRoute('/admin') ? 'blue-300' : 'gray-300'} hover:text-white transition-all duration-300 py-4 px-4 rounded-xl hover:bg-slate-700/50 {isActiveRoute('/admin') ? 'bg-blue-500/20' : ''} group">
 								<span class="font-medium text-base">{$t('admin')}</span>

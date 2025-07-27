@@ -21,6 +21,8 @@
 	let processingProgress = $state(0);
 	let errorMessage = $state('');
 	let amount = $state(10); // Number of flashcards to generate
+	let inputMode = $state<'pdf' | 'text'>('pdf'); // Toggle between PDF upload and text prompt
+	let textPrompt = $state(''); // Text prompt for flashcard generation
 
 // --- LaTeX Rendering Helper ---
 function renderLatex(text: string): string {
@@ -83,6 +85,74 @@ function renderLatex(text: string): string {
 		errorMessage = '';
 	}
 
+	// --- Text Prompt Processing with API ---
+	async function processPrompt() {
+		if (!textPrompt.trim()) {
+			errorMessage = 'กรุณาใส่หัวข้อหรือเนื้อหาที่ต้องการสร้างแฟลชการ์ด';
+			return;
+		}
+
+		isProcessing = true;
+		processingProgress = 0;
+		errorMessage = '';
+		flashcards = [];
+
+		// Simulate progress for better UX while waiting for the API
+		const progressInterval = setInterval(() => {
+			if (processingProgress < 99) {
+				processingProgress += 1;
+			}
+		}, 300);
+
+		try {
+			// Retrieve the current authentication token from the auth store
+			const authToken = get(auth).token;
+			if (!authToken) {
+				throw new Error('ผู้ใช้ไม่ได้เข้าสู่ระบบ');
+			}
+
+			const apiUrl = `${API_BASE_URL}/ai/api/v1/flashcards/generate-text?amount=${amount}&prompt=${encodeURIComponent(textPrompt)}`;
+
+			const response = await fetch(apiUrl, {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${authToken}`,
+					'Content-Type': 'application/json'
+				}
+			});
+
+			clearInterval(progressInterval);
+			processingProgress = 100;
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => null) as any;
+				const errorDetail =
+					errorData?.detail?.[0]?.msg || errorData?.detail || `Error: ${response.statusText}`;
+				throw new Error(errorDetail);
+			}
+
+			const generatedFlashcards: Array<{ front: string; back: string }> = await response.json();
+
+			if (!generatedFlashcards || generatedFlashcards.length === 0) {
+				throw new Error('ไม่สามารถสร้างแฟลชการ์ดได้ กรุณาลองปรับเนื้อหาใหม่');
+			}
+
+			flashcards = generatedFlashcards.map((card) => ({
+				...card,
+				id: crypto.randomUUID() // Add a unique ID for Svelte
+			}));
+
+			currentCardIndex = 0;
+			isFlipped = false;
+		} catch (error: any) {
+			console.error('Error processing prompt:', error);
+			errorMessage = error.message || 'เกิดข้อผิดพลาดในการสร้างแฟลชการ์ด กรุณาลองใหม่อีกครั้ง';
+		} finally {
+			clearInterval(progressInterval);
+			isProcessing = false;
+		}
+	}
+
 	// --- PDF Processing with API ---
 	async function processPDF() {
 		if (!uploadedFile) return;
@@ -123,7 +193,7 @@ function renderLatex(text: string): string {
 			processingProgress = 100;
 
 			if (!response.ok) {
-				const errorData = await response.json().catch(() => null);
+				const errorData = await response.json().catch(() => null) as any;
 				const errorDetail =
 					errorData?.detail?.[0]?.msg || errorData?.detail || `Error: ${response.statusText}`;
 				throw new Error(errorDetail);
@@ -155,7 +225,9 @@ function renderLatex(text: string): string {
 	function exportToAnki() {
 		if (flashcards.length === 0) return;
 
-		const deckName = uploadedFile?.name.replace(/\.pdf$/i, '') || 'Generated-Flashcards';
+		const deckName = inputMode === 'pdf' 
+			? (uploadedFile?.name.replace(/\.pdf$/i, '') || 'Generated-Flashcards')
+			: 'Text-Generated-Flashcards';
 
 		// Format: Front <Tab> Back <Newline>
 		// Replace newlines within fields with HTML <br> for Anki compatibility
@@ -200,6 +272,7 @@ function renderLatex(text: string): string {
 	// --- Reset Function ---
 	function resetUpload() {
 		uploadedFile = null;
+		textPrompt = '';
 		flashcards = [];
 		currentCardIndex = 0;
 		isFlipped = false;
@@ -235,10 +308,10 @@ function renderLatex(text: string): string {
 </script>
 
 <svelte:head>
-	<title>PDF to Flashcards - Examtie</title>
+	<title>Generate Flashcards - Examtie</title>
 	<meta
 		name="description"
-		content="Convert your PDF documents into interactive flashcards for better learning"
+		content="Create interactive flashcards from PDF documents or text prompts for better learning"
 	/>
 </svelte:head>
 
@@ -278,13 +351,13 @@ function renderLatex(text: string): string {
 					AI-Powered Learning Tool
 				</div>
 				<h1 class="text-4xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-					PDF to
+					Generate
 					<span class="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
 						Flashcards
 					</span>
 				</h1>
 				<p class="text-xl lg:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto leading-relaxed">
-					แปลงเอกสาร PDF เป็นแฟลชการ์ดเพื่อการเรียนรู้ที่มีประสิทธิภาพ
+					สร้างแฟลชการ์ดจาก PDF หรือข้อความเพื่อการเรียนรู้ที่มีประสิทธิภาพ
 				</p>
 			</div>
 
@@ -292,17 +365,47 @@ function renderLatex(text: string): string {
 			{#key flashcards.length}
 				<div in:fade={{ duration: 300, delay: 300 }} out:fade={{ duration: 300 }}>
 					{#if flashcards.length === 0}
+						<!-- Mode Selection Tabs -->
+						<div class="max-w-2xl mx-auto mb-8">
+							<div class="flex bg-slate-800/50 backdrop-blur-sm rounded-2xl p-2 border border-gray-700/50">
+								<button
+									onclick={() => { inputMode = 'pdf'; errorMessage = ''; }}
+									class="flex-1 px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center font-medium {inputMode === 'pdf' 
+										? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg' 
+										: 'text-gray-400 hover:text-white hover:bg-slate-700/50'}"
+								>
+									<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+									</svg>
+									อัปโหลด PDF
+								</button>
+								<button
+									onclick={() => { inputMode = 'text'; errorMessage = ''; }}
+									class="flex-1 px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center font-medium {inputMode === 'text' 
+										? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg' 
+										: 'text-gray-400 hover:text-white hover:bg-slate-700/50'}"
+								>
+									<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+									</svg>
+									ใส่ข้อความ
+								</button>
+							</div>
+						</div>
+
 						<!-- Upload Section -->
 						<div class="max-w-2xl mx-auto">
-							<div
-								class="relative border-2 border-dashed border-gray-600 hover:border-blue-400 transition-all duration-300 rounded-2xl p-8 lg:p-12 text-center bg-slate-800/50 backdrop-blur-sm shadow-2xl shadow-black/20 hover:shadow-blue-500/10 {isDragOver ? 'border-blue-400 bg-blue-500/10 scale-[1.02]' : ''}"
-								role="button"
-								tabindex="0"
-								aria-label="Drop PDF file here or click to upload"
-								ondragover={handleDragOver}
-								ondragleave={handleDragLeave}
-								ondrop={handleDrop}
-							>
+							{#if inputMode === 'pdf'}
+								<!-- PDF Upload Interface -->
+								<div
+									class="relative border-2 border-dashed border-gray-600 hover:border-blue-400 transition-all duration-300 rounded-2xl p-8 lg:p-12 text-center bg-slate-800/50 backdrop-blur-sm shadow-2xl shadow-black/20 hover:shadow-blue-500/10 {isDragOver ? 'border-blue-400 bg-blue-500/10 scale-[1.02]' : ''}"
+									role="button"
+									tabindex="0"
+									aria-label="Drop PDF file here or click to upload"
+									ondragover={handleDragOver}
+									ondragleave={handleDragLeave}
+									ondrop={handleDrop}
+								>
 								{#if !uploadedFile}
 									<div class="mb-6">
 										<div class="relative inline-block mb-4">
@@ -464,18 +567,143 @@ function renderLatex(text: string): string {
 										</div>
 									{/if}
 								{/if}
-
-								{#if errorMessage}
-									<div class="mt-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl backdrop-blur-sm">
-										<div class="flex items-center">
-											<svg class="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+								</div>
+							{:else}
+								<!-- Text Prompt Interface -->
+								<div class="relative border-2 border-dashed border-gray-600 hover:border-purple-400 transition-all duration-300 rounded-2xl p-8 lg:p-12 text-center bg-slate-800/50 backdrop-blur-sm shadow-2xl shadow-black/20 hover:shadow-purple-500/10">
+									<div class="mb-6">
+										<div class="relative inline-block mb-4">
+											<svg
+												class="w-16 h-16 mx-auto text-purple-400 transition-colors duration-300"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+												></path>
 											</svg>
-											<p class="text-red-300 text-sm">{errorMessage}</p>
+											<div class="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full animate-ping"></div>
 										</div>
+										<h3 class="text-xl font-semibold text-white mb-2">ใส่หัวข้อหรือเนื้อหา</h3>
+										<p class="text-gray-400">ระบุหัวข้อหรือเนื้อหาที่ต้องการสร้างแฟลชการ์ด</p>
 									</div>
-								{/if}
-							</div>
+
+									<!-- Text Input Area -->
+									<div class="mb-6">
+										<textarea
+											bind:value={textPrompt}
+											placeholder="ตัวอย่าง: ตรรกศาสตร์ มัธยมศึกษาปีที่ 4, การแพทย์เบื้องต้น, ฟิสิกส์ควอนตัม, ประวัติศาสตร์ไทย..."
+											rows="4"
+											class="w-full bg-slate-700/70 backdrop-blur-sm border border-gray-600 text-white rounded-xl p-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 placeholder-gray-500 resize-none"
+										></textarea>
+									</div>
+
+									<!-- Enhanced Amount Input -->
+									<div class="max-w-xs mx-auto mb-8">
+										<label for="card-amount-text" class="block text-sm font-medium text-gray-300 mb-3"
+											>จำนวนแฟลชการ์ดที่ต้องการ</label
+										>
+										<div class="relative">
+											<input
+												type="number"
+												id="card-amount-text"
+												bind:value={amount}
+												min="1"
+												max="100"
+												class="w-full bg-slate-700/70 backdrop-blur-sm border border-gray-600 text-white rounded-xl p-3 text-center focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+											/>
+											<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+												<span class="text-gray-400 text-sm">การ์ด</span>
+											</div>
+										</div>
+										<p class="text-xs text-gray-500 mt-2">1-100 การ์ด</p>
+									</div>
+
+									<div class="flex gap-4 justify-center">
+										<button
+											onclick={processPrompt}
+											disabled={isProcessing || !textPrompt.trim()}
+											class="px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-gray-600 disabled:to-gray-700 text-white font-medium rounded-xl transition-all duration-300 flex items-center transform hover:scale-105 shadow-lg disabled:transform-none disabled:hover:scale-100"
+										>
+											{#if isProcessing}
+												<svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24">
+													<circle
+														class="opacity-25"
+														cx="12"
+														cy="12"
+														r="10"
+														stroke="currentColor"
+														stroke-width="4"
+													></circle>
+													<path
+														class="opacity-75"
+														fill="currentColor"
+														d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+													></path>
+												</svg>
+												กำลังประมวลผล...
+											{:else}
+												<svg
+													class="w-5 h-5 mr-2"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M13 10V3L4 14h7v7l9-11h-7z"
+													></path>
+												</svg>
+												สร้างแฟลชการ์ด
+											{/if}
+										</button>
+
+										<button
+											onclick={resetUpload}
+											disabled={isProcessing}
+											class="px-6 py-4 border border-gray-600 hover:border-gray-500 disabled:opacity-50 text-gray-300 hover:text-white font-medium rounded-xl transition-all duration-300 hover:bg-gray-800/30"
+										>
+											เคลียร์
+										</button>
+									</div>
+
+									{#if isProcessing}
+										<div class="mt-8">
+											<div class="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+												<div
+													class="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
+													style="width: {processingProgress}%"
+												></div>
+											</div>
+											<div class="flex justify-between items-center mt-3">
+												<p class="text-sm text-gray-400">{processingProgress}% เสร็จสิ้น</p>
+												<div class="flex space-x-1">
+													<div class="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+													<div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></div>
+													<div class="w-2 h-2 bg-green-500 rounded-full animate-bounce delay-200"></div>
+												</div>
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/if}
+
+							{#if errorMessage}
+								<div class="mt-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl backdrop-blur-sm">
+									<div class="flex items-center">
+										<svg class="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+										</svg>
+										<p class="text-red-300 text-sm">{errorMessage}</p>
+									</div>
+								</div>
+							{/if}
 						</div>
 					{:else}
 						<!-- Optimized Flashcards Display for Perfect Screen Fit -->
@@ -635,8 +863,8 @@ function renderLatex(text: string): string {
 											d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
 										></path></svg
 									>
-									<span class="hidden sm:inline">อัปโหลดไฟล์ใหม่</span>
-									<span class="sm:hidden">ไฟล์ใหม่</span>
+									<span class="hidden sm:inline">สร้างใหม่</span>
+									<span class="sm:hidden">ใหม่</span>
 								</button>
 								<button
 									onclick={exportToAnki}
@@ -691,7 +919,7 @@ function renderLatex(text: string): string {
 	<section class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-800/30 backdrop-blur-sm">
 		<div class="max-w-6xl mx-auto">
 			<div class="text-center mb-16">
-				<h2 class="text-3xl lg:text-4xl font-bold text-white mb-6">ทำไมต้องใช้ PDF to Flashcards?</h2>
+				<h2 class="text-3xl lg:text-4xl font-bold text-white mb-6">ทำไมต้องใช้ Flashcard Generator?</h2>
 				<p class="text-xl text-gray-300 max-w-3xl mx-auto">
 					เครื่องมือที่ช่วยให้การเรียนรู้มีประสิทธิภาพมากขึ้น
 				</p>
@@ -713,7 +941,7 @@ function renderLatex(text: string): string {
 						>
 					</div>
 					<h3 class="text-xl font-semibold text-white mb-3">รวดเร็วและง่าย</h3>
-					<p class="text-gray-400 leading-relaxed">แปลงเอกสาร PDF เป็นแฟลชการ์ดได้ในไม่กี่คลิก ประหยัดเวลาในการสร้างสื่อการเรียน</p>
+					<p class="text-gray-400 leading-relaxed">สร้างแฟลชการ์ดจาก PDF หรือข้อความได้ในไม่กี่คลิก ประหยัดเวลาในการสร้างสื่อการเรียน</p>
 				</div>
 				<div
 					class="bg-slate-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-8 hover:border-purple-500/50 transition-all duration-300 group hover:transform hover:scale-105"
@@ -778,10 +1006,6 @@ function renderLatex(text: string): string {
 		}
 	}
 
-	.group:hover .animate-float {
-		animation: float 3s ease-in-out infinite;
-	}
-
 	/* Smooth transitions for all interactive elements */
 	* {
 		transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -804,9 +1028,5 @@ function renderLatex(text: string): string {
 
 	::-webkit-scrollbar-thumb:hover {
 		background: rgba(59, 130, 246, 0.7);
-	}
-/* Ensure long equations scroll horizontally instead of overflowing */
-	.katex-display {
-		overflow-x: auto;
 	}
 </style>
