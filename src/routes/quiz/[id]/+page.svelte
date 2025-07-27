@@ -1,5 +1,6 @@
 <script lang="ts">
     import PdfViewer from '$lib/components/PdfViewer.svelte';
+    import AiExamInterface from '$lib/components/AiExamInterface.svelte';
     import { page } from '$app/stores';
     import { auth } from '$lib/stores/auth';
     import { toastStore } from '$lib/stores/toast';
@@ -45,6 +46,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
     let submitting = false;
     let showSubmitConfirmation = false;
     let pdfUrl = '';
+    let isAiExam = false;
 
 
 
@@ -142,7 +144,44 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
         error = '';
 
         try {
-            // Load exam details first
+            // Check if this is an AI-generated exam
+            if (examId.startsWith('ai-')) {
+                isAiExam = true;
+                const tempExamData = localStorage.getItem('tempAiExam');
+                if (tempExamData) {
+                    const aiExam = JSON.parse(tempExamData);
+                    
+                    exam = {
+                        id: aiExam.id,
+                        title: aiExam.title,
+                        description: 'AI Generated Exam',
+                        url: '',
+                        essay_count: 0,
+                        choice_count: 0,
+                        questions: aiExam.questions
+                    };
+                    
+                    questions = aiExam.questions || [];
+                    pdfUrl = ''; // No PDF for AI exams
+                    
+                    // Calculate question counts
+                    exam.choice_count = questions.filter(q => q.type === 'multiple_choice').length;
+                    exam.essay_count = questions.filter(q => q.type === 'essay').length;
+                    
+                    // Initialize question start time
+                    if (questions.length > 0) {
+                        questionStartTimes.set(questions[currentQuestionIndex]?.id, new Date());
+                    }
+
+                    return; // Exit early for AI exams
+                } else {
+                    throw new Error('AI exam data not found');
+                }
+            }
+
+            isAiExam = false;
+
+            // Load exam details first (for regular exams)
             const examEndpoint = $auth.token ? `${API_BASE_URL}/user/api/v1/exams` : `${API_BASE_URL}/public/api/v1/exams`;
             const examResponse = await makeAuthenticatedRequest(examEndpoint);
             const examData = examResponse.find((e: any) => e.id === examId);
@@ -494,6 +533,29 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
             const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
 
+            // For AI exams, just go to results with local data
+            if (isAiExam) {
+                // Store results in localStorage for the results page
+                const resultsData = {
+                    examId: exam.id,
+                    title: exam.title,
+                    answers: answers,
+                    timeSpent: timeSpent,
+                    totalQuestions: questions.length,
+                    submittedAt: new Date().toISOString()
+                };
+                localStorage.setItem('aiExamResults', JSON.stringify(resultsData));
+                
+                toastStore.success('AI Exam completed!');
+                showSubmitConfirmation = false;
+                
+                // Redirect to results page
+                setTimeout(() => {
+                    goto(`/quiz/${examId}/result`);
+                }, 1000);
+                return;
+            }
+
             const submissionData = {
                 answers: answers,
                 time_spent: timeSpent
@@ -518,6 +580,20 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
         } finally {
             submitting = false;
         }
+    }
+
+    function handleAiExamSubmit(event: CustomEvent) {
+        const { answers, elapsedTime } = event.detail;
+        
+        // Convert answers to our format
+        userAnswers.clear();
+        answers.forEach((answer: any) => {
+            userAnswers.set(answer.question_id, answer);
+        });
+        userAnswers = userAnswers;
+        
+        // Submit the exam
+        submitExam();
     }
 
     async function manualSave() {
@@ -781,7 +857,16 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             </div>
         </div>
     {:else if exam && questions.length > 0}
-        <!-- Mobile Layout -->
+        {#if isAiExam}
+            <!-- AI Exam Interface -->
+            <AiExamInterface 
+                {questions} 
+                examTitle={exam.title} 
+                {examStartTime} 
+                on:submit={handleAiExamSubmit} 
+            />
+        {:else}
+            <!-- Regular Exam Interface with PDF -->
         {#if isMobile}
             <div class="min-h-screen bg-slate-50">
                 <!-- Mobile Header -->
@@ -816,16 +901,18 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                 {elapsedTime}
                             </div>
                             
-                            <!-- PDF Toggle Button -->
-                            <button
-                                on:click={() => showPdfViewer = !showPdfViewer}
-                                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                {showPdfViewer ? 'Hide PDF' : 'View PDF'}
-                            </button>
+                            <!-- PDF Toggle Button (only for regular exams) -->
+                            {#if pdfUrl}
+                                <button
+                                    on:click={() => showPdfViewer = !showPdfViewer}
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    {showPdfViewer ? 'Hide PDF' : 'View PDF'}
+                                </button>
+                            {/if}
                             
                             <!-- Questions List Toggle -->
                             <button
@@ -841,7 +928,17 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                     </div>
                     
                     <div class="mb-3">
-                        <h1 class="text-lg font-bold text-gray-800 truncate">{exam.title}</h1>
+                        <div class="flex items-center gap-2 mb-1">
+                            <h1 class="text-lg font-bold text-gray-800 truncate">{exam.title}</h1>
+                            {#if examId.startsWith('ai-')}
+                                <div class="px-2 py-1 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                    AI Generated
+                                </div>
+                            {/if}
+                        </div>
                         <p class="text-sm text-gray-600 truncate">{exam.description}</p>
                     </div>
                     
@@ -863,8 +960,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                     </div>
                 </div>
 
-                <!-- Mobile PDF Viewer (Fullscreen when active) -->
-                {#if showPdfViewer}
+                <!-- Mobile PDF Viewer (Fullscreen when active) - only for regular exams -->
+                {#if showPdfViewer && pdfUrl}
                     <div class="fixed inset-0 bg-white z-50 flex flex-col">
                         <div class="bg-gray-100 px-4 py-3 border-b flex items-center justify-between">
                             <h3 class="font-semibold text-gray-800 truncate">Exam Paper</h3>
@@ -878,20 +975,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                             </div>
                         </div>
                         <div class="flex-1 overflow-hidden">
-                            {#if pdfUrl}
-                                <PdfViewer src={pdfUrl} />
-                             {:else}
-                                <div class="flex items-center justify-center h-full">
-                                    <div class="text-center">
-                                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                            </svg>
-                                        </div>
-                                        <p class="text-gray-500">No PDF available</p>
-                                    </div>
-                                </div>
-                            {/if}
+                            <PdfViewer src={pdfUrl} />
                         </div>
                     </div>
                 {/if}
@@ -1504,6 +1588,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                     </div>
                 </div>
             </div>
+        {/if}
         {/if}
     {:else}
         <div class="flex items-center justify-center min-h-screen">

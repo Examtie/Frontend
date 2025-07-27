@@ -8,6 +8,8 @@
     import Header from '../components/Header.svelte';
     import ToastContainer from '../components/ToastContainer.svelte';
     import ExamUploadModal from '$lib/components/ExamUploadModal.svelte';
+    import AiExamModal from '$lib/components/AiExamModal.svelte';
+	import Footer from '../components/Footer.svelte';
 
     type ExamFile = {
         id: string;
@@ -80,6 +82,9 @@
 
     // Upload modal state
     let showUploadModal = false;
+
+    // AI exam generation modal state
+    let showAiExamModal = false;
 
     onMount(() => {
         // Wait for auth to initialize before checking authentication
@@ -406,6 +411,19 @@
         showUploadModal = false;
     }
 
+    // AI exam generation functions
+    function openAiExamModal() {
+        if (!$auth.isAuthenticated) {
+            goto('/login?redirect=/exams');
+            return;
+        }
+        showAiExamModal = true;
+    }
+
+    function closeAiExamModal() {
+        showAiExamModal = false;
+    }
+
     function handleExamUploadSuccess(newExam: ExamFile) {
         // Add the new exam to the beginning of the list
         exams = [newExam, ...exams];
@@ -446,9 +464,40 @@
                 <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
                     {$t('exams')} Collection
                 </h1>
-                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
                     Browse our extensive collection of exam papers and practice questions
                 </p>
+                
+                <!-- Compact AI Exam Generation Banner -->
+                <div class="mb-8">
+                    <div class="bg-gradient-to-r from-purple-600/10 via-blue-600/10 to-indigo-600/10 backdrop-blur-sm border border-purple-400/20 rounded-xl p-4 hover:border-purple-400/40 transition-all duration-300">
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                </div>
+                                <div class="text-left">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <h3 class="text-lg font-semibold text-white">AI Exam Generator</h3>
+                                        <span class="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-xs font-bold rounded-full">BETA</span>
+                                    </div>
+                                    <p class="text-sm text-gray-300">Create personalized questions from any topic or PDF</p>
+                                </div>
+                            </div>
+                            <button
+                                on:click={openAiExamModal}
+                                class="group flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 whitespace-nowrap"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                <span>Generate Exam</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Error Messages Only -->
@@ -506,6 +555,7 @@
 
                     <!-- Right side - Controls -->
                     <div class="flex items-center gap-4">
+
                         <!-- Upload Button (Admin/Staff/Seller only) -->
                         {#if $auth.isAuthenticated && canUploadExams()}
                             <button
@@ -988,8 +1038,16 @@
     onSuccess={handleExamUploadSuccess}
 />
 
+<!-- AI Exam Generation Modal -->
+<AiExamModal 
+    bind:showModal={showAiExamModal}
+    on:close={closeAiExamModal}
+/>
+
 <!-- Toast notifications -->
 <ToastContainer />
+
+<Footer />
 
 <style>
     .line-clamp-2 {
@@ -1016,5 +1074,15 @@
     
     .animate-float-gentle {
         animation: float-gentle 6s ease-in-out infinite;
+    }
+    
+    @keyframes animate-gradient {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    
+    .animate-gradient {
+        background-size: 200% 200%;
+        animation: animate-gradient 3s ease infinite;
     }
 </style>

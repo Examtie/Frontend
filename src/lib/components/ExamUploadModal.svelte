@@ -31,9 +31,24 @@
     let creatingCategory = false;
     
     // Answer key helper state
-    let answerKeyFormat = 'simple';
+    let answerKeyFormat = 'detailed'; // Default to helper mode
     let mcAnswers: string[] = [];
     let essayAnswers: string[] = [];
+    let answerKeyValid = false;
+
+    // Reactive validation for answer key
+    $: {
+        try {
+            if (uploadForm.answer_key.trim()) {
+                JSON.parse(uploadForm.answer_key.trim());
+                answerKeyValid = true;
+            } else {
+                answerKeyValid = false;
+            }
+        } catch {
+            answerKeyValid = false;
+        }
+    }
 
     async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
         const token = $auth.token;
@@ -75,7 +90,7 @@
             english_name: ''
         };
         showNewCategoryForm = false;
-        answerKeyFormat = 'simple';
+        answerKeyFormat = 'detailed'; // Default to helper mode
         mcAnswers = [];
         essayAnswers = [];
     }
@@ -87,11 +102,33 @@
 
     // Answer key helper functions
     function generateAnswerKey() {
-        if (answerKeyFormat === 'simple') {
-            const mcPart = mcAnswers.length > 0 ? `Multiple Choice:\n${mcAnswers.map((ans, i) => `${i + 1}. ${ans}`).join('\n')}` : '';
-            const essayPart = essayAnswers.length > 0 ? `Essay Questions:\n${essayAnswers.map((ans, i) => `${i + 1}. ${ans}`).join('\n\n')}` : '';
-            uploadForm.answer_key = [mcPart, essayPart].filter(part => part).join('\n\n');
+        if (answerKeyFormat === 'detailed') {
+            // Create structured JSON answer key
+            const answerKeyObj: Record<string, any> = {};
+            
+            // Add multiple choice answers
+            mcAnswers.forEach((answer, index) => {
+                if (answer.trim()) {
+                    answerKeyObj[`${index + 1}`] = answer.trim();
+                }
+            });
+            
+            // Add essay answers (continuing from MC questions)
+            const mcCount = mcAnswers.length;
+            essayAnswers.forEach((answer, index) => {
+                if (answer.trim()) {
+                    answerKeyObj[`${mcCount + index + 1}`] = answer.trim();
+                }
+            });
+            
+            // Only update if we have answers
+            if (Object.keys(answerKeyObj).length > 0) {
+                uploadForm.answer_key = JSON.stringify(answerKeyObj, null, 2);
+            } else {
+                uploadForm.answer_key = '{}';
+            }
         }
+        // For simple format, keep the text-based format
     }
 
     function updateAnswerCounts() {
@@ -110,6 +147,11 @@
             essayAnswers = [...essayAnswers, ...Array(essayCount - essayAnswers.length).fill('')];
         } else if (essayAnswers.length > essayCount) {
             essayAnswers = essayAnswers.slice(0, essayCount);
+        }
+
+        // Auto-generate answer key if in detailed mode
+        if (answerKeyFormat === 'detailed') {
+            generateAnswerKey();
         }
     }
 
@@ -180,13 +222,18 @@
             return;
         }
 
+        if (!answerKeyValid) {
+            toastStore.error('Answer key must be valid JSON format. Use the Helper or check your JSON syntax.');
+            return;
+        }
+
         uploadLoading = true;
         try {
             const formData = new FormData();
             formData.append('file', uploadForm.file);
             formData.append('title', uploadForm.title.trim());
             formData.append('description', uploadForm.description.trim());
-            formData.append('tags', uploadForm.category_ids.join(','));
+            formData.append('tags', JSON.stringify(uploadForm.category_ids));
             formData.append('essay_count', uploadForm.essay_count.toString());
             formData.append('choice_count', uploadForm.choice_count.toString());
             formData.append('answer_key', uploadForm.answer_key.trim());
@@ -496,8 +543,27 @@
                             <!-- Answer Key -->
                             <div class="md:col-span-2">
                                 <div class="flex items-center justify-between mb-2">
-                                    <div class="block text-sm font-medium text-gray-300">
-                                        Answer Key *
+                                    <div class="flex items-center gap-2">
+                                        <div class="block text-sm font-medium text-gray-300">
+                                            Answer Key *
+                                        </div>
+                                        {#if uploadForm.answer_key.trim()}
+                                            {#if answerKeyValid}
+                                                <div class="flex items-center gap-1 text-green-400 text-xs">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                    </svg>
+                                                    Valid JSON
+                                                </div>
+                                            {:else}
+                                                <div class="flex items-center gap-1 text-red-400 text-xs">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                    </svg>
+                                                    Invalid JSON
+                                                </div>
+                                            {/if}
+                                        {/if}
                                     </div>
                                     <div class="flex bg-slate-700 rounded-lg p-1">
                                         <button
@@ -505,14 +571,14 @@
                                             class="px-3 py-1 text-xs rounded {answerKeyFormat === 'simple' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
                                             on:click={() => answerKeyFormat = 'simple'}
                                         >
-                                            Simple
+                                            Manual JSON
                                         </button>
                                         <button
                                             type="button"
                                             class="px-3 py-1 text-xs rounded {answerKeyFormat === 'detailed' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
                                             on:click={() => answerKeyFormat = 'detailed'}
                                         >
-                                            Detailed
+                                            Helper
                                         </button>
                                     </div>
                                 </div>
@@ -520,11 +586,14 @@
                                 {#if answerKeyFormat === 'simple'}
                                     <textarea
                                         bind:value={uploadForm.answer_key}
-                                        placeholder="Enter answer key (e.g., 1.A 2.B 3.C for multiple choice, or detailed explanations for essays)"
-                                        rows="4"
-                                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                        placeholder={'Enter answer key in JSON format, e.g.:\n{\n  "1": "A",\n  "2": "B",\n  "3": "Sample essay answer or guidelines"\n}'}
+                                        rows="6"
+                                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
                                         required
                                     ></textarea>
+                                    <p class="mt-1 text-sm text-gray-400">
+                                        Provide a JSON object mapping question numbers to answers. For multiple choice use letters (A, B, C, D), for essays use text descriptions.
+                                    </p>
                                 {:else}
                                     <div class="space-y-4">
                                         <!-- Multiple Choice Answers -->
@@ -585,10 +654,6 @@
                                         {/if}
                                     </div>
                                 {/if}
-
-                                <p class="mt-1 text-sm text-gray-500">
-                                    {answerKeyFormat === 'simple' ? 'Provide the correct answers in any format you prefer.' : 'Use the helper above to generate a structured answer key.'}
-                                </p>
                             </div>
                         </div>
                     </form>
@@ -611,7 +676,7 @@
                             <button
                                 type="submit"
                                 on:click={uploadExam}
-                                disabled={uploadLoading || !uploadForm.file || !uploadForm.title.trim() || !uploadForm.description.trim() || !uploadForm.answer_key.trim()}
+                                disabled={uploadLoading || !uploadForm.file || !uploadForm.title.trim() || !uploadForm.description.trim() || !answerKeyValid}
                                 class="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
                             >
                                 {#if uploadLoading}

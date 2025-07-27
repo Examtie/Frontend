@@ -261,7 +261,7 @@
 </script>
 
 <style>
-  @reference "../../app.css";
+  @reference "tailwindcss";
   /* Ensure canvases are responsive */
   :global(canvas) {
     max-width: 100%;

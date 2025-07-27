@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+@import 'katex/dist/katex.min.css';
 
 /* Font face declaration for Inter Thai Looped */
 @font-face {

@@ -347,6 +347,23 @@ export interface Translations {
 	categoryCreated: string;
 	categoryCreationFailed: string;
 	flashcards: string;
+
+	// AI Exam Generation
+	generateExam: string;
+	generateExamDescription: string;
+	generateExamFromText: string;
+	generateExamFromPdf: string;
+	enterTextPrompt: string;
+	numberOfQuestions: string;
+	generatingExam: string;
+	examGeneratedSuccessfully: string;
+	examGenerationFailed: string;
+	takeGeneratedExam: string;
+	aiExamGeneration: string;
+	generateCustomExam: string;
+	generateAndTakeExam: string;
+	aiPoweredExamGeneration: string;
+	createExamFromTopic: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -694,7 +711,24 @@ export const translations: Record<'en' | 'th', Translations> = {
 		provideCorrectAnswers: 'Provide the correct answers for the exam questions',
 		noPermissionUpload: 'You do not have permission to upload exams.',
 		categoryCreated: 'Category created successfully!',
-		categoryCreationFailed: 'Failed to create category'
+		categoryCreationFailed: 'Failed to create category',
+
+		// AI Exam Generation
+		generateExam: 'Generate AI Exam',
+		generateExamDescription: 'Create custom exam questions using AI',
+		generateExamFromText: 'Generate from Text',
+		generateExamFromPdf: 'Generate from PDF',
+		enterTextPrompt: 'Enter your topic or text...',
+		numberOfQuestions: 'Number of Questions',
+		generatingExam: 'Generating exam...',
+		examGeneratedSuccessfully: 'Exam generated successfully!',
+		examGenerationFailed: 'Failed to generate exam',
+		takeGeneratedExam: 'Take Generated Exam',
+		aiExamGeneration: 'AI Exam Generation',
+		generateCustomExam: 'Generate Custom Exam',
+		generateAndTakeExam: 'Generate & Take Exam',
+		aiPoweredExamGeneration: 'AI-Powered Exam Generation',
+		createExamFromTopic: 'Create an exam from any topic or document'
 	},
 	th: {
 		// Navigation
@@ -1042,6 +1076,23 @@ export const translations: Record<'en' | 'th', Translations> = {
 		provideCorrectAnswers: 'ให้คำตอบที่ถูกต้องสำหรับคำถามในข้อสอบ',
 		noPermissionUpload: 'คุณไม่มีสิทธิ์ในการอัปโหลดข้อสอบ',
 		categoryCreated: 'สร้างหมวดหมู่สำเร็จ!',
-		categoryCreationFailed: 'ไม่สามารถสร้างหมวดหมู่ได้'
+		categoryCreationFailed: 'ไม่สามารถสร้างหมวดหมู่ได้',
+
+		// AI Exam Generation
+		generateExam: 'สร้างข้อสอบ AI',
+		generateExamDescription: 'สร้างข้อสอบแบบกำหนดเองด้วย AI',
+		generateExamFromText: 'สร้างจากข้อความ',
+		generateExamFromPdf: 'สร้างจาก PDF',
+		enterTextPrompt: 'ใส่หัวข้อหรือข้อความของคุณ...',
+		numberOfQuestions: 'จำนวนคำถาม',
+		generatingExam: 'กำลังสร้างข้อสอบ...',
+		examGeneratedSuccessfully: 'สร้างข้อสอบสำเร็จ!',
+		examGenerationFailed: 'ไม่สามารถสร้างข้อสอบได้',
+		takeGeneratedExam: 'ทำข้อสอบที่สร้างไว้',
+		aiExamGeneration: 'การสร้างข้อสอบด้วย AI',
+		generateCustomExam: 'สร้างข้อสอบแบบกำหนดเอง',
+		generateAndTakeExam: 'สร้างและทำข้อสอบ',
+		aiPoweredExamGeneration: 'การสร้างข้อสอบด้วย AI',
+		createExamFromTopic: 'สร้างข้อสอบจากหัวข้อหรือเอกสารใดก็ได้'
 	}
 };

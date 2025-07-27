@@ -195,8 +195,10 @@
 		}, 30);
 	}
 
-	// Intersection Observer for animations
-	let heroSection: HTMLElement;
+   // Intersection Observer for animations
+   let heroSection: HTMLElement;
+  // Placeholder for stats section if needed
+  let statsSection: HTMLElement;
 	
 	function handleIntersection(entries: IntersectionObserverEntry[]) {
 		entries.forEach(entry => {
@@ -223,8 +225,7 @@
 			rootMargin: '0px 0px -100px 0px'
 		});
 
-		if (heroSection) observer.observe(heroSection);
-		if (statsSection) observer.observe(statsSection);
+	   if (heroSection) observer.observe(heroSection);
 
 		return () => {
 			observer.disconnect();
