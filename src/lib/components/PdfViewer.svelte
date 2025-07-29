@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t } from '$lib/i18n.js';
   // pdf.js should only be loaded in the browser to avoid SSR errors
   let pdfjsLib: any;
   import 'pdfjs-dist/web/pdf_viewer.css';
@@ -341,7 +342,7 @@
     <div class="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
       <div class="bg-white rounded-lg shadow-lg p-4 flex items-center gap-3">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-        <span class="text-gray-700">Loading PDF...</span>
+        <span class="text-gray-700">{$t('loadingPdfText')}</span>
       </div>
     </div>
   {/if}

@@ -7,6 +7,7 @@
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import ToastContainer from '../../components/ToastContainer.svelte';
+    import { t } from '$lib/i18n.js';
 
     // Types
     type Question = {
@@ -835,7 +836,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
         <div class="flex items-center justify-center min-h-screen">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                <p class="text-white text-lg">Loading exam...</p>
+                <p class="text-white text-lg">{$t('loadingExam')}</p>
             </div>
         </div>
     {:else if error}
@@ -846,13 +847,13 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                     </svg>
                 </div>
-                <h2 class="text-2xl font-bold text-white mb-2">Error Loading Exam</h2>
+                <h2 class="text-2xl font-bold text-white mb-2">{$t('errorLoadingExam')}</h2>
                 <p class="text-gray-300 mb-4">{error}</p>
                 <button 
                     on:click={() => goto('/exams')}
                     class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors"
                 >
-                    Back
+                    {$t('back')}
                 </button>
             </div>
         </div>
@@ -879,7 +880,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                             </svg>
-                            Back
+                            {$t('back')}
                         </button>
                         
                         <div class="flex items-center gap-2">
@@ -910,7 +911,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                     </svg>
-                                    {showPdfViewer ? 'Hide PDF' : 'View PDF'}
+                                    {showPdfViewer ? $t('hidePdf') : $t('viewPdf')}
                                 </button>
                             {/if}
                             
@@ -922,7 +923,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
                                 </svg>
-                                <span class="hidden sm:inline">Questions</span>
+                                <span class="hidden sm:inline">{$t('questions')}</span>
                             </button>
                         </div>
                     </div>
@@ -1042,7 +1043,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                             {currentQuestionIndex + 1}
                                         </div>
                                         <span class="text-sm font-medium text-gray-700">
-                                            {currentQuestion.type === 'multiple_choice' ? 'Multiple Choice' : 'Essay Answer'}
+                                            {currentQuestion.type === 'multiple_choice' ? $t('multipleChoice') : $t('essayAnswer')}
                                         </span>
                                     </div>
                                     {#if isQuestionAnswered}
@@ -1050,7 +1051,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                             </svg>
-                                            Done
+                                            {$t('done')}
                                         </span>
                                     {/if}
                                 </div>
@@ -1123,12 +1124,12 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                             </svg>
-                            Prev
+                            {$t('prev')}
                         </button>
 
                         <div class="flex items-center gap-2 text-xs text-gray-600 px-2 py-1 bg-gray-50 rounded-lg">
                             <div class="w-2 h-2 rounded-full {isQuestionAnswered ? 'bg-green-500' : 'bg-gray-300'} transition-colors"></div>
-                            {isQuestionAnswered ? 'Done' : 'Pending'}
+                            {isQuestionAnswered ? $t('done') : $t('todo')}
                             {#if autoSaveIndicator}
                                 <span class="text-green-600 font-medium flex items-center gap-1">
                                     <svg class="w-3 h-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1154,14 +1155,14 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
-                                Submit
+                                {$t('submit')}
                             </button>
                         {:else}
                             <button
                                 on:click={nextQuestion}
                                 class="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md text-sm"
                             >
-                                Next
+                                {$t('next')}
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                 </svg>
@@ -1326,7 +1327,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
                                         </svg>
-                                        <span class="hidden lg:inline">Questions</span>
+                                        <span class="hidden lg:inline">{$t('questions')}</span>
                                     </button>
                                 </div>
                             </div>

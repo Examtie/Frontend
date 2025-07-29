@@ -39,7 +39,7 @@ export interface Translations {
 	joinCommunity: string;
 	
 	// Hero Stats
-	questions: string;
+	heroQuestions: string;
 	successRate: string;
 	students: string;
 	
@@ -252,19 +252,12 @@ export interface Translations {
 	role: string;
 	status: string;
 	actions: string;
-	view: string;
-	edit: string;
-	delete: string;
 	active: string;
 	userDetails: string;
 	changeRole: string;
 	deleteUser: string;
 	deleteConfirmMessage: string;
-	cancel: string;
 	refresh: string;
-	loadingDashboard: string;
-	previous: string;
-	next: string;
 	showing: string;
 	to: string;
 	of: string;
@@ -295,7 +288,6 @@ export interface Translations {
 	uploadedBy: string;
 	download: string;
 	file: string;
-	loading: string;
 	userInformation: string;
 	roles: string;
 	joined: string;
@@ -307,7 +299,6 @@ export interface Translations {
 	apply: string;
 	noUsersFound: string;
 	adjustSearchFilters: string;
-	loadingUsers: string;
 	updateProfile: string;
 	profileUpdateSuccess: string;
 	profileUpdateError: string;
@@ -364,6 +355,88 @@ export interface Translations {
 	generateAndTakeExam: string;
 	aiPoweredExamGeneration: string;
 	createExamFromTopic: string;
+
+	// Common UI Elements and Actions
+	back: string;
+	close: string;
+	cancel: string;
+	submit: string;
+	save: string;
+	delete: string;
+	edit: string;
+	view: string;
+	next: string;
+	previous: string;
+	loading: string;
+	error: string;
+	success: string;
+	warning: string;
+	info: string;
+	confirm: string;
+	yes: string;
+	no: string;
+	ok: string;
+	retry: string;
+	
+	// Loading States
+	loadingExam: string;
+	loadingPdf: string;
+	loadingUsers: string;
+	loadingDashboard: string;
+	
+	// Error Messages
+	errorLoadingExam: string;
+	errorLoadingPdf: string;
+	errorGeneral: string;
+	
+	// Quiz Interface
+	examPaper: string;
+	multipleChoice: string;
+	essayAnswer: string;
+	current: string;
+	done: string;
+	todo: string;
+	answered: string;
+	notAnswered: string;
+	unanswered: string;
+	remaining: string;
+	viewPdf: string;
+	hidePdf: string;
+	questions: string;
+	prev: string;
+	submitExam: string;
+	reviewAnswers: string;
+	submitting: string;
+	readyToSubmit: string;
+	progressSummary: string;
+	notice: string;
+	timeElapsed: string;
+	autoSaved: string;
+	saving: string;
+	saveFailed: string;
+	saved: string;
+	quizStatistics: string;
+	keyboardShortcuts: string;
+	
+	// Result Page
+	aiExamResults: string;
+	completionRate: string;
+	aiExamCompleted: string;
+	nextSteps: string;
+	generateNewAiExam: string;
+	backToExams: string;
+	
+	// PDF Viewer
+	loadingPdfText: string;
+	zoomOut: string;
+	resetZoom: string;
+	zoomIn: string;
+	fitToWidth: string;
+	
+	// Admin Dashboard  
+	loadingMoreUsers: string;
+	loadingMoreFiles: string;
+	loadingAdminDashboard: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -406,7 +479,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		nextGenLearning: 'Next-Gen Learning',
 		
 		// Hero Stats
-		questions: 'Questions',
+		heroQuestions: 'Questions',
 		successRate: 'Success Rate',
 		students: 'Students',
 		
@@ -618,19 +691,12 @@ export const translations: Record<'en' | 'th', Translations> = {
 		role: 'Role',
 		status: 'Status',
 		actions: 'Actions',
-		view: 'View',
-		edit: 'Edit',
-		delete: 'Delete',
 		active: 'Active',
 		userDetails: 'User Details',
 		changeRole: 'Change Role',
 		deleteUser: 'Delete User',
 		deleteConfirmMessage: 'Are you sure you want to delete this user? This action cannot be undone.',
-		cancel: 'Cancel',
 		refresh: 'Refresh',
-		loadingDashboard: 'Loading admin dashboard...',
-		previous: 'Previous',
-		next: 'Next',
 		showing: 'Showing',
 		to: 'to',
 		of: 'of',
@@ -661,7 +727,6 @@ export const translations: Record<'en' | 'th', Translations> = {
 		uploadedBy: 'Uploaded by',
 		download: 'Download',
 		file: 'File',
-		loading: 'Loading...',
 		userInformation: 'User Information',
 		roles: 'Roles',
 		joined: 'Joined',
@@ -673,7 +738,6 @@ export const translations: Record<'en' | 'th', Translations> = {
 		apply: 'Apply',
 		noUsersFound: 'No users found.',
         adjustSearchFilters: 'Try adjusting your search or filters.',
-        loadingUsers: 'Loading users...',
 		updateProfile: 'Update Profile',
 		profileUpdateSuccess: 'Profile updated successfully!',
 		profileUpdateError: 'Failed to update profile.',
@@ -728,7 +792,89 @@ export const translations: Record<'en' | 'th', Translations> = {
 		generateCustomExam: 'Generate Custom Exam',
 		generateAndTakeExam: 'Generate & Take Exam',
 		aiPoweredExamGeneration: 'AI-Powered Exam Generation',
-		createExamFromTopic: 'Create an exam from any topic or document'
+		createExamFromTopic: 'Create an exam from any topic or document',
+
+		// Common UI Elements and Actions
+		back: 'Back',
+		close: 'Close',
+		cancel: 'Cancel',
+		submit: 'Submit',
+		save: 'Save',
+		delete: 'Delete',
+		edit: 'Edit',
+		view: 'View',
+		next: 'Next',
+		previous: 'Previous',
+		loading: 'Loading...',
+		error: 'Error',
+		success: 'Success',
+		warning: 'Warning',
+		info: 'Info',
+		confirm: 'Confirm',
+		yes: 'Yes',
+		no: 'No',
+		ok: 'OK',
+		retry: 'Retry',
+		
+		// Loading States
+		loadingExam: 'Loading exam...',
+		loadingPdf: 'Loading PDF...',
+		loadingUsers: 'Loading users...',
+		loadingDashboard: 'Loading dashboard...',
+		
+		// Error Messages
+		errorLoadingExam: 'Error Loading Exam',
+		errorLoadingPdf: 'Error Loading PDF',
+		errorGeneral: 'An error occurred',
+		
+		// Quiz Interface
+		examPaper: 'Exam Paper',
+		multipleChoice: 'Multiple Choice',
+		essayAnswer: 'Essay Answer',
+		current: 'Current',
+		done: 'Done',
+		todo: 'Todo',
+		answered: 'Answered',
+		notAnswered: 'Not answered',
+		unanswered: 'Unanswered',
+		remaining: 'Remaining',
+		viewPdf: 'View PDF',
+		hidePdf: 'Hide PDF',
+		questions: 'Questions',
+		prev: 'Prev',
+		submitExam: 'Submit Exam',
+		reviewAnswers: 'Review Answers',
+		submitting: 'Submitting...',
+		readyToSubmit: 'Ready to Submit?',
+		progressSummary: 'Progress Summary',
+		notice: 'Notice',
+		timeElapsed: 'Time elapsed',
+		autoSaved: 'Auto-saved',
+		saving: 'Saving...',
+		saveFailed: 'Save failed',
+		saved: 'Saved',
+		quizStatistics: 'Quiz Statistics',
+		keyboardShortcuts: 'Keyboard Shortcuts',
+		
+		// Result Page
+		aiExamResults: 'AI Exam Results',
+		completionRate: 'Completion Rate',
+		aiExamCompleted: 'AI Exam Completed!',
+		nextSteps: 'Next Steps:',
+		generateNewAiExam: 'Generate New AI Exam',
+		backToExams: 'Back to Exams',
+		
+		// PDF Viewer
+		loadingPdfText: 'Loading PDF...',
+		zoomOut: 'Zoom out',
+		resetZoom: 'Reset zoom',
+		zoomIn: 'Zoom in',
+		fitToWidth: 'Fit to width',
+		
+		// Admin Dashboard  
+		loadingMoreUsers: 'Loading more users...',
+		loadingMoreFiles: 'Loading more files...',
+		loadingAdminDashboard: 'Loading Admin Dashboard'
 	},
 	th: {
 		// Navigation
@@ -771,7 +917,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		joinCommunity: 'เข้าร่วมชุมชนของเรา',
 
 		// Hero Stats
-		questions: 'คำถาม',
+		heroQuestions: 'คำถาม',
 		successRate: 'อัตราความสำเร็จ',
 		students: 'นักเรียน',
 
@@ -990,19 +1136,12 @@ export const translations: Record<'en' | 'th', Translations> = {
 		role: 'บทบาท',
 		status: 'สถานะ',
 		actions: 'การกระทำ',
-		view: 'ดู',
-		edit: 'แก้ไข',
-		delete: 'ลบ',
 		active: 'ใช้งาน',
 		userDetails: 'รายละเอียดผู้ใช้',
 		changeRole: 'เปลี่ยนบทบาท',
 		deleteUser: 'ลบผู้ใช้',
 		deleteConfirmMessage: 'คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้นี้? การกระทำนี้ไม่สามารถย้อนกลับได้',
-		cancel: 'ยกเลิก',
 		refresh: 'รีเฟรช',
-		loadingDashboard: 'กำลังโหลดแดชบอร์ดผู้ดูแล...',
-		previous: 'ก่อนหน้า',
-		next: 'ถัดไป',
 		showing: 'แสดง',
 		to: 'ถึง',
 		of: 'จาก',
@@ -1032,7 +1171,6 @@ export const translations: Record<'en' | 'th', Translations> = {
 		uploadedBy: 'อัปโหลดโดย',
 		download: 'ดาวน์โหลด',
 		file: 'ไฟล์',
-		loading: 'กำลังโหลด...',
 		userInformation: 'ข้อมูลผู้ใช้',
 		roles: 'บทบาท',
 		joined: 'เข้าร่วมเมื่อ',
@@ -1044,7 +1182,6 @@ export const translations: Record<'en' | 'th', Translations> = {
 		apply: 'ปรับใช้',
 		noUsersFound: 'ไม่พบผู้ใช้',
 		adjustSearchFilters: 'ลองปรับการค้นหาหรือตัวกรองของคุณ',
-		loadingUsers: 'กำลังโหลดรายชื่อผู้ใช้...',
 		
 		// Exam Upload
 		uploadExam: 'อัปโหลดข้อสอบ',
@@ -1093,6 +1230,88 @@ export const translations: Record<'en' | 'th', Translations> = {
 		generateCustomExam: 'สร้างข้อสอบแบบกำหนดเอง',
 		generateAndTakeExam: 'สร้างและทำข้อสอบ',
 		aiPoweredExamGeneration: 'การสร้างข้อสอบด้วย AI',
-		createExamFromTopic: 'สร้างข้อสอบจากหัวข้อหรือเอกสารใดก็ได้'
+		createExamFromTopic: 'สร้างข้อสอบจากหัวข้อหรือเอกสารใดก็ได้',
+
+		// Common UI Elements and Actions
+		back: 'กลับ',
+		close: 'ปิด',
+		cancel: 'ยกเลิก',
+		submit: 'ส่ง',
+		save: 'บันทึก',
+		delete: 'ลบ',
+		edit: 'แก้ไข',
+		view: 'ดู',
+		next: 'ถัดไป',
+		previous: 'ก่อนหน้า',
+		loading: 'กำลังโหลด...',
+		error: 'ข้อผิดพลาด',
+		success: 'สำเร็จ',
+		warning: 'คำเตือน',
+		info: 'ข้อมูล',
+		confirm: 'ยืนยัน',
+		yes: 'ใช่',
+		no: 'ไม่',
+		ok: 'ตกลง',
+		retry: 'ลองใหม่',
+		
+		// Loading States
+		loadingExam: 'กำลังโหลดข้อสอบ...',
+		loadingPdf: 'กำลังโหลด PDF...',
+		loadingUsers: 'กำลังโหลดรายชื่อผู้ใช้...',
+		loadingDashboard: 'กำลังโหลดแดชบอร์ด...',
+		
+		// Error Messages
+		errorLoadingExam: 'เกิดข้อผิดพลาดในการโหลดข้อสอบ',
+		errorLoadingPdf: 'เกิดข้อผิดพลาดในการโหลด PDF',
+		errorGeneral: 'เกิดข้อผิดพลาด',
+		
+		// Quiz Interface
+		examPaper: 'กระดาษข้อสอบ',
+		multipleChoice: 'ปรนัย',
+		essayAnswer: 'อัตนัย',
+		current: 'ปัจจุบัน',
+		done: 'เสร็จแล้ว',
+		todo: 'ยังไม่ทำ',
+		answered: 'ตอบแล้ว',
+		notAnswered: 'ยังไม่ตอบ',
+		unanswered: 'ยังไม่ตอบ',
+		remaining: 'เหลือ',
+		viewPdf: 'ดู PDF',
+		hidePdf: 'ซ่อน PDF',
+		questions: 'คำถาม',
+		prev: 'ก่อนหน้า',
+		submitExam: 'ส่งข้อสอบ',
+		reviewAnswers: 'ตรวจสอบคำตอบ',
+		submitting: 'กำลังส่ง...',
+		readyToSubmit: 'พร้อมส่งข้อสอบหรือไม่?',
+		progressSummary: 'สรุปความคืบหน้า',
+		notice: 'ประกาศ',
+		timeElapsed: 'เวลาที่ใช้',
+		autoSaved: 'บันทึกอัตโนมัติแล้ว',
+		saving: 'กำลังบันทึก...',
+		saveFailed: 'บันทึกไม่สำเร็จ',
+		saved: 'บันทึกแล้ว',
+		quizStatistics: 'สถิติการทำข้อสอบ',
+		keyboardShortcuts: 'ทางลัดแป้นพิมพ์',
+		
+		// Result Page
+		aiExamResults: 'ผลข้อสอบ AI',
+		completionRate: 'อัตราการทำเสร็จ',
+		aiExamCompleted: 'ทำข้อสอบ AI เสร็จแล้ว!',
+		nextSteps: 'ขั้นตอนต่อไป:',
+		generateNewAiExam: 'สร้างข้อสอบ AI ใหม่',
+		backToExams: 'กลับไปหน้าข้อสอบ',
+		
+		// PDF Viewer
+		loadingPdfText: 'กำลังโหลด PDF...',
+		zoomOut: 'ซูมออก',
+		resetZoom: 'รีเซ็ตซูม',
+		zoomIn: 'ซูมเข้า',
+		fitToWidth: 'ปรับให้พอดีความกว้าง',
+		
+		// Admin Dashboard  
+		loadingMoreUsers: 'กำลังโหลดผู้ใช้เพิ่มเติม...',
+		loadingMoreFiles: 'กำลังโหลดไฟล์เพิ่มเติม...',
+		loadingAdminDashboard: 'กำลังโหลดแดชบอร์ดแอดมิน'
 	}
 };

@@ -3,6 +3,7 @@
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
     import Header from '../../../components/Header.svelte';
+    import { t } from '$lib/i18n.js';
 
     // Read exam id from route params
     const examId = $page.params.id;
@@ -169,7 +170,7 @@
                     {/if}
                 </div>
                 <h1 class="text-2xl md:text-3xl font-bold text-white mb-2 text-center">
-                    {summary.isAiExam ? 'AI Exam Results' : 'สรุปผลการทำข้อสอบ'}
+                    {summary.isAiExam ? $t('aiExamResults') : 'สรุปผลการทำข้อสอบ'}
                 </h1>
                 <p class="text-blue-200 text-center opacity-90">{summary.title}</p>
             </div>
@@ -186,7 +187,7 @@
                             </div>
                             <span class="text-4xl font-bold text-green-400 mb-1">{summary.correct}</span>
                             <span class="text-sm text-green-200 font-medium">
-                                {summary.isAiExam ? 'Answered' : 'ข้อถูก'}
+                                {summary.isAiExam ? $t('answered') : 'ข้อถูก'}
                             </span>
                         </div>
                     </div>
@@ -199,7 +200,7 @@
                             </div>
                             <span class="text-4xl font-bold text-red-400 mb-1">{summary.incorrect}</span>
                             <span class="text-sm text-red-200 font-medium">
-                                {summary.isAiExam ? 'Unanswered' : 'ข้อผิด'}
+                                {summary.isAiExam ? $t('unanswered') : 'ข้อผิด'}
                             </span>
                         </div>
                     </div>
@@ -219,7 +220,7 @@
                 <!-- Completion/Accuracy Bar -->
                 <div class="mb-10 bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
                     <h2 class="font-semibold text-white mb-4 text-center text-lg">
-                        {summary.isAiExam ? 'Completion Rate' : 'ความแม่นยำ'}: 
+                        {summary.isAiExam ? $t('completionRate') : 'ความแม่นยำ'}: 
                         <span class="text-blue-400">{accuracy}%</span>
                     </h2>
                     <div class="w-full bg-white/10 rounded-full h-6 overflow-hidden backdrop-blur-sm">
@@ -248,7 +249,7 @@
                                 You've successfully completed this AI-generated exam. Your responses have been recorded and you can review your performance above.
                             </p>
                             <div class="bg-white/10 rounded-xl p-4">
-                                <p class="text-sm text-white/80 mb-2">💡 <strong>Next Steps:</strong></p>
+                                <p class="text-sm text-white/80 mb-2">💡 <strong>{$t('nextSteps')}</strong></p>
                                 <ul class="text-sm text-gray-300 space-y-1">
                                     <li>• Generate a new AI exam on a different topic</li>
                                     <li>• Try increasing the difficulty level</li>
@@ -330,7 +331,7 @@
                             <svg class="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                             </svg>
-                            Generate New AI Exam
+                            {$t('generateNewAiExam')}
                         {:else}
                             <svg class="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -345,7 +346,7 @@
                         <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                         </svg>
-                        {summary.isAiExam ? 'Back to Exams' : 'กลับไปหน้ารายการข้อสอบ'}
+                        {summary.isAiExam ? $t('backToExams') : 'กลับไปหน้ารายการข้อสอบ'}
                     </button>
                 </div>
             </div>
