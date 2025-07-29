@@ -408,6 +408,7 @@ export interface Translations {
 	reviewAnswers: string;
 	submitting: string;
 	readyToSubmit: string;
+	submitExamQuestion: string;
 	progressSummary: string;
 	notice: string;
 	timeElapsed: string;
@@ -417,6 +418,9 @@ export interface Translations {
 	saved: string;
 	quizStatistics: string;
 	keyboardShortcuts: string;
+	previousQuestion: string;
+	nextQuestion: string;
+	closeDialogs: string;
 	
 	// Result Page
 	aiExamResults: string;
@@ -437,6 +441,9 @@ export interface Translations {
 	loadingMoreUsers: string;
 	loadingMoreFiles: string;
 	loadingAdminDashboard: string;
+	
+	// Marketplace
+	loadingMarketplaceItems: string;
 }
 
 export const translations: Record<'en' | 'th', Translations> = {
@@ -846,6 +853,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		reviewAnswers: 'Review Answers',
 		submitting: 'Submitting...',
 		readyToSubmit: 'Ready to Submit?',
+		submitExamQuestion: 'Submit Exam?',
 		progressSummary: 'Progress Summary',
 		notice: 'Notice',
 		timeElapsed: 'Time elapsed',
@@ -855,6 +863,9 @@ export const translations: Record<'en' | 'th', Translations> = {
 		saved: 'Saved',
 		quizStatistics: 'Quiz Statistics',
 		keyboardShortcuts: 'Keyboard Shortcuts',
+		previousQuestion: 'Previous Question',
+		nextQuestion: 'Next Question',
+		closeDialogs: 'Close Dialogs',
 		
 		// Result Page
 		aiExamResults: 'AI Exam Results',
@@ -874,7 +885,10 @@ export const translations: Record<'en' | 'th', Translations> = {
 		// Admin Dashboard  
 		loadingMoreUsers: 'Loading more users...',
 		loadingMoreFiles: 'Loading more files...',
-		loadingAdminDashboard: 'Loading Admin Dashboard'
+		loadingAdminDashboard: 'Loading Admin Dashboard',
+		
+		// Marketplace
+		loadingMarketplaceItems: 'Loading marketplace items...'
 	},
 	th: {
 		// Navigation
@@ -1284,6 +1298,7 @@ export const translations: Record<'en' | 'th', Translations> = {
 		reviewAnswers: 'ตรวจสอบคำตอบ',
 		submitting: 'กำลังส่ง...',
 		readyToSubmit: 'พร้อมส่งข้อสอบหรือไม่?',
+		submitExamQuestion: 'ส่งข้อสอบ?',
 		progressSummary: 'สรุปความคืบหน้า',
 		notice: 'ประกาศ',
 		timeElapsed: 'เวลาที่ใช้',
@@ -1293,6 +1308,9 @@ export const translations: Record<'en' | 'th', Translations> = {
 		saved: 'บันทึกแล้ว',
 		quizStatistics: 'สถิติการทำข้อสอบ',
 		keyboardShortcuts: 'ทางลัดแป้นพิมพ์',
+		previousQuestion: 'คำถามก่อนหน้า',
+		nextQuestion: 'คำถามถัดไป',
+		closeDialogs: 'ปิดหน้าต่าง',
 		
 		// Result Page
 		aiExamResults: 'ผลข้อสอบ AI',
@@ -1312,6 +1330,9 @@ export const translations: Record<'en' | 'th', Translations> = {
 		// Admin Dashboard  
 		loadingMoreUsers: 'กำลังโหลดผู้ใช้เพิ่มเติม...',
 		loadingMoreFiles: 'กำลังโหลดไฟล์เพิ่มเติม...',
-		loadingAdminDashboard: 'กำลังโหลดแดชบอร์ดแอดมิน'
+		loadingAdminDashboard: 'กำลังโหลดแดชบอร์ดแอดมิน',
+		
+		// Marketplace
+		loadingMarketplaceItems: 'กำลังโหลดสินค้าในมาร์เก็ตเพลส...'
 	}
 };

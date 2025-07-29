@@ -1565,7 +1565,7 @@
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                                         </svg>
-                                                        <span>Delete</span>
+                                                        <span>{$t('delete')}</span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -1635,7 +1635,7 @@
                                 <div class="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-spin">
                                     <div class="absolute w-4 h-4 bg-slate-800/50 rounded-full top-1 left-1"></div>
                                 </div>
-                                <span class="text-gray-300 font-medium">Loading more users...</span>
+                                <span class="text-gray-300 font-medium">{$t('loadingMoreUsers')}</span>
                             </div>
                         </div>
                     {/if}
@@ -1967,7 +1967,7 @@
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                                             </svg>
-                                                            <span>Delete</span>
+                                                            <span>{$t('delete')}</span>
                                                         </button>
                                                     </div>
                                                 </td>
@@ -2614,7 +2614,7 @@
                 </div>
             </div>
             <div class="mt-6 text-center">
-                <h3 class="text-lg font-semibold text-white mb-2">Loading Admin Dashboard</h3>
+                <h3 class="text-lg font-semibold text-white mb-2">{$t('loadingAdminDashboard')}</h3>
                 <p class="text-gray-300">Please wait while we fetch the latest data...</p>
             </div>
         </div>

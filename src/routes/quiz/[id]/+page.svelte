@@ -1753,15 +1753,15 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             
             <div class="space-y-3 text-sm">
                 <div class="flex items-center justify-between">
-                    <span class="text-gray-600">Previous Question</span>
+                    <span class="text-gray-600">{$t('previousQuestion')}</span>
                     <kbd class="px-2 py-1 bg-gray-100 rounded text-xs font-mono">←</kbd>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-gray-600">Next Question</span>
+                    <span class="text-gray-600">{$t('nextQuestion')}</span>
                     <kbd class="px-2 py-1 bg-gray-100 rounded text-xs font-mono">→</kbd>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-gray-600">Submit Exam</span>
+                    <span class="text-gray-600">{$t('submitExam')}</span>
                     <div class="flex items-center gap-1">
                         <kbd class="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Ctrl</kbd>
                         <span class="text-gray-400">+</span>
@@ -1789,7 +1789,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                     <kbd class="px-2 py-1 bg-gray-100 rounded text-xs font-mono">1-9</kbd>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-gray-600">Close Dialogs</span>
+                    <span class="text-gray-600">{$t('closeDialogs')}</span>
                     <kbd class="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Esc</kbd>
                 </div>
                 <div class="flex items-center justify-between">
