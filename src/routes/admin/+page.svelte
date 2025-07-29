@@ -1833,9 +1833,17 @@
                                                 <button
                                                     on:click={() => sortExamFiles('title')}
                                                     class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                    aria-label="Sort by file title"
                                                 >
                                                     <svg class="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                    </svg>
+                                                    File Information
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'title' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
                                                 </button>
                                             </th>
                                             <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
@@ -1945,9 +1953,12 @@
                                                         <button
                                                             on:click={() => openExamFileModal(examFile)}
                                                             class="inline-flex items-center px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                            aria-label="Edit exam file"
                                                         >
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                            </svg>
+                                                            <span>Edit</span>
                                                         </button>
                                                         <button
                                                             on:click={() => deleteExamFile(examFile.id)}
@@ -2486,6 +2497,7 @@
                         <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
                         </div>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-200">Edit Exam File</h3>
