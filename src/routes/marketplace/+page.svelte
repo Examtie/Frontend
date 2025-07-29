@@ -398,7 +398,7 @@
 						<div class="w-16 h-16 border-4 border-blue-400/30 border-t-blue-400 rounded-full animate-spin mx-auto"></div>
 						<div class="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-b-purple-400 rounded-full animate-spin mx-auto" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
 					</div>
-					<p class="mt-6 text-lg text-gray-300">Loading marketplace items...</p>
+					<p class="mt-6 text-lg text-gray-300">{$t('loadingMarketplaceItems')}</p>
 					<p class="mt-2 text-sm text-gray-500">Discovering amazing content for you</p>
 				</div>
 			{:else if error}
