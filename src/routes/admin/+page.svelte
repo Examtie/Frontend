@@ -104,6 +104,11 @@
     let editingUser: AdminUser | null = null;
     let editingExamFile: ExamFile | null = null;
 
+    // --- START: Fix for Category Errors ---
+    let showCategoryModal = false;
+    let editingCategory: any | null = null; // To hold the category being edited/created
+    // --- END: Fix for Category Errors ---
+
     // Form data
     let userForm = {
         full_name: '',
@@ -464,6 +469,48 @@
             toastStore.error(err.message || 'Failed to update exam file');
         }
     }
+
+    // --- START: Fix for Category Errors ---
+    /**
+     * Opens the category modal to edit a specific category.
+     * NOTE: You will need to implement a modal component for categories that uses
+     * the `showCategoryModal` and `editingCategory` variables.
+     */
+    function editCategory(category: any) {
+        editingCategory = category;
+        // Here you would typically populate a form model from the category object
+        // e.g., categoryForm.name = category.name;
+        showCategoryModal = true;
+        // For now, we'll just log to the console and show a toast.
+        console.log("Editing category:", category);
+        toastStore.info(`Editing category: ${category.name}. (Modal UI needs implementation)`);
+    }
+
+    /**
+     * Deletes a category after confirmation.
+     */
+    async function deleteCategory(categoryId: string) {
+        const category = categories.find(c => c.id === categoryId);
+        const categoryName = category ? category.name : 'this category';
+        
+        if (!confirm(`Are you sure you want to delete "${categoryName}"? This action cannot be undone.`)) return;
+
+        try {
+            // NOTE: The API endpoint for deleting categories might be different.
+            // Please verify this endpoint with your backend documentation.
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-categories/${categoryId}`, {
+                method: 'DELETE',
+            });
+            successMessage = 'Category deleted successfully';
+            toastStore.success('Category deleted successfully.');
+            setTimeout(() => successMessage = '', 3000);
+            await loadCategories(); // Reload the category list
+        } catch (err: any) {
+            error = err.message;
+            toastStore.error(err.message || 'Failed to delete category');
+        }
+    }
+    // --- END: Fix for Category Errors ---
 
     // Upload modal functions for shared component
     function closeUploadModal() {
