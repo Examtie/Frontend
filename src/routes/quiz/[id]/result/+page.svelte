@@ -1,563 +1,830 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	
-	// Types
-	interface QuestionDetail {
-		question_id: string;
-		user_answer: string;
-		correct_answer: string;
-		is_correct: boolean;
-		why_answer_this_one: string;
-		question: string;
-	}
+    import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
+    import { onMount } from 'svelte';
+    import { auth } from '$lib/stores/auth';
+    import { t } from '$lib/i18n';
+    import Header from '../../../components/Header.svelte';
+    import ToastContainer from '../../../components/ToastContainer.svelte';
 
-	interface QuizResult {
-		id: string;
-		userId: string | null;
-		score: number;
-		total: number;
-		completedAt: string;
-		details: QuestionDetail[];
-	}
+    const examId = $page.params.id;
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-	interface ExamResults {
-		result: QuizResult;  // Changed from results array to single result
-	}
+    // API Types based on OpenAPI schema
+    type ExamAnswerOut = {
+        question_id: string;
+        answer: string | string[];
+        is_correct: boolean;
+        correct_answer?: string | string[];
+    };
 
-	interface Statistics {
-		totalTests: number;
-		averageScore: number;
-		bestScore: number;
-		worstScore: number;
-		totalQuestions: number;
-		totalCorrect: number;
-		accuracy: number;
-	}
+    type ExamCheckResult = {
+        total: number;
+        correct: number;
+        wrong: number;
+        details: ExamAnswerOut[];
+    };
 
-	// State variables
-	let currentResult: QuizResult | null = null;
-	let history: QuizResult[] = [];
-	let statistics: Statistics | null = null;
-	let activeTab = 'results';
-	let filter: 'all' | 'correct' | 'incorrect' = 'all';
-	let visibleQuestions = 4;
-	let isLoading = true;
-	let importData = '';
-	let isImporting = false;
-	let toastMessage = '';
-	let showToast = false;
+    type SubmissionSummary = {
+        _id: string;
+        exam_id: string;
+        score: number;
+        total: number;
+        submitted_at: string;
+    };
 
-	// Default sample data
-	const defaultExamResults: ExamResults = {
-		results: [
-			{
-				id: "sample-1",
-				userId: "user-1",
-				score: 2,
-				total: 10,
-				completedAt: new Date().toISOString(),
-				details: [
-					{
-						question_id: "1",
-						user_answer: "A",
-						correct_answer: "B",
-						is_correct: false,
-						why_answer_this_one: "ลูกบอลทั้งหมด $$4+6=10$$ ลูก ความน่าจะเป็นที่ได้สีแดงคือ $$\\dfrac{4}{10} = \\dfrac{2}{5}$$ ดังนั้นคำตอบคือ B",
-						question: "ถ้ามีลูกบอลสีแดง $$4$$ ลูกและสีน้ำเงิน $$6$$ ลูกในกล่อง จะสุ่มหยิบลูกบอล $$1$$ ลูก ความน่าจะเป็นที่หยิบได้ลูกบอลสีแดงคือข้อใด?"
-					},
-					{
-						question_id: "2",
-						user_answer: "C",
-						correct_answer: "A",
-						is_correct: false,
-						why_answer_this_one: "มีตัวอักษร 4 ตัว (M, A, T, H) โอกาสได้ A คือ $$\\dfrac{1}{4}$$ ตอบข้อ A",
-						question: "เมื่อต้องการสุ่มเลือกตัวอักษรจากคำว่า 'MATH' ความน่าจะเป็นที่จะเลือกได้ตัวอักษร 'A' คือข้อใด?"
-					}
-				]
-			}
-		],
-		history: []
-	};
+    type ExamFileOut = {
+        id: string;
+        title: string;
+        description: string;
+        tags: string[];
+        url: string;
+        uploaded_by: string;
+        essay_count: number;
+        choice_count: number;
+    };
 
-	// Utility functions
-	function showToastMessage(message: string) {
-		toastMessage = message;
-		showToast = true;
-		setTimeout(() => {
-			showToast = false;
-		}, 3000);
-	}
+    type AiSubmissionRecordOut = {
+        id: string;
+        exam_id: string;
+        created_at: string;
+        result: {
+            score: number;
+            total: number;
+            details: any[];
+        };
+    };
 
-	function formatDate(dateString: string) {
-		const date = new Date(dateString);
-		return date.toLocaleDateString('th-TH', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
+    type DetailedSubmission = {
+        _id: string;
+        exam_id: string;
+        score: number;
+        total: number;
+        submitted_at: string;
+        details: any[];
+        exam_data: {
+            title: string;
+            description: string;
+            total_questions: number;
+        };
+        answers: any[];
+    };
 
-	function formatPercentage(num: number) {
-		return Math.round(num * 10) / 10;
-	}
+    // Local state
+    let loading = true;
+    let error = '';
+    let submissionDetails: DetailedSubmission | any = null;
+    let examInfo: ExamFileOut | null = null;
+    let submissions: SubmissionSummary[] = [];
+    let aiSubmissions: AiSubmissionRecordOut[] = [];
+    let expandedQuestions = new Set<string>();
+    let showAllIncorrect = false;
+    let isAiExam = false;
+    let submissionId = '';
+    let examResult: any = null;
 
-	function getScoreColor(score: number, total: number) {
-		const percentage = (score / total) * 100;
-		if (percentage >= 80) return "text-emerald-400";
-		if (percentage >= 60) return "text-yellow-400";
-		return "text-red-400";
-	}
+    // Interactive elements for homepage-style effects
+    let mousePosition = { x: 0, y: 0 };
+    let isMobile = false;
 
-	function getProgressColor(percentage: number) {
-		if (percentage >= 80) return "bg-gradient-to-r from-emerald-500 to-green-500";
-		if (percentage >= 60) return "bg-gradient-to-r from-yellow-500 to-orange-500";
-		return "bg-gradient-to-r from-red-500 to-orange-500";
-	}
+    // Floating particles data
+    const particles = Array.from({ length: 25 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 3 + 1,
+        delay: Math.random() * 4
+    }));
 
-	// Storage functions
-	function getExamResults(): ExamResults {
-		if (!browser) return defaultExamResults;
-		
-		try {
-			const stored = localStorage.getItem('examResults');
-            const parsed = JSON.parse(stored);
+    // Performance metrics
+    let performanceData = {
+        averageTimePerQuestion: 0,
+        difficulty: '',
+        recommendedTopics: [] as string[]
+    };
 
-            console.log(3)
-			console.log(parsed);
-			return parsed;
-		} catch (error) {
-			console.error("Failed to parse exam results from localStorage:", error);
-			setExamResults(defaultExamResults);
-			return defaultExamResults;
-		}
-	}
+    // Helper functions
+    function formatTime(seconds: number): string {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        
+        if (hrs > 0) {
+            return `${hrs}h ${mins}m ${secs}s`;
+        } else if (mins > 0) {
+            return `${mins}m ${secs}s`;
+        } else {
+            return `${secs}s`;
+        }
+    }
 
-	function setExamResults(data: ExamResults) {
-		if (!browser) return;
-		
-		try {
-			localStorage.setItem('examResults', JSON.stringify(data));
-		} catch (error) {
-			console.error("Failed to save exam results to localStorage:", error);
-		}
-	}
+    function formatDate(dateString: string): string {
+        return new Date(dateString).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
 
-	function getStatistics(): Statistics {
-		const data = getExamResults();
-		const allResults = [...data.results, ...data.history];
-		
-		if (allResults.length === 0) {
-			return {
-				totalTests: 0,
-				averageScore: 0,
-				bestScore: 0,
-				worstScore: 0,
-				totalQuestions: 0,
-				totalCorrect: 0,
-				accuracy: 0
-			};
-		}
+    function getScoreColor(percentage: number): string {
+        if (percentage >= 90) return 'text-emerald-400';
+        if (percentage >= 80) return 'text-green-400';
+        if (percentage >= 70) return 'text-yellow-400';
+        if (percentage >= 60) return 'text-orange-400';
+        return 'text-red-400';
+    }
 
-		const scores = allResults.map(r => (r.score / r.total) * 100);
-		const totalQuestions = allResults.reduce((sum, r) => sum + r.total, 0);
-		const totalCorrect = allResults.reduce((sum, r) => sum + r.score, 0);
+    function getGradientColors(percentage: number): string {
+        if (percentage >= 90) return 'from-emerald-500 to-green-600';
+        if (percentage >= 80) return 'from-green-500 to-emerald-600';
+        if (percentage >= 70) return 'from-yellow-500 to-orange-500';
+        if (percentage >= 60) return 'from-orange-500 to-red-500';
+        return 'from-red-500 to-red-600';
+    }
 
-		return {
-			totalTests: allResults.length,
-			averageScore: scores.reduce((sum, score) => sum + score, 0) / scores.length,
-			bestScore: Math.max(...scores),
-			worstScore: Math.min(...scores),
-			totalQuestions,
-			totalCorrect,
-			accuracy: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0
-		};
-	}
+    function getGrade(percentage: number): string {
+        if (percentage >= 90) return 'A';
+        if (percentage >= 80) return 'B';
+        if (percentage >= 70) return 'C';
+        if (percentage >= 60) return 'D';
+        return 'F';
+    }
 
-	function loadData() {
-		isLoading = true;
-		try {
-			const data = getExamResults();
-			currentResult = data.result;  // Changed from data.results[0]
-			history = [];  // Since we don't have history in new structure
-			statistics = getStatistics();
-		} catch (error) {
-			showToastMessage("ไม่สามารถโหลดข้อมูลจาก localStorage ได้");
-		} finally {
-			isLoading = false;
-		}
-	}
+    function getPerformanceMessage(percentage: number): string {
+        if (percentage >= 90) return 'Outstanding Performance! 🏆';
+        if (percentage >= 80) return 'Excellent Work! 🌟';
+        if (percentage >= 70) return 'Good Job! 👍';
+        if (percentage >= 60) return 'Keep Practicing! 📚';
+        return 'Need More Study 📖';
+    }
 
-	function handleSelectHistoryResult(result: QuizResult) {
-		currentResult = result;
-		activeTab = 'results';
-		filter = 'all';
-		visibleQuestions = 4;
-	}
+    function toggleQuestion(questionId: string) {
+        if (expandedQuestions.has(questionId)) {
+            expandedQuestions.delete(questionId);
+        } else {
+            expandedQuestions.add(questionId);
+        }
+        expandedQuestions = expandedQuestions;
+    }
 
-	function handleFilter(newFilter: 'all' | 'correct' | 'incorrect') {
-		filter = newFilter;
-		visibleQuestions = 4;
-	}
+    function formatAnswer(answer: string | string[]): string {
+        if (Array.isArray(answer)) {
+            return answer.join(', ');
+        }
+        return answer || 'No answer provided';
+    }
 
-	function loadMoreQuestions() {
-		visibleQuestions += 4;
-	}
+    function handleMouseMove(event: MouseEvent) {
+        if (!isMobile) {
+            mousePosition.x = event.clientX / window.innerWidth;
+            mousePosition.y = event.clientY / window.innerHeight;
+        }
+    }
 
-	async function shareResults() {
-		if (!currentResult) return;
-		
-		if (navigator.share) {
-			try {
-				await navigator.share({
-					title: 'ผลการสอบของฉัน - ExamTie',
-					text: `ฉันได้คะแนน ${currentResult.score}/${currentResult.total} ในข้อสอบ`,
-					url: window.location.href
-				});
-			} catch (err) {
-				showToastMessage("ไม่สามารถแชร์ได้");
-			}
-		} else {
-			try {
-				await navigator.clipboard.writeText(
-					`ฉันได้คะแนน ${currentResult.score}/${currentResult.total} ในข้อสอบ ExamTie`
-				);
-				showToastMessage("คัดลอกแล้ว");
-			} catch (err) {
-				showToastMessage("ไม่สามารถแชร์ได้");
-			}
-		}
-	}
+    function checkMobile() {
+        isMobile = window.innerWidth < 768;
+    }
 
-	function handleExport() {
-		try {
-			const data = JSON.stringify(getExamResults(), null, 2);
-			const blob = new Blob([data], { type: 'application/json' });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `exam-results-${new Date().toISOString().split('T')[0]}.json`;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
-			
-			showToastMessage("ส่งออกสำเร็จ");
-		} catch (error) {
-			showToastMessage("ไม่สามารถส่งออกข้อมูลได้");
-		}
-	}
+    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
+        const token = $auth.token;
+        const headers: Record<string, string> = { ...(options.headers as Record<string, string> ?? {}) };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
 
-	function handleImport() {
-		if (!importData.trim()) {
-			showToastMessage("กรุณาใส่ข้อมูล JSON");
-			return;
-		}
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            }
+        });
 
-		try {
-			const parsed = JSON.parse(importData);
-			if (parsed.results && Array.isArray(parsed.results)) {
-				setExamResults(parsed);
-				showToastMessage("นำเข้าสำเร็จ");
-				importData = '';
-				isImporting = false;
-				loadData();
-			} else {
-				showToastMessage("รูปแบบข้อมูลไม่ถูกต้อง");
-			}
-		} catch {
-			showToastMessage("รูปแบบข้อมูลไม่ถูกต้อง");
-		}
-	}
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Request failed' })) as any;
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
 
-	function handleClear() {
-		if (confirm("คุณแน่ใจหรือไม่ที่จะลบข้อมูลทั้งหมด?")) {
-			if (browser) {
-				localStorage.removeItem('examResults');
-			}
-			showToastMessage("ลบข้อมูลแล้ว");
-			loadData();
-		}
-	}
+        return response.json();
+    }
 
-	function handleReset() {
-		if (confirm("คุณแน่ใจหรือไม่ที่จะรีเซ็ตข้อมูลเป็นค่าเริ่มต้น?")) {
-			if (browser) {
-				localStorage.removeItem('examResults');
-			}
-			loadData();
-			showToastMessage("รีเซ็ตแล้ว");
-		}
-	}
+    onMount(() => {
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        window.addEventListener('mousemove', handleMouseMove);
 
-	function renderMath(element: HTMLElement) {
-		if (typeof window !== 'undefined' && window.renderMathInElement) {
-			window.renderMathInElement(element, {
-				delimiters: [
-					{ left: "$$", right: "$$", display: true },
-					{ left: "$", right: "$", display: false },
-					{ left: "\\(", right: "\\)", display: false },
-					{ left: "\\[", right: "\\]", display: true }
-				],
-				throwOnError: false
-			});
-		}
-	}
+        loadResults();
 
-	onMount(() => {
-		loadData();
-	});
+        return () => {
+            window.removeEventListener('resize', checkMobile);
+            window.removeEventListener('mousemove', handleMouseMove);
+        };
+    });
 
-	// Add these with other state variables at the top
-	let filteredQuestions: QuestionDetail[] = [];
-	let displayedQuestions: QuestionDetail[] = [];
-	let hasMoreQuestions = false;
+    async function loadResults() {
+        loading = true;
+        error = '';
 
-	// Update the reactive statement
-	$: if (currentResult) {
-		const questions = currentResult.details;
-		filteredQuestions = questions.filter(q => {
-			if (filter === 'correct') return q.is_correct;
-			if (filter === 'incorrect') return !q.is_correct;
-			return true;
-		});
-		displayedQuestions = filteredQuestions.slice(0, visibleQuestions);
-		hasMoreQuestions = filteredQuestions.length > visibleQuestions;
-	}
+        try {
+            // Check if this is an AI exam result or regular exam
+            if (examId.startsWith('ai-')) {
+                isAiExam = true;
+                await loadAiExamResults();
+            } else {
+                isAiExam = false;
+                
+                // First, try to get submission ID from localStorage (recent submission)
+                const recentSubmission = localStorage.getItem('examResults');
+                if (recentSubmission) {
+                    const resultData = JSON.parse(recentSubmission);
+                    examResult = resultData;
+                    if (resultData.submissionId) {
+                        submissionId = resultData.submissionId;
+                    }
+                    localStorage.removeItem('examResults'); // Clean up
+                }
 
-	$: percentage = currentResult ? Math.round((currentResult.score / currentResult.total) * 100) : 0;
+                await loadRegularExamResults();
+            }
+
+            // Calculate performance metrics
+            calculatePerformanceMetrics();
+        } catch (err: any) {
+            error = err.message || 'Failed to load exam results';
+            console.error('Error loading results:', err);
+        } finally {
+            loading = false;
+        }
+    }
+
+    async function loadRegularExamResults() {
+        try {
+            // Load exam info first
+            const examsEndpoint = $auth.token ? `${API_BASE_URL}/user/api/v1/exams` : `${API_BASE_URL}/public/api/v1/exams`;
+            const examsResponse = await makeAuthenticatedRequest(examsEndpoint);
+            examInfo = examsResponse.find((e: ExamFileOut) => e.id === examId);
+
+            if (!examInfo) {
+                throw new Error('Exam not found');
+            }
+
+            // If authenticated, try to load submission history from mock endpoint
+            if ($auth.token) {
+                try {
+                    // Get submission history to find the latest submission for this exam
+                    const submissionsResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/mock/submissions`);
+                    submissions = submissionsResponse.submissions?.filter((s: SubmissionSummary) => s.exam_id === examId) || [];
+                    
+                    // If we have a specific submission ID, use it; otherwise use the most recent
+                    const targetSubmission = submissionId 
+                        ? submissions.find(s => s._id === submissionId)
+                        : submissions[0]; // Most recent
+
+                    if (targetSubmission) {
+                        // Get detailed submission results
+                        submissionDetails = await makeAuthenticatedRequest(`${API_BASE_URL}/mock/submissions/${targetSubmission._id}`);
+                    }
+                } catch (submissionErr) {
+                    console.warn('Could not load submission history:', submissionErr);
+                    // Continue without submission details - user might be a guest
+                }
+            }
+
+            // If no submission details found but we have examResult from localStorage
+            if (!submissionDetails && examResult) {
+                submissionDetails = {
+                    exam_data: {
+                        title: examResult.title || examInfo.title,
+                        description: examInfo.description,
+                        total_questions: examResult.totalQuestions || (examInfo.essay_count + examInfo.choice_count)
+                    },
+                    score: examResult.result?.correct || 0,
+                    total: examResult.result?.total || examResult.totalQuestions || 0,
+                    submitted_at: examResult.submittedAt || new Date().toISOString(),
+                    details: examResult.result?.details || [],
+                    answers: examResult.answers || [],
+                    time_spent: examResult.timeSpent || 0
+                };
+            }
+
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async function loadAiExamResults() {
+        try {
+            if ($auth.token) {
+                // Load AI submission history
+                const aiSubmissionsResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/ai/api/v1/exam/submission-history?limit=10`);
+                aiSubmissions = aiSubmissionsResponse.filter((s: AiSubmissionRecordOut) => s.exam_id === examId);
+                
+                if (aiSubmissions.length > 0) {
+                    const latestSubmission = aiSubmissions[0];
+                    submissionDetails = {
+                        exam_data: {
+                            title: 'AI Generated Exam',
+                            description: 'AI Generated Exam',
+                            total_questions: latestSubmission.result.total
+                        },
+                        score: latestSubmission.result.score,
+                        total: latestSubmission.result.total,
+                        submitted_at: latestSubmission.created_at,
+                        details: latestSubmission.result.details || [],
+                        isAiExam: true
+                    };
+                }
+            }
+
+            // Fallback to localStorage for AI exam results
+            if (!submissionDetails && examResult) {
+                submissionDetails = {
+                    exam_data: {
+                        title: examResult.title || 'AI Generated Exam',
+                        description: 'AI Generated Exam',
+                        total_questions: examResult.totalQuestions || 0
+                    },
+                    score: examResult.result?.score || 0,
+                    total: examResult.result?.total || examResult.totalQuestions || 0,
+                    submitted_at: examResult.submittedAt || new Date().toISOString(),
+                    details: examResult.result?.details || [],
+                    answers: examResult.answers || [],
+                    time_spent: examResult.timeSpent || 0,
+                    isAiExam: true
+                };
+            }
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    function calculatePerformanceMetrics() {
+        if (!submissionDetails) return;
+
+        const timeSpent = submissionDetails.time_spent || 0;
+        const totalQuestions = submissionDetails.total || 0;
+        
+        if (totalQuestions > 0) {
+            performanceData.averageTimePerQuestion = Math.round(timeSpent / totalQuestions);
+        }
+
+        const percentage = totalQuestions > 0 ? (submissionDetails.score / totalQuestions) * 100 : 0;
+        
+        if (percentage >= 90) {
+            performanceData.difficulty = 'Expert Level';
+            performanceData.recommendedTopics = ['Advanced concepts', 'Challenge problems'];
+        } else if (percentage >= 80) {
+            performanceData.difficulty = 'Advanced';
+            performanceData.recommendedTopics = ['Complex problem solving', 'Application exercises'];
+        } else if (percentage >= 70) {
+            performanceData.difficulty = 'Intermediate';
+            performanceData.recommendedTopics = ['Practice fundamentals', 'Mixed exercises'];
+        } else if (percentage >= 60) {
+            performanceData.difficulty = 'Beginner';
+            performanceData.recommendedTopics = ['Review basics', 'Guided practice'];
+        } else {
+            performanceData.difficulty = 'Foundation';
+            performanceData.recommendedTopics = ['Start with fundamentals', 'Basic concepts'];
+        }
+    }
+
+    function retakeExam() {
+        if (isAiExam) {
+            goto('/exams?tab=ai');
+        } else {
+            goto(`/quiz/${examId}`);
+        }
+    }
+
+    function goHome() {
+        goto('/exams');
+    }
+
+    function shareResults() {
+        const url = window.location.href;
+        if (navigator.share) {
+            navigator.share({
+                title: 'Exam Results - Examtie',
+                text: `I scored ${percentage}% on ${examTitle}!`,
+                url: url
+            });
+        } else {
+            navigator.clipboard.writeText(url);
+            // You could show a toast here
+        }
+    }
+
+    // Computed values
+    $: percentage = submissionDetails ? Math.round((submissionDetails.score / submissionDetails.total) * 100) : 0;
+    $: correctCount = submissionDetails?.score || 0;
+    $: wrongCount = submissionDetails ? submissionDetails.total - submissionDetails.score : 0;
+    $: totalQuestions = submissionDetails?.total || 0;
+    $: examTitle = submissionDetails?.exam_data?.title || examInfo?.title || 'Unknown Exam';
+    $: timeSpent = submissionDetails?.time_spent || 0;
+    $: hasResults = submissionDetails !== null;
 </script>
 
 <svelte:head>
-	<title>ผลการสอบ - ExamTie</title>
-	<meta name="description" content="ดูผลการสอบและรายละเอียดคำตอบพร้อมคำอธิบายแบบครบถ้วน - ExamTie แพลตฟอร์มการเรียนรู้ออนไลน์" />
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <title>Exam Results - {examTitle} - Examtie</title>
+    <meta name="description" content="View your exam results and detailed feedback" />
 </svelte:head>
 
-{#if isLoading}
-	<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 flex items-center justify-center">
-		<div class="text-white text-lg">กำลังโหลดผลการสอบ...</div>
-	</div>
-{:else if !currentResult}
-	<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 flex items-center justify-center">
-		<div class="text-center">
-			<div class="text-red-400 text-lg mb-4">ไม่พบข้อมูลผลการสอบ</div>
-			<button 
-				class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg"
-				on:click={() => {
-					setExamResults(defaultExamResults);
-					loadData();
-				}}
-			>
-				สร้างข้อมูลตัวอย่าง
-			</button>
-		</div>
-	</div>
-{:else}
-	<div class="min-h-screen bg-slate-900 text-white font-sans">
-		<!-- Background with animated particles -->
-		<div class="fixed inset-0 overflow-hidden">
-			<div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950"></div>
-			
-			<!-- Floating particles -->
-			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-green-400/10 rounded-full blur-xl animate-pulse"></div>
-				<div class="absolute top-40 right-16 w-24 h-24 bg-gradient-to-br from-blue-500/25 to-cyan-400/15 rounded-full blur-lg animate-pulse" style="animation-delay: 1s"></div>
-				<div class="absolute bottom-32 left-1/4 w-20 h-20 bg-gradient-to-br from-purple-500/20 to-pink-400/10 rounded-full blur-md animate-pulse" style="animation-delay: 2s"></div>
-			</div>
-			
-			<!-- Subtle grid pattern -->
-			<div 
-				class="absolute inset-0 opacity-5" 
-				style="background-image: radial-gradient(circle at 2px 2px, rgba(34, 197, 94, 0.3) 1px, transparent 0); background-size: 40px 40px;"
-			></div>
-		</div>
+<Header />
 
-		<!-- Navigation Header -->
-		<nav class="relative z-10 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex items-center justify-between h-16">
-					<div class="flex items-center space-x-4">
-						<div class="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
-							ExamTie
-						</div>
-						<div class="text-slate-400 text-sm hidden sm:block">
-							ผลการสอบ
-						</div>
-					</div>
-					<div class="flex items-center space-x-3">
-						<button 
-							class="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2"
-							on:click={loadData}
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-							</svg>
-							<span class="hidden sm:inline">รีเฟรช</span>
-						</button>
-						<button class="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2">
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-							</svg>
-							<span class="hidden sm:inline">หน้าหลัก</span>
-						</button>
-						<button class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2">
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-							</svg>
-							<span>ทำข้อสอบใหม่</span>
-						</button>
-					</div>
-				</div>
-			</div>
-		</nav>
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 relative overflow-hidden">
+    <!-- Background decoration with floating particles -->
+    <div class="absolute inset-0">
+        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95"></div>
+        
+        <!-- Floating particles -->
+        {#each particles as particle}
+            <div 
+                class="absolute bg-blue-400/30 rounded-full animate-float opacity-60"
+                style="
+                    left: {particle.x}%; 
+                    top: {particle.y}%; 
+                    width: {particle.size}px; 
+                    height: {particle.size}px;
+                    animation-delay: {particle.delay}s;
+                    animation-duration: {3 + Math.random() * 2}s;
+                "
+            ></div>
+        {/each}
 
-		<!-- Main Content -->
-		<main class="relative z-10 min-h-screen pt-8 pb-16">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				
-				<!-- Tabs -->
-				<div class="w-full mb-8">
-					<div class="flex space-x-1 bg-slate-800/50 p-1 rounded-lg border border-slate-700">
-						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'results'}
-							class:text-white={activeTab === 'results'}
-							class:text-slate-300={activeTab !== 'results'}
-							on:click={() => activeTab = 'results'}
-						>
-							<span>ผลลัพธ์</span>
-						</button>
-						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'statistics'}
-							class:text-white={activeTab === 'statistics'}
-							class:text-slate-300={activeTab !== 'statistics'}
-							on:click={() => activeTab = 'statistics'}
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-							</svg>
-							<span>สถิติ</span>
-						</button>
-						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'history'}
-							class:text-white={activeTab === 'history'}
-							class:text-slate-300={activeTab !== 'history'}
-							on:click={() => activeTab = 'history'}
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-							</svg>
-							<span>ประวัติ</span>
-						</button>
-						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'settings'}
-							class:text-white={activeTab === 'settings'}
-							class:text-slate-300={activeTab !== 'settings'}
-							on:click={() => activeTab = 'settings'}
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-							</svg>
-							<span>ตั้งค่า</span>
-						</button>
-					</div>
-				</div>
+        <!-- Interactive gradient overlay -->
+        <div 
+            class="absolute inset-0 opacity-20 pointer-events-none transition-opacity duration-700"
+            style="background: radial-gradient(600px circle at {mousePosition.x * 100}% {mousePosition.y * 100}%, rgba(59, 130, 246, 0.15), transparent 40%)"
+        ></div>
+    </div>
 
-				{#if activeTab === 'results'}
-					<!-- Results Overview -->
-					<div class="mb-8">
-						<div class="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-lg p-6 sm:p-8">
-							<div class="text-center">
-								<div class="mb-4">
-									<span class="bg-blue-100/10 text-blue-300 border border-blue-500/20 px-3 py-1 rounded-full text-sm">
-										ผลการสอบเสร็จสิ้น
-									</span>
-								</div>
-								
-								<!-- Score Display -->
-								<div class="mb-6">
-									<div class="text-6xl sm:text-7xl font-bold mb-2">
-										<span class="text-white">{currentResult.score}</span>
-										<span class="text-slate-400">/</span>
-										<span class="text-slate-300">{currentResult.total}</span>
-									</div>
-									<div class="text-xl text-slate-300">คะแนนที่ได้</div>
-									<div class="mt-2">
-										<div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
-											<div 
-												class="h-3 rounded-full transition-all duration-1000 ease-out {getProgressColor(percentage)}"
-												style="width: {percentage}%"
-											></div>
-										</div>
-										<div class="text-sm text-slate-400 mt-2">{percentage}% ถูกต้อง</div>
-									</div>
-								</div>
-								
-								<!-- Performance Summary -->
-								<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-									<div class="bg-slate-700/30 rounded-lg p-4">
-										<div class="text-2xl font-bold text-emerald-400">{currentResult.score}</div>
-										<div class="text-sm text-slate-300">ตอบถูก</div>
-									</div>
-									<div class="bg-slate-700/30 rounded-lg p-4">
-										<div class="text-2xl font-bold text-red-400">{currentResult.total - currentResult.score}</div>
-										<div class="text-sm text-slate-300">ตอบผิด</div>
-									</div>
-									<div class="bg-slate-700/30 rounded-lg p-4">
-										<div class="text-2xl font-bold text-slate-400">15</div>
-										<div class="text-sm text-slate-300">นาที</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
+    <div class="relative z-10 min-h-screen py-8 px-4">
+        {#if loading}
+            <!-- Loading State -->
+            <div class="flex items-center justify-center min-h-screen">
+                <div class="text-center">
+                    <div class="relative">
+                        <div class="animate-spin rounded-full h-20 w-20 border-4 border-blue-500/20 border-t-blue-500 mx-auto mb-6"></div>
+                        <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-500/10 to-purple-500/10 animate-pulse"></div>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">Loading Your Results</h2>
+                    <p class="text-blue-200 animate-pulse">Calculating your performance...</p>
+                </div>
+            </div>
 
-					<!-- Question Results Section -->
-					<div class="space-y-6">
-						<div class="flex items-center justify-between">
-							<h2 class="text-2xl font-bold text-white">รายละเอียดข้อสอบ</h2>
-							<div class="flex space-x-2">
-								<button
-									class="px-3 py-1 text-sm rounded-lg transition-colors"
-									class:bg-slate-600={filter === 'all'}
-									class:text-white={filter === 'all'}
-									class:bg-slate-700={filter !== 'all'}
-									class:text-slate-300={filter !== 'all'}
-									on:click={() => handleFilter('all')}
-								>
-									ทั้งหมด
-								</button>
-								<button
-									class="px-3 py-1 text-sm rounded-lg transition-colors bg-red-600/20 hover:bg-red-600/30 text-red-300"
-									class:bg-red-600={filter === 'incorrect'}
-									class:text-white={filter === 'incorrect'}
-									on:click={() => handleFilter('incorrect')}
-								>
-									ตอบผิด
-								</button>
-								<button
-									class="px-3 py-1 text-sm rounded-lg transition-colors bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300"
-									class:bg-emerald-600={filter === 'correct'}
-									class:text-white={filter === 'correct'}
-									on:click={() => handleFilter('correct')}
-								>
-									ตอบถูก
-								</button>
-							</div>
-						</div>
+        {:else if error}
+            <!-- Error State -->
+            <div class="flex items-center justify-center min-h-screen">
+                <div class="max-w-md w-full bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 p-8 text-center">
+                    <div class="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-4">Unable to Load Results</h2>
+                    <p class="text-gray-300 mb-6">{error}</p>
+                    <div class="flex gap-3">
+                        <button
+                            on:click={retakeExam}
+                            class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                            Retake Exam
+                        </button>
+                        <button
+                            on:click={goHome}
+                            class="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 px-6 rounded-xl border border-white/20 transition-all duration-300 transform hover:scale-105"
+                        >
+                            Browse Exams
+                        </button>
+                    </div>
+                </div>
+            </div>
 
+        {:else if hasResults}
+            <!-- Results Display -->
+            <div class="max-w-6xl mx-auto space-y-8">
+                <!-- Header Section -->
+                <div class="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-sm px-8 py-6 border-b border-white/10">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <button
+                                    on:click={goHome}
+                                    class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                    </svg>
+                                </button>
+                                <div>
+                                    <h1 class="text-3xl font-bold text-white">{examTitle}</h1>
+                                    <p class="text-blue-200 opacity-90">Exam Results</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-3">
+                                {#if isAiExam}
+                                    <div class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-sm font-bold rounded-full flex items-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                        </svg>
+                                        AI Generated
+                                    </div>
+                                {/if}
+                                
+                                <button
+                                    on:click={shareResults}
+                                    class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+                                    title="Share Results"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                </div>
+                {#if !isMobile}
+                <div class="mb-8">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-4">
+                            <button
+                                on:click={() => goto(`/quiz/${quizId}`)}
+                                class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+                                title="Back to Quiz"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+                            <div>
+                                <h1 class="text-3xl font-bold text-white">{examTitle}</h1>
+                                <p class="text-blue-200 opacity-90">Exam Results</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            {#if isAiExam}
+                                <div class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-sm font-bold rounded-full flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                    AI Generated
+                                </div>
+                            {/if}
+                            
+                            <button
+                                on:click={shareResults}
+                                class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+                                title="Share Results"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {/if}
+                <h1 class="text-2xl md:text-3xl font-bold text-white mb-2 text-center">
+                    {summary.isAiExam ? 'AI Exam Results' : 'สรุปผลการทำข้อสอบ'}
+                </h1>
+                <p class="text-blue-200 text-center opacity-90">{summary.title}</p>
+            </div>
+
+            <div class="p-8">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                    <div class="group bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-6 border border-green-400/30 hover:border-green-400/50 transition-all duration-300 hover:scale-105">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
+                            <span class="text-4xl font-bold text-green-400 mb-1">{summary.correct}</span>
+                            <span class="text-sm text-green-200 font-medium">
+                                {summary.isAiExam ? 'Answered' : 'ข้อถูก'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="group bg-gradient-to-br from-red-500/20 to-rose-500/20 backdrop-blur-sm rounded-2xl p-6 border border-red-400/30 hover:border-red-400/50 transition-all duration-300 hover:scale-105">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-red-400 to-rose-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </div>
+                            <span class="text-4xl font-bold text-red-400 mb-1">{summary.incorrect}</span>
+                            <span class="text-sm text-red-200 font-medium">
+                                {summary.isAiExam ? 'Unanswered' : 'ข้อผิด'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="group bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 border border-blue-400/30 hover:border-blue-400/50 transition-all duration-300 hover:scale-105">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <span class="text-4xl font-bold text-blue-400 mb-1">{formatTime(summary.timeSpentSeconds)}</span>
+                            <span class="text-sm text-blue-200 font-medium">เวลาที่ใช้ทำ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completion/Accuracy Bar -->
+                <div class="mb-10 bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+                    <h2 class="font-semibold text-white mb-4 text-center text-lg">
+                        {summary.isAiExam ? 'Completion Rate' : 'ความแม่นยำ'}: 
+                        <span class="text-blue-400">{accuracy}%</span>
+                    </h2>
+                    <div class="w-full bg-white/10 rounded-full h-6 overflow-hidden backdrop-blur-sm">
+                        <div class="bg-gradient-to-r from-green-400 to-emerald-500 h-full transition-all duration-1000 ease-out rounded-full shadow-lg" style="width: {accuracy}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-white/60 mt-2">
+                        <span>0%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+                <!-- Detailed Results -->
+                {#if submissionDetails.details && submissionDetails.details.length > 0}
+                    <div class="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+                        <div class="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 backdrop-blur-sm px-8 py-6 border-b border-white/10">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-2xl font-bold text-white flex items-center gap-3">
+                                    <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Question Analysis
+                                </h3>
+                                <div class="flex items-center gap-4">
+                                    <label class="flex items-center gap-2 text-white cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            bind:checked={showAllIncorrect}
+                                            class="rounded border-white/30 bg-white/10 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                        />
+                                        <span class="text-sm font-medium">Show only incorrect answers</span>
+                                    </label>
+                                </div>
+                                <h3 class="text-lg font-semibold text-white">AI Exam Completed!</h3>
+                            </div>
+                            <p class="text-gray-300 mb-4">
+                                You've successfully completed this AI-generated exam. Your responses have been recorded and you can review your performance above.
+                            </p>
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <p class="text-sm text-white/80 mb-2">💡 <strong>Next Steps:</strong></p>
+                                <ul class="text-sm text-gray-300 space-y-1">
+                                    <li>• Generate a new AI exam on a different topic</li>
+                                    <li>• Try increasing the difficulty level</li>
+                                    <li>• Practice with more questions to improve your knowledge</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="p-8 space-y-4">
+                            {#each submissionDetails.details as detail, index}
+                                {#if !showAllIncorrect || !detail.is_correct}
+                                    <div class="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300">
+                                        <button
+                                            on:click={() => toggleQuestion(detail.question_id)}
+                                            class="w-full p-6 text-left hover:bg-white/5 transition-colors flex items-center justify-between"
+                                        >
+                                            <div class="flex items-center gap-4">
+                                                <div class="flex items-center justify-center w-12 h-12 rounded-full {detail.is_correct ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-red-500 to-rose-600'} shadow-lg">
+                                                    {#if detail.is_correct}
+                                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                        </svg>
+                                                    {:else}
+                                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                        </svg>
+                                                    {/if}
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-white text-lg">Question {parseInt(detail.question_id) || index + 1}</div>
+                                                    <div class="text-sm {detail.is_correct ? 'text-green-300' : 'text-red-300'} font-medium">
+                                                        {detail.is_correct ? 'Correct Answer' : 'Incorrect Answer'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <svg 
+                                                class="w-6 h-6 text-white/60 transition-transform duration-300 {expandedQuestions.has(detail.question_id) ? 'rotate-180' : ''}"
+                                                fill="none" 
+                                                stroke="currentColor" 
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </button>
+                                        
+                                        {#if expandedQuestions.has(detail.question_id)}
+                                            <div class="px-6 pb-6 border-t border-white/10 bg-white/5">
+                                                <!-- Question Text (for AI exams or when available) -->
+                                                {#if detail.question}
+                                                    <div class="mb-6 pt-6">
+                                                        <h4 class="font-bold text-white mb-3 flex items-center gap-2">
+                                                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                            </svg>
+                                                            Question:
+                                                        </h4>
+                                                        <div class="bg-white/10 p-4 rounded-xl border border-white/20">
+                                                            <p class="text-white leading-relaxed">{detail.question}</p>
+                                                        </div>
+                                                    </div>
+                                                {/if}
+                                                
+                                                <div class="grid md:grid-cols-2 gap-6 pt-6">
+                                                    <div>
+                                                        <h4 class="font-bold text-white mb-3 flex items-center gap-2">
+                                                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                                            </svg>
+                                                            Your Answer:
+                                                        </h4>
+                                                        <div class="bg-white/10 p-4 rounded-xl border {detail.is_correct ? 'border-green-400/30' : 'border-red-400/30'}">
+                                                            <span class="{detail.is_correct ? 'text-green-300' : 'text-red-300'} font-medium">
+                                                                {formatAnswer(detail.user_answer || detail.answer)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <h4 class="font-bold text-white mb-3 flex items-center gap-2">
+                                                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                            </svg>
+                                                            Correct Answer:
+                                                        </h4>
+                                                        <div class="bg-white/10 p-4 rounded-xl border border-green-400/30">
+                                                            <span class="text-green-300 font-medium">
+                                                                {formatAnswer(detail.correct_answer)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Explanation (for AI exams or when available) -->
+                                                {#if detail.why_answer_this_one}
+                                                    <div class="mt-6">
+                                                        <h4 class="font-bold text-white mb-3 flex items-center gap-2">
+                                                            <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                                            </svg>
+                                                            Explanation:
+                                                        </h4>
+                                                        <div class="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-400/30 p-4 rounded-xl">
+                                                            <p class="text-yellow-100 leading-relaxed">{detail.why_answer_this_one}</p>
+                                                        </div>
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <button 
+                        on:click={retakeExam} 
+                        class="group px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 backdrop-blur-sm flex items-center justify-center gap-2"
+                    >
+                        {#if summary.isAiExam}
+                            <svg class="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Generate New AI Exam
+                        {:else}
+                            <svg class="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            ทำข้อสอบอีกครั้ง
+                        {/if}
+                    </button>
+                    <button 
+                        on:click={() => goto('/exams')} 
+                        class="group px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-medium shadow-lg border border-white/20 hover:border-white/30 transition-all duration-300 transform hover:scale-105 backdrop-blur-sm flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        {summary.isAiExam ? 'Back to Exams' : 'กลับไปหน้ารายการข้อสอบ'}
+                    </button>
+                </div>
+            </div>
+        {/if}
+    </div>
+</div>
 						<!-- Question Results -->
 						{#if displayedQuestions}
 							<div class="space-y-6">
@@ -864,26 +1131,35 @@
 		</main>
 	</div>
 
-	<!-- Toast Notification -->
-	{#if showToast}
-		<div class="fixed bottom-4 right-4 z-50 bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-lg shadow-lg">
-			{toastMessage}
-		</div>
-	{/if}
-{/if}
+<ToastContainer />
 
 <style>
-	:global(body) {
-		font-family: 'Inter', system-ui, sans-serif;
-		margin: 0;
-		padding: 0;
-	}
-	
-	:global(.katex) {
-		font-size: 1.1em;
-	}
-	
-	:global(.katex-display) {
-		margin: 1em 0;
-	}
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        33% { transform: translateY(-10px) rotate(1deg); }
+        66% { transform: translateY(5px) rotate(-1deg); }
+    }
+    
+    .animate-float {
+        animation: float 6s ease-in-out infinite;
+    }
+
+    /* Custom scrollbar for webkit browsers */
+    :global(.custom-scrollbar::-webkit-scrollbar) {
+        width: 8px;
+    }
+    
+    :global(.custom-scrollbar::-webkit-scrollbar-track) {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+    
+    :global(.custom-scrollbar::-webkit-scrollbar-thumb) {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+    }
+    
+    :global(.custom-scrollbar::-webkit-scrollbar-thumb:hover) {
+        background: rgba(255, 255, 255, 0.5);
+    }
 </style>

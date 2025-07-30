@@ -183,7 +183,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             isAiExam = false;
 
             // Load exam details first (for regular exams)
-            const examEndpoint = $auth.token ? `${API_BASE_URL}/mock/exam-file` : `${API_BASE_URL}/mock/exam-file`;
+            const examEndpoint = $auth.token ? `${API_BASE_URL}/user/api/v1/exams` : `${API_BASE_URL}/public/api/v1/exams`;
             const examResponse = await makeAuthenticatedRequest(examEndpoint);
             const examData = examResponse.find((e: any) => e.id === examId);
             
@@ -526,41 +526,39 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
         
         submitting = true;
         error = '';
-    
-        const answers = Array.from(userAnswers.values())
-                .filter(answer => answer.answer && answer.answer.toString().trim() !== '')
-                .map(answer => ({
-                    // Extract numeric part and convert to string (e.g., "choice_1" -> "1")
-                    question_id: answer.question_id.replace(/\D/g, ''),
-                    answer: answer.answer.toString()
-        }));
-
-        const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
 
         try {
+            const answers = Array.from(userAnswers.values()).filter(answer => 
+                answer.answer && answer.answer.toString().trim() !== ''
+            );
+
+            const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
 
             // For AI exams, use the AI submit endpoint
             if (isAiExam) {
                 try {
-                    const responses = Array.from(userAnswers.values())
-                        .filter(answer => answer.answer && answer.answer.toString().trim() !== '')
-                        .map(answer => answer.answer.toString().trim().charAt(0).toUpperCase());
-
+                    // Submit to AI exam endpoint for grading
                     const aiSubmissionData = {
                         exam_id: examId,
-                        responses: responses
+                        responses: answers.map(a => a.answer.toString())
                     };
-                    const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
-
 
                     const aiResult = await makeAuthenticatedRequest(`${API_BASE_URL}/ai/api/v1/exam/submit`, {
                         method: 'POST',
                         body: JSON.stringify(aiSubmissionData)
                     });
-                    const resultsData = {
-                        result: aiResult,
-                    };
 
+                    // Store results for the results page
+                    const resultsData = {
+                        examId: exam.id,
+                        title: exam.title,
+                        answers: answers,
+                        timeSpent: timeSpent,
+                        totalQuestions: questions.length,
+                        submittedAt: new Date().toISOString(),
+                        result: aiResult,
+                        isAiExam: true
+                    };
                     localStorage.setItem('examResults', JSON.stringify(resultsData));
                     
                     toastStore.success('AI Exam submitted successfully!');
@@ -591,29 +589,60 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                 }
             }
 
+            // For regular exams, submit and get results
+            const submissionData = {
+                exam_id: examId,
+                answers: answers.map(a => ({
+                    question_id: a.question_id,
+                    answer: a.answer
+                }))
+            };
 
             let result;
-
-            const sunmbit_data = {
-                        exam_id: examId,
-                        answers: answers  // Using the reformatted answers
-            };
             
             // Try authenticated submission first
             if ($auth.isAuthenticated) {
-                result = await makeAuthenticatedRequest(`${API_BASE_URL}/mock/submit`, {
+                try {
+                    const submissionResult = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            answers: submissionData.answers,
+                            time_spent: timeSpent
+                        })
+                    });
+                    
+                    // If submission successful, get results via public endpoint
+                    result = await makeAuthenticatedRequest(`${API_BASE_URL}/public/api/v1/exams/${examId}/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify(submissionData)
+                    });
+                } catch (authErr: any) {
+                    console.warn('Authenticated submission failed, trying public endpoint:', authErr.message);
+                    // Fallback to public endpoint
+                    result = await makeAuthenticatedRequest(`${API_BASE_URL}/public/api/v1/exams/${examId}/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify(submissionData)
+                    });
+                }
+            } else {
+                // Use public endpoint for guests
+                result = await makeAuthenticatedRequest(`${API_BASE_URL}/public/api/v1/exams/${examId}/submit`, {
                     method: 'POST',
-                    body: JSON.stringify(sunmbit_data)
+                    body: JSON.stringify(submissionData)
                 });
             }
 
             // Store results for the results page
             const resultsData = {
+                examId: exam.id,
+                title: exam.title,
+                answers: answers,
+                timeSpent: timeSpent,
+                totalQuestions: questions.length,
+                submittedAt: new Date().toISOString(),
                 result: result,
+                isAiExam: false
             };
-
-            
-
             localStorage.setItem('examResults', JSON.stringify(resultsData));
 
             toastStore.success('Exam submitted successfully!');
