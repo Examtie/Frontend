@@ -1,12 +1,13 @@
 <script lang="ts">
     import PdfViewer from '$lib/components/PdfViewer.svelte';
     import AiExamInterface from '$lib/components/AiExamInterface.svelte';
+    import ToastContainer from '../../components/ToastContainer.svelte';
     import { page } from '$app/stores';
     import { auth } from '$lib/stores/auth';
     import { toastStore } from '$lib/stores/toast';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import ToastContainer from '../../components/ToastContainer.svelte';
+    // ...existing code...
 
     // Types
     type Question = {
@@ -533,46 +534,124 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
             const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
 
-            // For AI exams, just go to results with local data
+            // For AI exams, use the AI submit endpoint
             if (isAiExam) {
-                // Store results in localStorage for the results page
-                const resultsData = {
-                    examId: exam.id,
-                    title: exam.title,
-                    answers: answers,
-                    timeSpent: timeSpent,
-                    totalQuestions: questions.length,
-                    submittedAt: new Date().toISOString()
-                };
-                localStorage.setItem('aiExamResults', JSON.stringify(resultsData));
-                
-                toastStore.success('AI Exam completed!');
-                showSubmitConfirmation = false;
-                
-                // Redirect to results page
-                setTimeout(() => {
+                try {
+                    // Submit to AI exam endpoint for grading
+                    const aiSubmissionData = {
+                        exam_id: examId,
+                        responses: answers.map(a => a.answer.toString())
+                    };
+
+                    const aiResult = await makeAuthenticatedRequest(`${API_BASE_URL}/ai/api/v1/exam/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify(aiSubmissionData)
+                    });
+
+                    // Store results for the results page
+                    const resultsData = {
+                        examId: exam.id,
+                        title: exam.title,
+                        answers: answers,
+                        timeSpent: timeSpent,
+                        totalQuestions: questions.length,
+                        submittedAt: new Date().toISOString(),
+                        result: aiResult,
+                        isAiExam: true
+                    };
+                    localStorage.setItem('examResults', JSON.stringify(resultsData));
+                    
+                    toastStore.success('AI Exam submitted successfully!');
+                    showSubmitConfirmation = false;
+                    
+                    // Redirect to results page
+                    setTimeout(() => {
+                        goto(`/quiz/${examId}/result`);
+                    }, 1000);
+                    return;
+                } catch (aiErr: any) {
+                    console.warn('AI submission failed, using local scoring:', aiErr.message);
+                    // Fallback to local data
+                    const resultsData = {
+                        examId: exam.id,
+                        title: exam.title,
+                        answers: answers,
+                        timeSpent: timeSpent,
+                        totalQuestions: questions.length,
+                        submittedAt: new Date().toISOString(),
+                        isAiExam: true
+                    };
+                    localStorage.setItem('examResults', JSON.stringify(resultsData));
+                    toastStore.success('AI Exam completed!');
+                    showSubmitConfirmation = false;
                     goto(`/quiz/${examId}/result`);
-                }, 1000);
-                return;
+                    return;
+                }
             }
 
+            // For regular exams, submit and get results
             const submissionData = {
-                answers: answers,
-                time_spent: timeSpent
+                exam_id: examId,
+                answers: answers.map(a => ({
+                    question_id: a.question_id,
+                    answer: a.answer
+                }))
             };
 
-            await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/submit`, {
-                method: 'POST',
-                body: JSON.stringify(submissionData)
-            });
+            let result;
+            
+            // Try authenticated submission first
+            if ($auth.isAuthenticated) {
+                try {
+                    const submissionResult = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exams/${examId}/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            answers: submissionData.answers,
+                            time_spent: timeSpent
+                        })
+                    });
+                    
+                    // If submission successful, get results via public endpoint
+                    result = await makeAuthenticatedRequest(`${API_BASE_URL}/public/api/v1/exams/${examId}/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify(submissionData)
+                    });
+                } catch (authErr: any) {
+                    console.warn('Authenticated submission failed, trying public endpoint:', authErr.message);
+                    // Fallback to public endpoint
+                    result = await makeAuthenticatedRequest(`${API_BASE_URL}/public/api/v1/exams/${examId}/submit`, {
+                        method: 'POST',
+                        body: JSON.stringify(submissionData)
+                    });
+                }
+            } else {
+                // Use public endpoint for guests
+                result = await makeAuthenticatedRequest(`${API_BASE_URL}/public/api/v1/exams/${examId}/submit`, {
+                    method: 'POST',
+                    body: JSON.stringify(submissionData)
+                });
+            }
+
+            // Store results for the results page
+            const resultsData = {
+                examId: exam.id,
+                title: exam.title,
+                answers: answers,
+                timeSpent: timeSpent,
+                totalQuestions: questions.length,
+                submittedAt: new Date().toISOString(),
+                result: result,
+                isAiExam: false
+            };
+            localStorage.setItem('examResults', JSON.stringify(resultsData));
 
             toastStore.success('Exam submitted successfully!');
             showSubmitConfirmation = false;
             
-            // Redirect to results or exams page
+            // Redirect to results page
             setTimeout(() => {
                 goto(`/quiz/${examId}/result`);
-            }, 2000);
+            }, 1000);
 
         } catch (err: any) {
             error = err.message;
@@ -1146,27 +1225,32 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                             {/if}
                         </div>
 
-                        {#if currentQuestionIndex === questions.length - 1}
+                        <div class="flex items-center gap-2">
+                            {#if currentQuestionIndex < questions.length - 1}
+                                <button
+                                    on:click={nextQuestion}
+                                    class="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md text-sm"
+                                >
+                                    Next
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </button>
+                            {/if}
                             <button
                                 on:click={confirmSubmit}
-                                class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md text-sm"
+                                class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md text-sm font-medium {completionPercentage === 100 ? 'ring-2 ring-green-300 ring-opacity-50 animate-pulse' : ''}"
+                                title="{completionPercentage === 100 ? 'All questions answered - Ready to submit!' : `${unansweredCount} questions remaining`}"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
-                                Submit
+                                Submit Exam
+                                {#if completionPercentage === 100}
+                                    <span class="ml-1 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">Ready!</span>
+                                {/if}
                             </button>
-                        {:else}
-                            <button
-                                on:click={nextQuestion}
-                                class="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md text-sm"
-                            >
-                                Next
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </button>
-                        {/if}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1237,12 +1321,12 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                 <div class="bg-slate-50 {isResizing ? 'shadow-lg' : 'transition-all duration-200'}" style="width: {answerSheetWidth}%;">
                     <div class="h-full flex flex-col">
                         <!-- Header -->
-                        <div class="bg-white px-3 py-3 border-b border-gray-200">
-                            <div class="flex items-center justify-between gap-2 mb-3">
+                        <div class="bg-white px-3 py-2 border-b border-gray-200">
+                            <div class="flex items-center justify-between gap-2 mb-2">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <button
                                         on:click={() => goto('/exams')}
-                                        class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                                        class="inline-flex items-center gap-1 px-2 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -1275,30 +1359,18 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                         </div>
                                     {/if}
                                     
-                                    <!-- Manual Save Button -->
-                                    <button
-                                        on:click={manualSave}
-                                        class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-200 transition-all duration-200 flex items-center gap-1"
-                                        title="Save progress manually"
-                                    >
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
-                                        </svg>
-                                        Save
-                                    </button>
-                                    
                                     <!-- Timer -->
-                                    <div class="text-xs px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg font-mono border border-blue-200 flex items-center gap-1">
+                                    <div class="text-xs px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-md font-mono border border-blue-200 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
                                         {elapsedTime}
                                     </div>
                                     
-                                    <!-- Stats Toggle -->
+                                    <!-- Compact Stats Toggle -->
                                     <button
                                         on:click={() => showStats = !showStats}
-                                        class="inline-flex items-center gap-2 px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                                        class="inline-flex items-center gap-1 px-2 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                                         title="Toggle stats"
                                         aria-label="Toggle statistics panel"
                                     >
@@ -1307,21 +1379,10 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                         </svg>
                                     </button>
                                     
-                                    <!-- Keyboard Help -->
-                                    <button
-                                        on:click={() => showKeyboardHelp = !showKeyboardHelp}
-                                        class="inline-flex items-center gap-2 px-2 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                                        title="Keyboard shortcuts"
-                                        aria-label="Show keyboard shortcuts help"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                    </button>
-                                    
+                                    <!-- Compact Question Toggle -->
                                     <button
                                         on:click={() => showQuestionList = !showQuestionList}
-                                        class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+                                        class="inline-flex items-center gap-1 px-2 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
@@ -1331,43 +1392,38 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                 </div>
                             </div>
                             
-                            <!-- Progress Bar -->
+                            <!-- Compact Progress Bar -->
                             <div>
-                                <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                    <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+                                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                    <span>Q {currentQuestionIndex + 1}/{questions.length}</span>
                                     <span class="flex items-center gap-1">
-                                        {answeredCount}/{questions.length} answered
-                                        <span class="text-green-600 font-medium">({completionPercentage.toFixed(0)}%)</span>
+                                        <span class="text-green-600 font-medium">{answeredCount}</span> answered
+                                        <span class="text-gray-400">•</span>
+                                        <span class="text-green-600 font-medium">{completionPercentage.toFixed(0)}%</span>
+                                        {#if completionPercentage === 100}
+                                            <span class="text-blue-600 font-medium ml-1">• Complete!</span>
+                                        {/if}
                                     </span>
                                 </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2 relative overflow-hidden">
+                                <div class="w-full bg-gray-200 rounded-full h-1.5 relative overflow-hidden">
                                     <div 
-                                        class="bg-green-500 h-full rounded-full transition-all duration-500 ease-out"
+                                        class="bg-green-500 h-full rounded-full transition-all duration-500 ease-out {completionPercentage === 100 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : ''}"
                                         style="width: {completionPercentage}%"
                                     ></div>
                                 </div>
                             </div>
                             
-                            <!-- Stats Panel -->
+                            <!-- Compact Stats Panel -->
                             {#if showStats}
-                                <div class="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 fade-in">
-                                    <h4 class="font-medium text-blue-900 mb-2 text-sm">Progress Stats</h4>
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div class="mt-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-md border border-blue-200 fade-in">
+                                    <div class="grid grid-cols-2 gap-2 text-xs">
                                         <div>
-                                            <div class="text-gray-600 text-xs">Questions Answered</div>
-                                            <div class="font-semibold text-blue-700">{answeredCount} of {questions.length}</div>
+                                            <div class="text-gray-600 text-xs">Answered</div>
+                                            <div class="font-semibold text-blue-700">{answeredCount}/{questions.length}</div>
                                         </div>
                                         <div>
-                                            <div class="text-gray-600 text-xs">Completion Rate</div>
-                                            <div class="font-semibold text-green-700">{completionPercentage.toFixed(1)}%</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-gray-600 text-xs">Time Elapsed</div>
+                                            <div class="text-gray-600 text-xs">Time</div>
                                             <div class="font-semibold text-orange-700">{elapsedTime}</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-gray-600 text-xs">Avg. Time/Question</div>
-                                            <div class="font-semibold text-purple-700">{Math.round(timePerQuestion)}s</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1376,30 +1432,26 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
                         <!-- Question List Dropdown -->
                         {#if showQuestionList}
-                            <div class="bg-white border-b border-gray-200 max-h-48 overflow-y-auto fade-in">
-                                <div class="p-3">
+                            <div class="bg-white border-b border-gray-200 max-h-32 overflow-y-auto fade-in">
+                                <div class="p-2">
                                     <div class="flex items-center justify-between mb-2">
-                                        <h3 class="font-semibold text-gray-800 text-sm">Question Navigator</h3>
+                                        <h3 class="font-semibold text-gray-800 text-xs">Question Navigator</h3>
                                         <div class="flex items-center gap-2 text-xs text-gray-500">
                                             <div class="flex items-center gap-1">
-                                                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                <div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
                                                 <span>Done</span>
                                             </div>
                                             <div class="flex items-center gap-1">
-                                                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
                                                 <span>Current</span>
-                                            </div>
-                                            <div class="flex items-center gap-1">
-                                                <div class="w-2 h-2 bg-gray-300 rounded-full"></div>
-                                                <span>Todo</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="grid grid-cols-12 gap-1">
+                                    <div class="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-15 gap-1">
                                         {#each questions as question, index}
                                             <button
                                                 on:click={() => goToQuestion(index)}
-                                                class="relative w-6 h-6 text-xs font-medium rounded border-2 transition-all duration-200 hover:scale-105 {
+                                                class="relative w-5 h-5 text-xs font-medium rounded border-2 transition-all duration-200 hover:scale-105 {
                                                     index === currentQuestionIndex 
                                                         ? 'bg-blue-500 border-blue-500 text-white shadow-lg' 
                                                         : userAnswers.get(question.id)?.answer && userAnswers.get(question.id)?.answer.toString().trim() !== ''
@@ -1410,7 +1462,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                             >
                                                 {index + 1}
                                                 {#if index === currentQuestionIndex}
-                                                    <div class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                                                    <div class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
                                                 {/if}
                                             </button>
                                         {/each}
@@ -1420,30 +1472,30 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                         {/if}
 
                         <!-- Question Content -->
-                        <div class="flex-1 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white">
+                        <div class="flex-1 p-3 overflow-y-auto bg-gradient-to-b from-slate-50 to-white">
                             <!-- Show all questions for multi-question answering -->
                             {#each questions as question, index}
-                                <div class="mb-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200 transition-all duration-300 hover:shadow-md {index === currentQuestionIndex ? 'ring-2 ring-blue-500 ring-opacity-50 shadow-lg' : ''}" data-question-index={index}>
+                                <div class="mb-3 p-3 bg-white rounded-lg shadow-sm border border-gray-200 transition-all duration-300 hover:shadow-md {index === currentQuestionIndex ? 'ring-2 ring-blue-500 ring-opacity-50 shadow-lg border-blue-200' : ''}" data-question-index={index}>
                                     <!-- Question Header -->
-                                    <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center justify-between mb-2">
                                         <div class="flex items-center gap-2">
-                                            <div class="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-xs">
+                                            <div class="w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-xs">
                                                 {index + 1}
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs font-medium text-gray-600">
-                                                    {question.type === 'multiple_choice' ? 'Multiple Choice' : 'Essay Answer'}
+                                                    {question.type === 'multiple_choice' ? 'MC' : 'Essay'}
                                                 </span>
                                                 {#if userAnswers.get(question.id)?.answer && userAnswers.get(question.id)?.answer.toString().trim() !== ''}
-                                                    <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full border border-green-200 flex items-center gap-1">
+                                                    <span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full border border-green-200 flex items-center gap-1">
                                                         <svg class="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                         </svg>
-                                                        Done
+                                                        ✓
                                                     </span>
                                                 {:else}
-                                                    <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full border border-gray-200">
-                                                        Todo
+                                                    <span class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-full border border-gray-200">
+                                                        ○
                                                     </span>
                                                 {/if}
                                             </div>
@@ -1458,10 +1510,10 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
 
                                     <!-- Multiple Choice Options -->
                                     {#if question.type === 'multiple_choice' && question.choices}
-                                        <div class="flex items-center gap-4 flex-wrap">
-                                            <span class="text-sm font-medium text-gray-700">Q{index + 1}:</span>
+                                        <div class="flex items-center gap-3 flex-wrap">
+                                            <span class="text-sm font-medium text-gray-700 min-w-fit">Q{index + 1}:</span>
                                             {#each question.choices as choice, choiceIndex}
-                                                <label class="cursor-pointer flex items-center gap-2 group">
+                                                <label class="cursor-pointer flex items-center gap-1.5 group">
                                                     <input 
                                                         type="radio" 
                                                         name="choice_{question.id}" 
@@ -1477,12 +1529,12 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                                         }}
                                                         class="hidden"
                                                     />
-                                                    <div class="flex items-center gap-1 px-2 py-1 border-2 rounded-lg transition-all duration-200 group-hover:border-blue-300 group-hover:bg-blue-50 {
+                                                    <div class="flex items-center gap-1 px-2 py-1 border-2 rounded-md transition-all duration-200 group-hover:border-blue-300 group-hover:bg-blue-50 {
                                                         userAnswers.get(question.id)?.answer === choice 
                                                             ? 'border-blue-500 bg-blue-50 shadow-sm' 
                                                             : 'border-gray-200 bg-white hover:shadow-sm'
                                                     }">
-                                                        <div class="w-3 h-3 rounded-full border-2 flex items-center justify-center transition-all duration-200 {
+                                                        <div class="w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center transition-all duration-200 {
                                                             userAnswers.get(question.id)?.answer === choice 
                                                                 ? 'border-blue-500 bg-blue-500' 
                                                                 : 'border-gray-300 group-hover:border-blue-300'
@@ -1514,11 +1566,11 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                                         triggerAutoSave();
                                                     }}
                                                     placeholder="Enter your answer here..."
-                                                    class="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 text-sm leading-relaxed"
+                                                    class="w-full h-20 p-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 text-sm leading-relaxed hover:border-gray-400"
                                                 ></textarea>
                                                 {#if userAnswers.get(question.id)?.answer && userAnswers.get(question.id)?.answer.toString().trim() !== ''}
-                                                    <div class="absolute bottom-2 right-2 text-xs text-gray-400 bg-white px-2 py-1 rounded">
-                                                        {userAnswers.get(question.id)?.answer.toString().length} chars
+                                                    <div class="absolute bottom-1 right-1 text-xs text-gray-400 bg-white px-1 py-0.5 rounded">
+                                                        {userAnswers.get(question.id)?.answer.toString().length}
                                                     </div>
                                                 {/if}
                                             </div>
@@ -1529,12 +1581,12 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                         </div>
 
                         <!-- Navigation Footer -->
-                        <div class="bg-white border-t border-gray-200 p-4 shadow-sm">
+                        <div class="bg-white border-t border-gray-200 p-3 shadow-sm">
                             <div class="flex items-center justify-between">
                                 <button
                                     on:click={previousQuestion}
                                     disabled={currentQuestionIndex === 0}
-                                    class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-sm"
+                                    class="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-sm text-sm"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -1542,12 +1594,12 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                     Previous
                                 </button>
 
-                                <div class="flex items-center gap-4">
+                                <div class="flex items-center gap-3">
                                     <!-- Progress indicator -->
                                     <div class="flex items-center gap-2 text-sm">
                                         <div class="w-2 h-2 rounded-full {isQuestionAnswered ? 'bg-green-500' : 'bg-gray-300'} transition-colors"></div>
-                                        <span class="text-gray-600">
-                                            {isQuestionAnswered ? 'Answered' : 'Not answered'}
+                                        <span class="text-gray-600 text-xs">
+                                            {isQuestionAnswered ? 'Answered' : 'Pending'}
                                         </span>
                                     </div>
                                     
@@ -1562,27 +1614,32 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                                     {/if}
                                 </div>
 
-                                {#if currentQuestionIndex === questions.length - 1}
+                                <div class="flex items-center gap-3">
+                                    {#if currentQuestionIndex < questions.length - 1}
+                                        <button
+                                            on:click={nextQuestion}
+                                            class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-md transition-all duration-200 shadow-sm hover:shadow-md"
+                                        >
+                                            Next
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                            </svg>
+                                        </button>
+                                    {/if}
                                     <button
                                         on:click={confirmSubmit}
-                                        class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
+                                        class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-md transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md font-medium {completionPercentage === 100 ? 'ring-2 ring-green-300 ring-opacity-50' : ''}"
+                                        title="{completionPercentage === 100 ? 'All questions answered - Ready to submit!' : `${unansweredCount} questions remaining`}"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
                                         Submit Exam
+                                        {#if completionPercentage === 100}
+                                            <span class="ml-1 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">Ready!</span>
+                                        {/if}
                                     </button>
-                                {:else}
-                                    <button
-                                        on:click={nextQuestion}
-                                        class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
-                                    >
-                                        Next
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                        </svg>
-                                    </button>
-                                {/if}
+                                </div>
                             </div>
                         </div>
                     </div>

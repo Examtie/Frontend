@@ -216,7 +216,10 @@
     }
 
     function submitExam() {
-        const answers = Array.from(userAnswers.values());
+        const answers = Array.from(userAnswers.values()).map(answer => ({
+            question_id: answer.question_id,
+            answer: answer.answer
+        }));
         dispatch('submit', { answers, elapsedTime });
         showSubmitConfirmation = false;
     }
