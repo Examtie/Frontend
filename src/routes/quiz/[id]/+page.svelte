@@ -144,44 +144,42 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
         loading = true;
         error = '';
 
-            try {
-                // Check if this is an AI-generated exam
-                if (examId.startsWith('ai-')) {
-                    isAiExam = true;
-                    const tempExamData = localStorage.getItem('tempAiExam');
-                    if (tempExamData) {
-                        const aiExam = JSON.parse(tempExamData);
-
-                        // Handle new nested structure
-                        const parsedQuestions = aiExam.questions?.questions || [];
-
-                        exam = {
-                            id: aiExam.id,
-                            title: aiExam.title,
-                            description: 'AI Generated Exam',
-                            url: '',
-                            essay_count: 0,
-                            choice_count: 0,
-                            questions: parsedQuestions
-                        };
-
-                        questions = parsedQuestions;
-                        pdfUrl = ''; // No PDF for AI exams
-
-                        // Calculate question counts
-                        exam.choice_count = questions.filter(q => q.type === 'multiple_choice').length;
-                        exam.essay_count = questions.filter(q => q.type === 'essay').length;
-
-                        // Initialize question start time
-                        if (questions.length > 0) {
-                            questionStartTimes.set(questions[currentQuestionIndex]?.id, new Date());
-                        }
-
-                        return; // Exit early for AI exams
-                    } else {
-                        throw new Error('AI exam data not found');
+        try {
+            // Check if this is an AI-generated exam
+            if (examId.startsWith('ai-')) {
+                isAiExam = true;
+                const tempExamData = localStorage.getItem('tempAiExam');
+                if (tempExamData) {
+                    const aiExam = JSON.parse(tempExamData);
+                    
+                    exam = {
+                        id: aiExam.id,
+                        title: aiExam.title,
+                        description: 'AI Generated Exam',
+                        url: '',
+                        essay_count: 0,
+                        choice_count: 0,
+                        questions: aiExam.questions
+                    };
+                    
+                    questions = aiExam.questions || [];
+                    pdfUrl = ''; // No PDF for AI exams
+                    
+                    // Calculate question counts
+                    exam.choice_count = questions.filter(q => q.type === 'multiple_choice').length;
+                    exam.essay_count = questions.filter(q => q.type === 'essay').length;
+                    
+                    // Initialize question start time
+                    if (questions.length > 0) {
+                        questionStartTimes.set(questions[currentQuestionIndex]?.id, new Date());
                     }
+
+                    return; // Exit early for AI exams
+                } else {
+                    throw new Error('AI exam data not found');
                 }
+            }
+
             isAiExam = false;
 
             // Load exam details first (for regular exams)
@@ -549,7 +547,7 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                         .map(answer => answer.answer.toString().trim().charAt(0).toUpperCase());
 
                     const aiSubmissionData = {
-                        exam_id: examId.startsWith('ai-') ? examId.replace('ai-', '') : examId,
+                        exam_id: examId,
                         responses: responses
                     };
                     const timeSpent = Math.floor((Date.now() - examStartTime.getTime()) / 1000);
