@@ -745,7 +745,7 @@
     <meta name="description" content="Administrative dashboard for Examtie" />
 </svelte:head>
 
-<Header />
+<!-- <Header /> -->
 
 <!-- Sidebar Toggle for Mobile -->
 <div class="lg:hidden">
@@ -1495,7 +1495,6 @@
                         </div>
                     </div>
                 </div>
-            {/if}
 
             <!-- Categories Tab -->
             {#if activeTab === 'categories'}
@@ -2760,7 +2759,6 @@
             {/if}
         </div>
     </div>
-</div>
 
 <!-- Enhanced User Edit Modal -->
 {#if showUserModal && editingUser}
