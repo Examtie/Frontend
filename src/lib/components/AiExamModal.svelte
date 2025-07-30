@@ -90,13 +90,13 @@
                 title: `AI Generated Exam: ${textPrompt.slice(0, 50)}${textPrompt.length > 50 ? '...' : ''}`,
                 questions: questions,
                 isAiGenerated: true,
-                examId: questions.exam_id,
+                examId: questions.generation_id,
                 generatedAt: new Date().toISOString()
             };
             
             localStorage.setItem('tempAiExam', JSON.stringify(examData));
             closeModal();
-            goto(`/quiz/${examData.examId}`);
+            goto(`/quiz/ai-${examData.examId}`);
             
         } catch (error: any) {
             console.error('Error generating exam from text:', error);
