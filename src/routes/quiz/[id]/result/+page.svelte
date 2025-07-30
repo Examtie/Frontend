@@ -739,8 +739,8 @@
 									{@const prevResult = history[index + 1]}
 									{@const trend = prevResult ? (result.score / result.total) - (prevResult.score / prevResult.total) : 0}
 									
-									<div
-										class="bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-colors cursor-pointer"
+									<button
+										class="w-full bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-colors text-left"
 										on:click={() => handleSelectHistoryResult(result)}
 									>
 										<div class="flex items-center justify-between">
@@ -778,7 +778,7 @@
 												</span>
 											</div>
 										</div>
-									</div>
+									</button>
 								{/each}
 							</div>
 						{/if}

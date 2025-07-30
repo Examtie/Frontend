@@ -1294,7 +1294,7 @@
         <!-- Main Content Container -->
         <div class="p-6 space-y-6">
             <!-- Dashboard Tab -->
-            {#if activeTab === 'dashboard'}
+            {#if activeTab === "dashboard"}
                 <div class="space-y-6">
                     <!-- Quick Action Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1396,14 +1396,6 @@
                     </div>
                 </div>
             {/if}
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                </div>
-                                <span class="text-2xl font-bold text-amber-400">{(stats?.pending_content?.exam_files || 0) + (stats?.pending_content?.flashcard_sets || 0)}</span>
-                            </div>
-                            <h4 class="text-white font-semibold">Content Review</h4>
-                            <p class="text-gray-400 text-sm">Items pending moderation</p>
-                        </button>
 
                         <button
                             on:click={() => activeTab = 'users'}

@@ -818,10 +818,6 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
         user-select: none !important;
     }
     
-    .resizing iframe {
-        pointer-events: none !important;
-    }
-    
     .fade-in {
         animation: fadeIn 0.3s ease-in-out;
     }
@@ -829,34 +825,6 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .pulse-green {
-        animation: pulseGreen 2s ease-in-out;
-    }
-    
-    @keyframes pulseGreen {
-        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-        50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-    }
-    
-    .shake {
-        animation: shake 0.5s ease-in-out;
-    }
-    
-    @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-5px); }
-        75% { transform: translateX(5px); }
-    }
-    
-    .typing-indicator {
-        display: inline-block;
-        width: 4px;
-        height: 16px;
-        background: #3b82f6;
-        animation: typing 1s infinite;
     }
     
     @keyframes typing {
