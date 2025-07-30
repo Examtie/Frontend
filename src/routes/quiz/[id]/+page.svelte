@@ -263,8 +263,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                     // Guest: always use local
                     useLocal = true;
                 } else {
-                    // Ask user which to keep
-                    useLocal = confirm(`Local save found (${localTime.toLocaleString()})\nRemote save (${remoteTime.toLocaleString()})\nClick OK to use LOCAL, Cancel for REMOTE`);
+                    // Authenticated: use the more recent save automatically
+                    useLocal = localTime > remoteTime;
                 }
 
                 if (useLocal) {

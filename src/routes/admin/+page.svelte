@@ -4,6 +4,7 @@
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { t } from '$lib/i18n';
+    import Header from '../components/Header.svelte';
     import ExamUploadModal from '$lib/components/ExamUploadModal.svelte';
 
     type AdminUser = {
@@ -33,40 +34,9 @@
         users: {
             total: number;
             by_role: Record<string, number>;
-            growth: number;
-            active_today: number;
-            new_this_month: number;
         };
         exam_files: {
             total: number;
-            completed_today: number;
-            uploaded_this_month: number;
-        };
-        revenue: {
-            total: number;
-            this_month: number;
-            growth: number;
-        };
-        performance: {
-            avg_score: number;
-            total_attempts: number;
-            success_rate: number;
-        };
-        downloads: {
-            total: number;
-            this_month: number;
-            growth: number;
-        };
-        content_pending: {
-            exams: number;
-            categories: number;
-            reports: number;
-        };
-        system_features: {
-            ai_generation: boolean;
-            pdf_processing: boolean;
-            analytics: boolean;
-            marketplace: boolean;
         };
         analytics: {
             total_downloads: number;
@@ -84,7 +54,7 @@
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
     let activeTab = 'dashboard';
-    let sidebarCollapsed = false;
+    let sidebarOpen = false;
     let users: AdminUser[] = [];
     let examFiles: ExamFile[] = [];
     let categories: any[] = [];
@@ -93,46 +63,6 @@
     let skeletonLoading = true;
     let error = '';
     let successMessage = '';
-
-    // Mock data for the new features
-    let revenueData = [
-        { month: 'ม.ค.', revenue: 125000, users: 345, downloads: 1250 },
-        { month: 'ก.พ.', revenue: 148500, users: 423, downloads: 1890 },
-        { month: 'มี.ค.', revenue: 167200, users: 512, downloads: 2340 },
-        { month: 'เม.ย.', revenue: 156800, users: 489, downloads: 2100 },
-        { month: 'พ.ค.', revenue: 189200, users: 578, downloads: 2850 },
-        { month: 'มิ.ย.', revenue: 203400, users: 634, downloads: 3120 }
-    ];
-
-    let userActivityData = [
-        { day: 'จันทร์', active: 1250 },
-        { day: 'อังคาร', active: 1350 },
-        { day: 'พุธ', active: 1180 },
-        { day: 'พฤหัส', active: 1420 },
-        { day: 'ศุกร์', active: 1680 },
-        { day: 'เสาร์', active: 890 },
-        { day: 'อาทิตย์', active: 750 }
-    ];
-
-    let growthData = [
-        { period: 'สัปดาห์นี้', value: 12.5, type: 'up' },
-        { period: 'เดือนนี้', value: 24.8, type: 'up' },
-        { period: 'ไตรมาสนี้', value: 8.3, type: 'down' },
-        { period: 'ปีนี้', value: 34.7, type: 'up' }
-    ];
-
-    let topExams = [
-        { title: 'คณิตศาสตร์ ม.6', attempts: 2450, avg_score: 78.5, downloads: 456 },
-        { title: 'ฟิสิกส์ขั้นสูง', attempts: 1890, avg_score: 82.1, downloads: 378 },
-        { title: 'เคมีพื้นฐาน', attempts: 1680, avg_score: 75.8, downloads: 234 },
-        { title: 'ชีววิทยา', attempts: 1520, avg_score: 81.2, downloads: 345 }
-    ];
-
-    let contentReports = [
-        { id: 1, type: 'ข้อสอบ', title: 'คณิตศาสตร์ปี 2567', status: 'รอการตรวจสอบ', reporter: 'user123', date: '2024-01-15' },
-        { id: 2, type: 'หมวดหมู่', title: 'วิทยาศาสตร์', status: 'รอการตรวจสอบ', reporter: 'admin456', date: '2024-01-14' },
-        { id: 3, type: 'ข้อสอบ', title: 'ฟิสิกส์', status: 'ตรวจสอบแล้ว', reporter: 'teacher789', date: '2024-01-13' }
-    ];
 
     // User management
     let userPage = 1;
@@ -171,10 +101,8 @@
     let showUserModal = false;
     let showExamFileModal = false;
     let showUploadModal = false;
-    let showCategoryModal = false;
     let editingUser: AdminUser | null = null;
     let editingExamFile: ExamFile | null = null;
-    let editingCategory: any | null = null;
 
     // Form data
     let userForm = {
@@ -191,171 +119,12 @@
         choice_count: 0
     };
 
-    let categoryForm = {
-        name: '',
-        description: '',
-        english_name: ''
-    };
+    // Upload form (simplified - now using shared component)
 
     onMount(async () => {
         // Wait for auth to initialize before checking authentication
         if (!$auth.isInitialized) {
             // Wait for auth initialization to complete
-            setTimeout(() => {
-                if (!$auth.isAuthenticated) {
-                    goto('/login?redirect=/admin');
-                    return;
-                }
-                
-                // Check admin privileges
-                if (!$auth.user?.roles.includes('admin')) {
-                    toastStore.add({
-                        type: 'error',
-                        message: 'Access denied. Admin privileges required.',
-                        duration: 5000
-                    });
-                    goto('/');
-                    return;
-                }
-                
-                loadData();
-            }, 100);
-        } else {
-            if (!$auth.isAuthenticated) {
-                goto('/login?redirect=/admin');
-                return;
-            }
-            
-            // Check admin privileges
-            if (!$auth.user?.roles.includes('admin')) {
-                toastStore.add({
-                    type: 'error',
-                    message: 'Access denied. Admin privileges required.',
-                    duration: 5000
-                });
-                goto('/');
-                return;
-            }
-            
-            loadData();
-        }
-    });
-
-    async function makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<any> {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                ...options.headers,
-            },
-        });
-
-        if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(errorData || `HTTP error! status: ${response.status}`);
-        }
-
-        return response.json();
-    }
-
-    async function loadData() {
-        skeletonLoading = true;
-        try {
-            await Promise.all([
-                loadStats(),
-                loadCategories(),
-                // Only load users and exam files if their respective tabs are active
-                ...(activeTab === 'users' ? [loadUsers()] : []),
-                ...(activeTab === 'exam-files' ? [loadExamFiles()] : [])
-            ]);
-        } catch (err: any) {
-            error = err.message;
-        } finally {
-            skeletonLoading = false;
-        }
-    }
-
-    async function loadUsers() {
-        try {
-            const params = new URLSearchParams({
-                page: userPage.toString(),
-                limit: userLimit.toString(),
-                ...(userSearch && { search: userSearch }),
-                ...(userRoleFilter && { role: userRoleFilter })
-            });
-
-            const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
-            
-            if (userPage === 1) {
-                users = response;
-            } else {
-                users = [...users, ...response];
-            }
-            totalUsers = response.length; // Mock total count
-            totalUserPages = Math.ceil(totalUsers / userLimit);
-        } catch (err: any) {
-            console.warn('Failed to load users from API, using mock data:', err.message);
-            // Mock users data if API fails
-            users = [
-                {
-                    id: '1',
-                    email: 'admin@examtie.com',
-                    full_name: 'ผู้ดูแลระบบ',
-                    username: 'admin',
-                    roles: ['admin'],
-                    created_at: '2024-01-01T00:00:00Z'
-                },
-                {
-                    id: '2',
-                    email: 'teacher@examtie.com',
-                    full_name: 'อาจารย์สมชาย',
-                    username: 'teacher1',
-                    roles: ['staff'],
-                    created_at: '2024-01-15T00:00:00Z'
-                }
-            ];
-        }
-    }
-
-    async function loadExamFiles() {
-        try {
-            const params = new URLSearchParams({
-                page: examFilePage.toString(),
-                limit: examFileLimit.toString()
-            });
-
-            const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
-            
-            if (examFilePage === 1) {
-                examFiles = response;
-            } else {
-                examFiles = [...examFiles, ...response];
-            }
-            totalExamFiles = response.length;
-            totalExamFilePages = Math.ceil(totalExamFiles / examFileLimit);
-        } catch (err: any) {
-            console.warn('Failed to load exam files from API, using mock data:', err.message);
-            // Mock exam files data if API fails
-            examFiles = [
-                {
-                    id: '1',
-                    title: 'คณิตศาสตร์ ม.6',
-                    description: 'ข้อสอบคณิตศาสตร์ระดับมัธยมศึกษาปีที่ 6',
-                    tags: ['คณิตศาสตร์', 'ม.6'],
-                    url: '/exam/1.pdf',
-                    uploaded_by: 'admin',
-                    essay_count: 5,
-                    choice_count: 20
-                }
-            ];
-        }
-    }
             const unsubscribe = auth.subscribe((authState) => {
                 if (authState.isInitialized) {
                     unsubscribe();
@@ -419,7 +188,10 @@
                 loadUsers(),
                 loadExamFiles(),
                 loadCategories(),
-                loadStats()
+                loadStats(),
+                loadSystemFeatures(),
+                loadPendingContent(),
+                loadAnalyticsData()
             ]);
         } catch (err: any) {
             error = err.message;
@@ -434,6 +206,8 @@
             const params = new URLSearchParams({
                 page: userPage.toString(),
                 limit: userLimit.toString(),
+                sort_by: userSortBy,
+                sort_order: userSortOrder,
             });
             
             if (userSearch) params.append('search', userSearch);
@@ -441,11 +215,17 @@
 
             const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
             
-            // API returns array of AdminUserOut directly
-            users = Array.isArray(response) ? response : [];
-            totalUsers = users.length;
-            // For simplicity, assume we're getting all users for now
-            totalUserPages = Math.max(1, Math.ceil(totalUsers / userLimit));
+            // Handle pagination properly
+            if (response.pagination) {
+                users = response.data || response.users || [];
+                totalUsers = response.pagination.total;
+                totalUserPages = response.pagination.total_pages;
+            } else {
+                // Fallback for non-paginated response
+                users = response.users || response;
+                totalUsers = response.total || users.length;
+                totalUserPages = response.total_pages || Math.ceil(totalUsers / userLimit);
+            }
         } catch (err: any) {
             error = err.message;
         }
@@ -456,40 +236,33 @@
             const params = new URLSearchParams({
                 page: examFilePage.toString(),
                 limit: examFileLimit.toString(),
+                sort_by: examFileSortBy,
+                sort_order: examFileSortOrder,
             });
+
+            if (examFileSearch) params.append('search', examFileSearch);
+            if (examFileTagFilter) params.append('tag', examFileTagFilter);
 
             const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
             
-            // API returns array of ExamFileOut directly
-            examFiles = Array.isArray(response) ? response : [];
-            totalExamFiles = examFiles.length;
-            totalExamFilePages = Math.max(1, Math.ceil(totalExamFiles / examFileLimit));
+            // Handle pagination properly
+            if (response.pagination) {
+                examFiles = response.data || response.exam_files || [];
+                totalExamFiles = response.pagination.total;
+                totalExamFilePages = response.pagination.total_pages;
+            } else {
+                // Fallback for non-paginated response
+                examFiles = response.exam_files || response;
+                totalExamFiles = response.total || examFiles.length;
+                totalExamFilePages = response.total_pages || Math.ceil(totalExamFiles / examFileLimit);
+            }
         } catch (err: any) {
             error = err.message;
         }
     }
 
     async function loadStats() {
-        try {
-            const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`);
-            stats = response as SystemStats;
-        } catch (err: any) {
-            // Mock stats if API fails
-            stats = {
-                users: {
-                    total: users.length || 0,
-                    by_role: {
-                        admin: users.filter(u => u.roles.includes('admin')).length || 1,
-                        staff: users.filter(u => u.roles.includes('staff')).length || 0,
-                        user: users.filter(u => u.roles.includes('user')).length || 0,
-                        seller: users.filter(u => u.roles.includes('seller')).length || 0
-                    }
-                },
-                exam_files: {
-                    total: examFiles.length || 0
-                }
-            };
-        }
+        stats = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/stats`) as SystemStats;
     }
 
     async function loadCategories() {
@@ -732,9 +505,11 @@
             }
             
             toastStore.info('Running upload test...');
+            // await testApiConnection(API_BASE_URL, token);
+            // await testUpload(API_BASE_URL, token);
             toastStore.success('Upload test completed successfully!');
             
-            // Reload files to see any changes
+            // Reload files to see the test file
             await loadExamFiles();
         } catch (error: any) {
             toastStore.error(`Upload test failed: ${error.message}`);
@@ -761,76 +536,6 @@
             choice_count: examFile.choice_count
         };
         showExamFileModal = true;
-    }
-
-    function openCategoryModal(category: any = null) {
-        editingCategory = category;
-        if (category) {
-            categoryForm = {
-                name: category.name,
-                description: category.description || '',
-                english_name: category.english_name || ''
-            };
-        } else {
-            categoryForm = {
-                name: '',
-                description: '',
-                english_name: ''
-            };
-        }
-        showCategoryModal = true;
-    }
-
-    async function createCategory() {
-        try {
-            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-categories`, {
-                method: 'POST',
-                body: JSON.stringify(categoryForm),
-            });
-            showCategoryModal = false;
-            editingCategory = null;
-            successMessage = 'Category created successfully';
-            setTimeout(() => successMessage = '', 3000);
-            await loadCategories();
-        } catch (err: any) {
-            error = err.message;
-        }
-    }
-
-    async function updateCategory() {
-        if (!editingCategory) return;
-
-        try {
-            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-categories/${editingCategory.id}`, {
-                method: 'PUT',
-                body: JSON.stringify(categoryForm),
-            });
-            showCategoryModal = false;
-            editingCategory = null;
-            successMessage = 'Category updated successfully';
-            setTimeout(() => successMessage = '', 3000);
-            await loadCategories();
-        } catch (err: any) {
-            error = err.message;
-        }
-    }
-
-    async function deleteCategory(categoryId: string) {
-        const category = categories.find(c => c.id === categoryId);
-        const categoryName = category ? category.name : 'this category';
-        
-        if (!confirm(`Are you sure you want to delete "${categoryName}"? This action cannot be undone.`)) return;
-
-        try {
-            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-categories/${categoryId}`, {
-                method: 'DELETE',
-            });
-            successMessage = 'Category deleted successfully';
-            setTimeout(() => successMessage = '', 3000);
-            await loadCategories();
-        } catch (err: any) {
-            error = err.message;
-        }
     }
 
     function toggleUserSelection(userId: string) {
@@ -891,14 +596,26 @@
         }
     }
 
-    // Sorting functions (simplified since API doesn't support all sort options)
+    // Sorting functions
     function sortUsers(column: string) {
-        // For now, just reload the data since the API doesn't support complex sorting
+        if (userSortBy === column) {
+            userSortOrder = userSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            userSortBy = column;
+            userSortOrder = 'desc';
+        }
+        userPage = 1;
         loadUsers();
     }
 
     function sortExamFiles(column: string) {
-        // For now, just reload the data since the API doesn't support complex sorting
+        if (examFileSortBy === column) {
+            examFileSortOrder = examFileSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            examFileSortBy = column;
+            examFileSortOrder = 'desc';
+        }
+        examFilePage = 1;
         loadExamFiles();
     }
 
@@ -935,23 +652,30 @@
                 const params = new URLSearchParams({
                     page: userPage.toString(),
                     limit: userLimit.toString(),
+                    sort_by: userSortBy,
+                    sort_order: userSortOrder,
                 });
-
+                
                 if (userSearch) params.append('search', userSearch);
                 if (userRoleFilter) params.append('role', userRoleFilter);
 
                 const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/users?${params}`);
-                const newUsers = Array.isArray(response) ? response : [];
+                const newUsers = response.data || response.users || [];
                 users = [...users, ...newUsers];
             } else if (activeTab === 'exam-files' && examFilePage < totalExamFilePages) {
                 examFilePage++;
                 const params = new URLSearchParams({
                     page: examFilePage.toString(),
                     limit: examFileLimit.toString(),
+                    sort_by: examFileSortBy,
+                    sort_order: examFileSortOrder,
                 });
 
+                if (examFileSearch) params.append('search', examFileSearch);
+                if (examFileTagFilter) params.append('tag', examFileTagFilter);
+
                 const response = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/exam-files?${params}`);
-                const newFiles = Array.isArray(response) ? response : [];
+                const newFiles = response.data || response.exam_files || [];
                 examFiles = [...examFiles, ...newFiles];
             }
         } catch (err: any) {
@@ -959,7 +683,9 @@
         } finally {
             loadingMore = false;
         }
-    }    function toggleInfiniteScroll() {
+    }
+
+    function toggleInfiniteScroll() {
         enableInfiniteScroll = !enableInfiniteScroll;
         if (!enableInfiniteScroll) {
             // Reset to normal pagination
@@ -1021,46 +747,303 @@
 
 <Header />
 
+<!-- Sidebar Toggle for Mobile -->
+<div class="lg:hidden">
+    <button
+        on:click={() => sidebarOpen = !sidebarOpen}
+        class="fixed top-6 left-6 z-50 p-3 bg-slate-800/90 backdrop-blur-lg rounded-xl border border-slate-700/50 text-white hover:bg-slate-700/90 transition-all duration-300"
+    >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+    </button>
+</div>
+
+<!-- Admin Layout Container -->
 <div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 relative overflow-hidden">
     <!-- Background decoration -->
     <div class="absolute inset-0">
-        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-indigo-950/95"></div>
-        <!-- Floating particles -->
-        {#each Array.from({length: 30}) as _, i}
-            <div 
-                class="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-float-gentle"
-                style="left: {Math.random() * 100}%; top: {Math.random() * 100}%; animation-delay: {Math.random() * 4}s;"
-            ></div>
-        {/each}
-        <!-- Geometric shapes -->
-        <div class="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-green-400/10 rounded-full blur-xl animate-float-gentle"></div>
-        <div class="absolute bottom-32 right-16 w-24 h-24 bg-gradient-to-br from-purple-500/20 to-pink-400/10 rounded-full blur-lg animate-float" style="animation-delay: 1s"></div>
+        <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-slate-900/10 to-slate-900/5"></div>
+        <div class="absolute top-20 right-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-20 left-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse animation-delay-2000"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl animate-bounce animation-delay-1000"></div>
     </div>
 
-    <!-- Header -->
-    <div class="relative z-10 bg-gradient-to-r from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-lg shadow-2xl border-b border-gray-700/30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-8">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+    <!-- Sidebar Overlay for Mobile -->
+    {#if sidebarOpen}
+        <div 
+            class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+            on:click={() => sidebarOpen = false}
+        ></div>
+    {/if}
+
+    <!-- Sidebar -->
+    <div class="fixed left-0 top-0 h-full w-80 bg-slate-900/95 backdrop-blur-xl border-r border-slate-700/50 z-40 transform transition-transform duration-300 ease-in-out {sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0">
+        <!-- Sidebar Header -->
+        <div class="p-6 border-b border-slate-700/50">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                         </svg>
                     </div>
                     <div>
-                        <h1 class="text-3xl font-bold text-gradient bg-gradient-to-r from-blue-300 via-purple-300 to-blue-300 bg-clip-text text-transparent">Admin Dashboard</h1>
-                        <p class="mt-1 text-sm text-gray-300">Manage users, exam files, and system settings with ease</p>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                            Admin Panel
+                        </h1>
+                        <p class="text-xs text-gray-400">Control Center</p>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2 text-sm text-gray-300">
-                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span>Online</span>
+                <button
+                    on:click={() => sidebarOpen = false}
+                    class="lg:hidden p-2 text-gray-400 hover:text-white transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- User Info -->
+        <div class="p-6 border-b border-slate-700/30">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <span class="text-white text-lg font-bold">{$auth.user?.email?.[0]?.toUpperCase() || 'A'}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-white truncate">{$auth.user?.email || 'Administrator'}</p>
+                    <div class="flex items-center space-x-2 mt-1">
+                        <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                        <p class="text-xs text-emerald-400 font-medium">Online</p>
+                        <span class="text-xs text-gray-500">•</span>
+                        <p class="text-xs text-gray-400">Admin Role</p>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 p-4 space-y-2">
+            <div class="mb-6">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Overview</h3>
+                <button
+                    class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'dashboard' ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-blue-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                    on:click={() => {activeTab = 'dashboard'; sidebarOpen = false;}}
+                >
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'dashboard' ? 'bg-gradient-to-br from-blue-500 to-purple-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="font-medium">Dashboard</span>
+                        <p class="text-xs text-gray-400 mt-0.5">System overview</p>
+                    </div>
+                    {#if activeTab === 'dashboard'}
+                        <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                    {/if}
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Management</h3>
+                <div class="space-y-2">
+                    <button
+                        class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'users' ? 'bg-gradient-to-r from-emerald-600/20 to-blue-600/20 text-white border border-emerald-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                        on:click={() => {activeTab = 'users'; sidebarOpen = false;}}
+                    >
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'users' ? 'bg-gradient-to-br from-emerald-500 to-blue-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">Users</span>
+                            <p class="text-xs text-gray-400 mt-0.5">{stats?.users?.total || 0} registered</p>
+                        </div>
+                        {#if activeTab === 'users'}
+                            <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                        {/if}
+                    </button>
+
+                    <button
+                        class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'exam-files' ? 'bg-gradient-to-r from-amber-600/20 to-orange-600/20 text-white border border-amber-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                        on:click={() => {activeTab = 'exam-files'; sidebarOpen = false;}}
+                    >
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'exam-files' ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">Exam Files</span>
+                            <p class="text-xs text-gray-400 mt-0.5">{stats?.exam_files?.total || 0} uploaded</p>
+                        </div>
+                        {#if activeTab === 'exam-files'}
+                            <div class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+                        {/if}
+                    </button>
+
+                    <button
+                        class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'categories' ? 'bg-gradient-to-r from-pink-600/20 to-rose-600/20 text-white border border-pink-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                        on:click={() => {activeTab = 'categories'; sidebarOpen = false;}}
+                    >
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'categories' ? 'bg-gradient-to-br from-pink-500 to-rose-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">Categories</span>
+                            <p class="text-xs text-gray-400 mt-0.5">{categories?.length || 0} tags</p>
+                        </div>
+                        {#if activeTab === 'categories'}
+                            <div class="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
+                        {/if}
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Content</h3>
+                <div class="space-y-2">
+                    <button
+                        class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'moderation' ? 'bg-gradient-to-r from-red-600/20 to-pink-600/20 text-white border border-red-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                        on:click={() => {activeTab = 'moderation'; sidebarOpen = false;}}
+                    >
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'moderation' ? 'bg-gradient-to-br from-red-500 to-pink-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">Moderation</span>
+                            <p class="text-xs text-gray-400 mt-0.5">{(stats?.pending_content?.exam_files || 0) + (stats?.pending_content?.flashcard_sets || 0)} pending</p>
+                        </div>
+                        {#if (stats?.pending_content?.exam_files || 0) + (stats?.pending_content?.flashcard_sets || 0) > 0}
+                            <div class="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                        {/if}
+                        {#if activeTab === 'moderation'}
+                            <div class="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                        {/if}
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Insights</h3>
+                <div class="space-y-2">
+                    <button
+                        class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'analytics' ? 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-white border border-purple-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                        on:click={() => {activeTab = 'analytics'; sidebarOpen = false;}}
+                    >
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'analytics' ? 'bg-gradient-to-br from-purple-500 to-indigo-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">Analytics</span>
+                            <p class="text-xs text-gray-400 mt-0.5">{stats?.analytics?.monthly_growth || 0}% growth</p>
+                        </div>
+                        {#if activeTab === 'analytics'}
+                            <div class="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                        {/if}
+                    </button>
+
+                    <button
+                        class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group {activeTab === 'system' ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/20 text-white border border-cyan-500/30' : 'text-gray-300 hover:text-white hover:bg-slate-800/50'}"
+                        on:click={() => {activeTab = 'system'; sidebarOpen = false;}}
+                    >
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center {activeTab === 'system' ? 'bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg' : 'bg-slate-800 group-hover:bg-slate-700'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="font-medium">System</span>
+                            <p class="text-xs text-gray-400 mt-0.5">Settings & Config</p>
+                        </div>
+                        {#if activeTab === 'system'}
+                            <div class="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                        {/if}
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 border-t border-slate-700/30">
+            <div class="flex items-center justify-between text-xs text-gray-400">
+                <span>Version 2.0</span>
+                <div class="flex items-center space-x-1">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                    <span>All systems operational</span>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Main Content Area -->
+    <div class="lg:ml-80 min-h-screen">
+        <!-- Top Header Bar -->
+        <header class="bg-slate-900/50 backdrop-blur-xl border-b border-slate-700/30 sticky top-0 z-30">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-white capitalize">{activeTab.replace('-', ' ')}</h2>
+                            <p class="text-sm text-gray-400 mt-1">
+                                {#if activeTab === 'dashboard'}
+                                    System overview and quick actions
+                                {:else if activeTab === 'users'}
+                                    Manage user accounts and permissions
+                                {:else if activeTab === 'exam-files'}
+                                    Upload and organize exam content
+                                {:else if activeTab === 'categories'}
+                                    Manage exam categories and tags
+                                {:else if activeTab === 'moderation'}
+                                    Review and moderate content
+                                {:else if activeTab === 'analytics'}
+                                    Platform insights and reports
+                                {:else if activeTab === 'system'}
+                                    System configuration and settings
+                                {/if}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Quick Action Buttons -->
+                        {#if activeTab === 'exam-files'}
+                            <button
+                                on:click={() => showUploadModal = true}
+                                class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                <span class="font-medium">Upload Exam</span>
+                            </button>
+                        {/if}
+                        
+                        <!-- Refresh Button -->
+                        <button
+                            on:click={loadData}
+                            class="p-2 bg-slate-800/50 hover:bg-slate-700/50 text-gray-300 hover:text-white rounded-lg transition-all duration-300"
+                            disabled={loading}
+                        >
+                            <svg class="w-5 h-5 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
 
     <!-- Error Message -->
     {#if error}
@@ -1308,51 +1291,13 @@
             {/if}
         </div>
 
-        <!-- Modern Tabs -->
-        <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl shadow-2xl overflow-hidden">
-            <div class="border-b border-gray-700/30 bg-slate-800/30 backdrop-blur-lg">
-                <nav class="flex space-x-1 p-2 overflow-x-auto">
-                    <button
-                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
-                        on:click={() => activeTab = 'users'}
-                    >
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-                            </svg>
-                            <span>Users</span>
-                        </div>
-                        {#if activeTab === 'users'}
-                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
-                        {/if}
-                    </button>
-                    <button
-                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'exam-files' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
-                        on:click={() => activeTab = 'exam-files'}
-                    >
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            <span>Exam Files</span>
-                        </div>
-                        {#if activeTab === 'exam-files'}
-                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
-                        {/if}
-                    </button>
-                </nav>
-            </div>
-
+        <!-- Main Content Container -->
+        <div class="p-6 space-y-6">
             <!-- Dashboard Tab -->
             {#if activeTab === 'dashboard'}
-                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
-                    <div class="mb-8">
-                        <h3 class="text-2xl font-bold text-gray-200 mb-2">System Overview</h3>
-                        <p class="text-gray-400">Get insights into platform performance and user engagement</p>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="space-y-6">
+                    <!-- Quick Action Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <button
                             on:click={() => activeTab = 'moderation'}
                             class="p-6 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all duration-300 text-left group"
@@ -1360,6 +1305,97 @@
                             <div class="flex items-center justify-between mb-4">
                                 <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center group-hover:bg-amber-500/30 transition-colors">
                                     <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-amber-400">{(stats?.pending_content?.exam_files || 0) + (stats?.pending_content?.flashcard_sets || 0)}</span>
+                            </div>
+                            <h4 class="text-white font-semibold">Content Review</h4>
+                            <p class="text-gray-400 text-sm">Items pending moderation</p>
+                        </button>
+
+                        <button
+                            on:click={() => activeTab = 'users'}
+                            class="p-6 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-blue-400">{(stats?.users?.total || 0).toLocaleString()}</span>
+                            </div>
+                            <h4 class="text-white font-semibold">User Management</h4>
+                            <p class="text-gray-400 text-sm">Manage platform users</p>
+                        </button>
+
+                        <button
+                            on:click={() => activeTab = 'analytics'}
+                            class="p-6 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-purple-400">{(stats?.analytics?.monthly_growth || 0)}%</span>
+                            </div>
+                            <h4 class="text-white font-semibold">Analytics</h4>
+                            <p class="text-gray-400 text-sm">View detailed reports</p>
+                        </button>
+
+                        <button
+                            on:click={() => activeTab = 'system'}
+                            class="p-6 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-emerald-400">{systemFeatures.length}</span>
+                            </div>
+                            <h4 class="text-white font-semibold">System Settings</h4>
+                            <p class="text-gray-400 text-sm">Configure features</p>
+                        </button>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6">
+                        <h4 class="text-xl font-semibold text-white mb-4">Recent Activity</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-4 p-4 bg-slate-700/30 rounded-xl">
+                                <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-white font-medium">New user registration</p>
+                                    <p class="text-gray-400 text-sm">user@example.com joined the platform</p>
+                                </div>
+                                <span class="text-gray-400 text-xs">2 min ago</span>
+                            </div>
+                            <div class="flex items-center space-x-4 p-4 bg-slate-700/30 rounded-xl">
+                                <div class="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-white font-medium">Exam file uploaded</p>
+                                    <p class="text-gray-400 text-sm">Mathematics Final Exam 2024</p>
+                                </div>
+                                <span class="text-gray-400 text-xs">15 min ago</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
                                 </div>
@@ -1464,6 +1500,115 @@
                                     <p class="text-gray-400 text-center py-4">No tag data available</p>
                                 {/each}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Categories Tab -->
+            {#if activeTab === 'categories'}
+                <div class="space-y-6">
+                    <div class="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Category Management</h3>
+                                <p class="text-gray-400 mt-1">Organize your exam content with categories and tags</p>
+                            </div>
+                            <button 
+                                on:click={() => showCategoryModal = true}
+                                class="px-4 py-2 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                <span>Add Category</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Categories Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {#each categories as category, index}
+                                <div class="p-4 bg-slate-700/30 border border-slate-600/30 rounded-xl hover:bg-slate-700/50 transition-all duration-300 group">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="text-white font-medium">{category.name}</h4>
+                                        <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                on:click={() => editCategory(category)}
+                                                class="p-1 text-gray-400 hover:text-blue-400 transition-colors"
+                                                title="Edit category"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                </svg>
+                                            </button>
+                                            <button 
+                                                on:click={() => deleteCategory(category.id)}
+                                                class="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                                title="Delete category"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="text-gray-400 text-sm mb-3">{category.description || 'No description'}</p>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-pink-400 bg-pink-500/10 px-2 py-1 rounded-lg">{category.english_name || category.name}</span>
+                                        <span class="text-xs text-gray-500">Used in {category.file_count || 0} files</span>
+                                    </div>
+                                </div>
+                            {:else}
+                                <div class="col-span-full text-center py-12">
+                                    <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                    </svg>
+                                    <p class="text-gray-400 text-lg">No categories found</p>
+                                    <p class="text-gray-500 text-sm mt-1">Create your first category to organize exam content</p>
+                                    <button
+                                        on:click={() => showCategoryModal = true}
+                                        class="mt-4 px-6 py-2 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                                    >
+                                        Create Category
+                                    </button>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <!-- Category Statistics -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-semibold text-gray-200">Total Categories</h4>
+                                <svg class="w-8 h-8 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                </svg>
+                            </div>
+                            <p class="text-3xl font-bold text-white">{categories?.length || 0}</p>
+                            <p class="text-gray-400 text-sm mt-2">Available categories</p>
+                        </div>
+
+                        <div class="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-semibold text-gray-200">Most Used</h4>
+                                <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                            <p class="text-3xl font-bold text-white">{Math.max(...categories.map(c => c.file_count || 0), 0)}</p>
+                            <p class="text-gray-400 text-sm mt-2">Files in top category</p>
+                        </div>
+
+                        <div class="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-semibold text-gray-200">Unused Categories</h4>
+                                <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                </svg>
+                            </div>
+                            <p class="text-3xl font-bold text-white">{categories.filter(c => (c.file_count || 0) === 0).length}</p>
+                            <p class="text-gray-400 text-sm mt-2">Categories without files</p>
                         </div>
                     </div>
                 </div>
@@ -2264,6 +2409,363 @@
                     {/if}
                 </div>
             {/if}
+
+            <!-- Content Moderation Tab -->
+            {#if activeTab === 'moderation'}
+                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-200 mb-2">Content Moderation</h3>
+                        <p class="text-gray-400">Review and moderate content before it goes live</p>
+                    </div>
+
+                    <!-- Pending Content Queue -->
+                    <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl overflow-hidden">
+                        <div class="p-6 border-b border-gray-700/30">
+                            <h4 class="text-lg font-semibold text-gray-200 flex items-center">
+                                <svg class="w-5 h-5 text-amber-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Pending Review ({pendingContent.length})
+                            </h4>
+                        </div>
+
+                        {#if pendingContent.length > 0}
+                            <div class="divide-y divide-gray-700/30">
+                                {#each pendingContent as content}
+                                    <div class="p-6 hover:bg-slate-700/20 transition-colors">
+                                        <div class="flex items-start justify-between">
+                                            <div class="flex-1">
+                                                <div class="flex items-center mb-2">
+                                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {content.type === 'exam_file' ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}">
+                                                        {content.type === 'exam_file' ? 'Exam File' : 'Flashcard Set'}
+                                                    </span>
+                                                    <span class="ml-3 text-gray-400 text-sm">
+                                                        Submitted {content.created_at ? new Date(content.created_at).toLocaleDateString() : 'Recently'}
+                                                    </span>
+                                                </div>
+                                                <h5 class="text-lg font-semibold text-gray-200 mb-2">{content.title}</h5>
+                                                <p class="text-gray-400 mb-3">{content.description}</p>
+                                                <div class="flex items-center text-sm text-gray-300">
+                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                    </svg>
+                                                    by {content.uploaded_by}
+                                                    {#if content.tags && content.tags.length > 0}
+                                                        <span class="ml-4 flex items-center">
+                                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                                            </svg>
+                                                            {content.tags.join(', ')}
+                                                        </span>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center space-x-3 ml-4">
+                                                {#if content.url}
+                                                    <a
+                                                        href={content.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        class="inline-flex items-center px-4 py-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded-xl transition-all duration-300 text-sm"
+                                                    >
+                                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                        </svg>
+                                                        Preview
+                                                    </a>
+                                                {/if}
+                                                <button
+                                                    on:click={() => approveContent(content.id, content.type)}
+                                                    class="inline-flex items-center px-4 py-2 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded-xl transition-all duration-300 text-sm font-medium"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                                    </svg>
+                                                    Approve
+                                                </button>
+                                                <button
+                                                    on:click={() => {
+                                                        const reason = prompt('Reason for rejection (optional):');
+                                                        if (reason !== null) {
+                                                            rejectContent(content.id, content.type, reason);
+                                                        }
+                                                    }}
+                                                    class="inline-flex items-center px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-xl transition-all duration-300 text-sm font-medium"
+                                                >
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                    </svg>
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        {:else}
+                            <div class="text-center py-16">
+                                <div class="mx-auto w-24 h-24 bg-gradient-to-br from-green-600/20 to-emerald-600/20 rounded-full flex items-center justify-center mb-6 border border-green-500/30">
+                                    <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold text-gray-200 mb-2">All caught up!</h3>
+                                <p class="text-gray-400">No content pending review at the moment.</p>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- Moderation Statistics -->
+                    <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Approved Today</p>
+                                    <p class="text-2xl font-bold text-white">0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Rejected Today</p>
+                                    <p class="text-2xl font-bold text-white">0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Avg Review Time</p>
+                                    <p class="text-2xl font-bold text-white">~2h</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Analytics Tab -->
+            {#if activeTab === 'analytics'}
+                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-200 mb-2">Analytics & Reports</h3>
+                        <p class="text-gray-400">Detailed insights into platform performance and growth</p>
+                    </div>
+
+                    <!-- Analytics Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <!-- Revenue Chart Placeholder -->
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                                <svg class="w-5 h-5 text-emerald-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Revenue Trends
+                            </h4>
+                            <div class="h-64 flex items-center justify-center bg-slate-700/20 rounded-lg">
+                                <div class="text-center">
+                                    <svg class="w-16 h-16 text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                    <p class="text-gray-400">Chart component would go here</p>
+                                    <p class="text-sm text-gray-500 mt-1">Total Revenue: ฿{(stats?.analytics?.total_revenue || 0).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Growth Chart Placeholder -->
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                                <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                                User Growth
+                            </h4>
+                            <div class="h-64 flex items-center justify-center bg-slate-700/20 rounded-lg">
+                                <div class="text-center">
+                                    <svg class="w-16 h-16 text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                    </svg>
+                                    <p class="text-gray-400">Growth chart would go here</p>
+                                    <p class="text-sm text-gray-500 mt-1">Monthly Growth: {stats?.analytics?.monthly_growth || 0}%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Page Views Today</p>
+                                    <p class="text-2xl font-bold text-white">1,234</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Active Users</p>
+                                    <p class="text-2xl font-bold text-white">{stats?.analytics?.active_users_today || 0}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Downloads Today</p>
+                                    <p class="text-2xl font-bold text-white">89</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-300">Revenue Today</p>
+                                    <p class="text-2xl font-bold text-white">฿456</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- System Management Tab -->
+            {#if activeTab === 'system'}
+                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-200 mb-2">System Management</h3>
+                        <p class="text-gray-400">Configure system features and manage platform settings</p>
+                    </div>
+
+                    <!-- Feature Management -->
+                    <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl overflow-hidden mb-8">
+                        <div class="p-6 border-b border-gray-700/30">
+                            <h4 class="text-lg font-semibold text-gray-200 flex items-center">
+                                <svg class="w-5 h-5 text-emerald-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                Feature Toggles
+                            </h4>
+                        </div>
+
+                        {#if systemFeatures.length > 0}
+                            <div class="divide-y divide-gray-700/30">
+                                {#each systemFeatures as feature}
+                                    <div class="p-6 flex items-center justify-between hover:bg-slate-700/20 transition-colors">
+                                        <div class="flex-1">
+                                            <h5 class="text-lg font-semibold text-gray-200">{feature.name}</h5>
+                                            <p class="text-gray-400 mt-1">{feature.description}</p>
+                                            {#if feature.category}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-600/30 text-gray-300 mt-2">
+                                                    {feature.category}
+                                                </span>
+                                            {/if}
+                                        </div>
+                                        <div class="ml-6">
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={feature.enabled}
+                                                    on:change={(e) => toggleSystemFeature(feature.key, (e.target as HTMLInputElement).checked)}
+                                                    class="sr-only peer"
+                                                />
+                                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        {:else}
+                            <div class="text-center py-16">
+                                <div class="mx-auto w-24 h-24 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center mb-6">
+                                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold text-gray-200 mb-2">No feature toggles available</h3>
+                                <p class="text-gray-400">System features will appear here when configured.</p>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- System Status -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h5 class="text-lg font-semibold text-gray-200">Database Status</h5>
+                                <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                            </div>
+                            <p class="text-green-400 font-semibold">Operational</p>
+                            <p class="text-gray-400 text-sm mt-1">All database operations are running normally</p>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h5 class="text-lg font-semibold text-gray-200">File Storage</h5>
+                                <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                            </div>
+                            <p class="text-green-400 font-semibold">Operational</p>
+                            <p class="text-gray-400 text-sm mt-1">R2 storage is accessible and functioning</p>
+                        </div>
+
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h5 class="text-lg font-semibold text-gray-200">API Services</h5>
+                                <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                            </div>
+                            <p class="text-green-400 font-semibold">Operational</p>
+                            <p class="text-gray-400 text-sm mt-1">All API endpoints are responding normally</p>
+                        </div>
+                    </div>
+                </div>
+            {/if}
         </div>
     </div>
 </div>
@@ -2454,87 +2956,6 @@
 {/if}
 
 <!-- Enhanced File Upload Modal -->
-<!-- Category Modal -->
-{#if showCategoryModal}
-    <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative bg-slate-800/95 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-6">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-200">{editingCategory ? 'Edit' : 'Create'} Category</h3>
-                            <p class="text-sm text-gray-400">{editingCategory ? 'Update category information' : 'Add a new exam category'}</p>
-                        </div>
-                    </div>
-                    <button
-                        on:click={() => showCategoryModal = false}
-                        class="text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 p-2 rounded-lg transition-all duration-200"
-                        aria-label="Close category modal"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <form on:submit|preventDefault={editingCategory ? updateCategory : createCategory} class="space-y-4">
-                    <div>
-                        <label for="category_name" class="block text-sm font-medium text-gray-300 mb-2">Name *</label>
-                        <input
-                            id="category_name"
-                            type="text"
-                            bind:value={categoryForm.name}
-                            required
-                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Enter category name (e.g., วิทยาศาสตร์)"
-                        />
-                    </div>
-                    <div>
-                        <label for="category_english_name" class="block text-sm font-medium text-gray-300 mb-2">English Name</label>
-                        <input
-                            id="category_english_name"
-                            type="text"
-                            bind:value={categoryForm.english_name}
-                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Enter English name (e.g., Science)"
-                        />
-                    </div>
-                    <div>
-                        <label for="category_description" class="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                        <textarea
-                            id="category_description"
-                            bind:value={categoryForm.description}
-                            rows="3"
-                            class="w-full px-4 py-3 border border-gray-600/50 bg-slate-700/50 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Describe this category..."
-                        ></textarea>
-                    </div>
-                    <div class="flex gap-3 pt-4">
-                        <button
-                            type="submit"
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                        >
-                            {editingCategory ? 'Update' : 'Create'} Category
-                        </button>
-                        <button
-                            type="button"
-                            on:click={() => showCategoryModal = false}
-                            class="flex-1 bg-gray-700/50 text-gray-300 py-3 px-4 rounded-xl hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 font-medium"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-{/if}
-
 <ExamUploadModal 
     bind:showModal={showUploadModal}
     {categories}

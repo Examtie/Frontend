@@ -545,8 +545,49 @@
                                 </button>
                             </div>
                         </div>
-                    {/if}
                 </div>
+                {#if !isMobile}
+                <div class="mb-8">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-4">
+                            <button
+                                on:click={() => goto(`/quiz/${quizId}`)}
+                                class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+                                title="Back to Quiz"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+                            <div>
+                                <h1 class="text-3xl font-bold text-white">{examTitle}</h1>
+                                <p class="text-blue-200 opacity-90">Exam Results</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            {#if isAiExam}
+                                <div class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-sm font-bold rounded-full flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                    AI Generated
+                                </div>
+                            {/if}
+                            
+                            <button
+                                on:click={shareResults}
+                                class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+                                title="Share Results"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {/if}
                 <h1 class="text-2xl md:text-3xl font-bold text-white mb-2 text-center">
                     {summary.isAiExam ? 'AI Exam Results' : 'สรุปผลการทำข้อสอบ'}
                 </h1>

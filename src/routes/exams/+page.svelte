@@ -181,7 +181,11 @@
 
     async function loadCategories() {
         try {
-            categories = await makeAuthenticatedRequest(`${API_BASE_URL}/user/api/v1/exam-categories`);
+            const response = await fetch(`${API_BASE_URL}/public/api/v1/exam-categories`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch categories');
+            }
+            categories = await response.json();
         } catch (err: any) {
             console.warn('Failed to load categories:', err.message);
             categories = [];
