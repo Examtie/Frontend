@@ -6,6 +6,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
+	import StreakCounter from './StreakCounter.svelte';
 
 	let { class: className = '' } = $props();
 	let isMenuOpen = $state(false);
@@ -174,31 +175,9 @@
 
 			<!-- Enhanced Right side - Search, Language, Login/User -->
 			<div class="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 min-w-0">
-				<!-- Mobile Search Toggle -->
-				<button
-					onclick={toggleMobileSearch}
-					class="lg:hidden p-2 rounded-xl text-gray-300 hover:text-white hover:bg-slate-800/50 border border-transparent hover:border-gray-600/40 transition-all duration-300 mobile-search-toggle"
-					aria-label="Toggle search"
-				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-					</svg>
-				</button>
-				
-				<!-- Enhanced Desktop Search Bar -->
-				<div class="hidden lg:flex items-center bg-slate-800/60 border border-gray-600/40 rounded-xl px-4 py-2.5 min-w-[200px] xl:min-w-[280px] backdrop-blur-sm hover:border-gray-500/60 focus-within:border-blue-500/50 transition-all duration-300 group desktop-search">
-					<svg class="w-4 h-4 text-gray-400 mr-3 group-focus-within:text-blue-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-					</svg>
-					<input 
-						type="text" 
-						bind:value={searchValue}
-						oninput={(e) => handleSearch((e.target as HTMLInputElement).value)}
-						placeholder={$t('search')}
-						class="bg-transparent text-gray-200 placeholder-gray-400 text-sm flex-1 outline-none border-0 focus:placeholder-gray-500 transition-colors min-w-0"
-					/>
-					<kbd class="hidden xl:inline-flex items-center px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-700/50 border border-gray-600/50 rounded-md ml-2 flex-shrink-0">⌘K</kbd>
-				</div>
+
+				<!-- Streak Counter -->
+				<StreakCounter />
 
 				<!-- Enhanced Language Dropdown -->
 				<div class="hidden md:block relative language-dropdown">
@@ -430,6 +409,11 @@
 										<div class="font-semibold text-white truncate">{$auth.user.username}</div>
 										<div class="text-sm text-gray-400 truncate">{$auth.user.email}</div>
 									</div>
+								</div>
+								
+								<!-- Mobile Streak Counter -->
+								<div class="mt-3 pt-3 border-t border-slate-600/30">
+									<StreakCounter variant="mobile-menu" />
 								</div>
 							</div>
 							

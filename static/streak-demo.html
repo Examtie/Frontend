@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streak Counter Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white p-8">
+    <h1 class="text-3xl font-bold mb-8">Streak Counter Demo</h1>
+    
+    <div class="space-y-6">
+        <h2 class="text-xl font-semibold mb-4">Desktop Version:</h2>
+        
+        <!-- Different streak levels -->
+        <div class="flex flex-wrap gap-4">
+            <!-- 0 days streak -->
+            <div class="flex items-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-3 py-2 hover:from-orange-500/30 hover:to-red-500/30 hover:border-orange-400/50 transition-all duration-300 group cursor-pointer" title="Start your streak!">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <span class="text-lg group-hover:scale-110 transition-transform duration-300">⭐</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-orange-200 font-bold text-sm leading-none">0</span>
+                        <span class="text-orange-300/70 text-xs leading-none">streak</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3 days streak -->
+            <div class="flex items-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-3 py-2 hover:from-orange-500/30 hover:to-red-500/30 hover:border-orange-400/50 transition-all duration-300 group cursor-pointer" title="Nice Streak!">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <span class="text-lg group-hover:scale-110 transition-transform duration-300">🚀</span>
+                        <div class="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-orange-200 font-bold text-sm leading-none">3</span>
+                        <span class="text-orange-300/70 text-xs leading-none">streak</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7 days streak -->
+            <div class="flex items-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-3 py-2 hover:from-orange-500/30 hover:to-red-500/30 hover:border-orange-400/50 transition-all duration-300 group cursor-pointer" title="Good Streak!">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <span class="text-lg group-hover:scale-110 transition-transform duration-300">🎯</span>
+                        <div class="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-orange-200 font-bold text-sm leading-none">7</span>
+                        <span class="text-orange-300/70 text-xs leading-none">streak</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 30 days streak -->
+            <div class="flex items-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-3 py-2 hover:from-orange-500/30 hover:to-red-500/30 hover:border-orange-400/50 transition-all duration-300 group cursor-pointer" title="Amazing Streak!">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <span class="text-lg group-hover:scale-110 transition-transform duration-300">🌟</span>
+                        <div class="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-orange-200 font-bold text-sm leading-none">30</span>
+                        <span class="text-orange-300/70 text-xs leading-none">streak</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 100 days streak with revives -->
+            <div class="flex items-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-3 py-2 hover:from-orange-500/30 hover:to-red-500/30 hover:border-orange-400/50 transition-all duration-300 group cursor-pointer" title="Legendary Streak!">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <span class="text-lg group-hover:scale-110 transition-transform duration-300">🔥</span>
+                        <div class="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-orange-200 font-bold text-sm leading-none">100</span>
+                        <span class="text-orange-300/70 text-xs leading-none">streak</span>
+                    </div>
+                    <div class="flex items-center ml-1" title="2 revives used">
+                        <span class="text-amber-400 text-xs">💊</span>
+                        <span class="text-amber-300 text-xs ml-0.5">2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <div class="flex items-center bg-slate-700/50 border border-slate-600/30 rounded-xl px-3 py-2">
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-slate-500 rounded-full animate-pulse"></div>
+                    <div class="w-8 h-3 bg-slate-500 rounded animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="text-xl font-semibold mb-4 mt-8">Mobile Menu Version:</h2>
+        
+        <div class="max-w-xs space-y-4">
+            <!-- Mobile 7 days streak -->
+            <div class="flex w-full justify-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-4 py-3 hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300" title="Good Streak!">
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <span class="text-2xl">🎯</span>
+                        <div class="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-orange-200 font-bold text-xl">7</span>
+                        <span class="text-orange-300/70 text-sm">days streak</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile 42 days streak with revives -->
+            <div class="flex w-full justify-center bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-4 py-3 hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300" title="Epic Streak!">
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <span class="text-2xl">⚡</span>
+                        <div class="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-orange-200 font-bold text-xl">42</span>
+                        <span class="text-orange-300/70 text-sm">days streak</span>
+                    </div>
+                    <div class="flex items-center" title="1 revive used">
+                        <span class="text-amber-400 text-lg">💊</span>
+                        <span class="text-amber-300 text-sm ml-1">1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-12 p-6 bg-slate-800 rounded-lg">
+        <h3 class="text-lg font-semibold mb-4">Features:</h3>
+        <ul class="space-y-2 text-gray-300">
+            <li>• Dynamic emoji based on streak level (⭐ → 🚀 → 🎯 → 💎 → 🌟 → ⚡ → 🔥)</li>
+            <li>• Animated pulse indicator for active streaks</li>
+            <li>• Revive indicator for streak rescues</li>
+            <li>• Responsive design (desktop + mobile versions)</li>
+            <li>• Loading states and error handling</li>
+            <li>• Hover animations and tooltips</li>
+            <li>• Beautiful gradient background matching the site theme</li>
+        </ul>
+    </div>
+</body>
+</html>

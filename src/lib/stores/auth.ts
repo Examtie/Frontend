@@ -215,6 +215,12 @@ export const auth = {
     }
     clearToken(); // Use the new clearToken function
     set({ ...initialAuthState, isInitialized: true }); // Keep initialized state
+    
+    // Clear related stores (import them dynamically to avoid circular dependencies)
+    if (typeof window !== 'undefined') {
+      // Dispatch a custom event that other stores can listen to
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+    }
   },
   initialize: async () => {
     if (typeof window !== 'undefined') {
