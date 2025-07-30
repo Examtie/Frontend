@@ -193,9 +193,26 @@
     }
 
     async function loadExams() {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+
+        let endpoint = $auth.isAuthenticated ? `${API_BASE_URL}/user/api/v1/exams` : `${API_BASE_URL}/public/api/v1/exams`;
+        if (selectedCategory) {
+            endpoint = `${API_BASE_URL}/user/api/v1/exams/by-category/${selectedCategory}`;
+        }
 
         let response;
-        response = await makeAuthenticatedRequest(`${API_BASE_URL}/mock/exam-file`);
+        if ($auth.isAuthenticated) {
+            response = await makeAuthenticatedRequest(`${endpoint}?${params}`);
+        } else {
+            const res = await fetch(`${endpoint}?${params}`);
+            if (!res.ok) {
+                throw new Error('Failed to fetch exams');
+            }
+            response = await res.json();
+        }
         exams = Array.isArray(response) ? response : response.exams || [];
         totalExams = response.total || exams.length;
         totalPages = Math.ceil(totalExams / limit);
