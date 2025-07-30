@@ -68,6 +68,17 @@
             analytics: boolean;
             marketplace: boolean;
         };
+        analytics: {
+            total_downloads: number;
+            total_revenue: number;
+            monthly_growth: number;
+            active_users_today: number;
+            popular_tags: { tag: string; count: number }[];
+        };
+        pending_content: {
+            exam_files: number;
+            flashcard_sets: number;
+        };
     };
 
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -148,6 +159,13 @@
     // Infinite scroll
     let loadingMore = false;
     let enableInfiniteScroll = false;
+
+    // System features management
+    let systemFeatures: any[] = [];
+    let pendingContent: any[] = [];
+    let analyticsData: any = null;
+    let revenueData: any[] = [];
+    let growthData: any[] = [];
 
     // Modals
     let showUserModal = false;
@@ -397,19 +415,12 @@
         error = '';
         
         try {
-            // Always load categories since they're used in other places
-            await loadCategories();
-            
-            // Load data based on current active tab
-            if (activeTab === 'users') {
-                await loadUsers();
-            } else if (activeTab === 'exam-files') {
-                await loadExamFiles();
-            }
-            // Categories are already loaded above
-            
-            // Load stats after other data is loaded
-            await loadStats();
+            await Promise.all([
+                loadUsers(),
+                loadExamFiles(),
+                loadCategories(),
+                loadStats()
+            ]);
         } catch (err: any) {
             error = err.message;
         } finally {
@@ -487,6 +498,37 @@
         } catch (err: any) {
             console.warn('Failed to load categories:', err.message);
             categories = [];
+        }
+    }
+
+    async function loadSystemFeatures() {
+        try {
+            systemFeatures = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/system/features`);
+        } catch (err: any) {
+            console.warn('Failed to load system features:', err.message);
+            systemFeatures = [];
+        }
+    }
+
+    async function loadPendingContent() {
+        try {
+            pendingContent = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/content/pending`);
+        } catch (err: any) {
+            console.warn('Failed to load pending content:', err.message);
+            pendingContent = [];
+        }
+    }
+
+    async function loadAnalyticsData() {
+        try {
+            analyticsData = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/analytics`);
+            revenueData = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/analytics/revenue`);
+            growthData = await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/analytics/growth`);
+        } catch (err: any) {
+            console.warn('Failed to load analytics data:', err.message);
+            analyticsData = null;
+            revenueData = [];
+            growthData = [];
         }
     }
 
@@ -926,6 +968,50 @@
             loadData();
         }
     }
+
+    // Content moderation functions
+    async function approveContent(contentId: string, contentType: string) {
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/content/${contentType}/${contentId}/approve`, {
+                method: 'POST'
+            });
+            successMessage = 'Content approved successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadPendingContent();
+            await loadStats();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
+
+    async function rejectContent(contentId: string, contentType: string, reason: string = '') {
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/content/${contentType}/${contentId}/reject`, {
+                method: 'POST',
+                body: JSON.stringify({ reason })
+            });
+            successMessage = 'Content rejected successfully';
+            setTimeout(() => successMessage = '', 3000);
+            await loadPendingContent();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
+
+    // System feature management functions
+    async function toggleSystemFeature(featureKey: string, enabled: boolean) {
+        try {
+            await makeAuthenticatedRequest(`${API_BASE_URL}/admin/api/v1/system/features/${featureKey}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ enabled })
+            });
+            successMessage = `Feature ${enabled ? 'enabled' : 'disabled'} successfully`;
+            setTimeout(() => successMessage = '', 3000);
+            await loadSystemFeatures();
+        } catch (err: any) {
+            error = err.message;
+        }
+    }
 </script>
 
 <svelte:head>
@@ -1040,10 +1126,10 @@
 
     <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Stats Cards with Skeleton Loading -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
             {#if skeletonLoading}
                 <!-- Skeleton Loading Cards -->
-                {#each Array.from({length: 4}) as _, i}
+                {#each Array.from({length: 8}) as _, i}
                     <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 animate-pulse">
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
@@ -1135,19 +1221,100 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Downloads Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-purple-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Total Downloads</p>
+                            <p class="text-3xl font-bold text-white">{(stats.analytics?.total_downloads || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-purple-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-purple-400 font-medium">All Time</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Revenue Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-emerald-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Total Revenue</p>
+                            <p class="text-3xl font-bold text-white">฿{(stats.analytics?.total_revenue || 0).toLocaleString()}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-emerald-400 font-medium">All Time</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Growth Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-orange-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Monthly Growth</p>
+                            <p class="text-3xl font-bold text-white">{stats.analytics?.monthly_growth || 0}%</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-orange-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-orange-400 font-medium">This Month</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Content Card -->
+                <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:border-amber-500/50">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-300 mb-1">Pending Review</p>
+                            <p class="text-3xl font-bold text-white">{(stats.pending_content?.exam_files || 0) + (stats.pending_content?.flashcard_sets || 0)}</p>
+                            <div class="flex items-center mt-2">
+                                <div class="w-2 h-2 bg-amber-400 rounded-full mr-2 animate-pulse"></div>
+                                <span class="text-xs text-amber-400 font-medium">Needs Review</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             {/if}
         </div>
 
         <!-- Modern Tabs -->
         <div class="glass-card bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl shadow-2xl overflow-hidden">
             <div class="border-b border-gray-700/30 bg-slate-800/30 backdrop-blur-lg">
-                <nav class="flex space-x-1 p-2">
+                <nav class="flex space-x-1 p-2 overflow-x-auto">
                     <button
                         class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'users' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
-                        on:click={() => {
-                            activeTab = 'users';
-                            if (users.length === 0) loadUsers();
-                        }}
+                        on:click={() => activeTab = 'users'}
                     >
                         <div class="flex items-center space-x-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1161,10 +1328,7 @@
                     </button>
                     <button
                         class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'exam-files' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
-                        on:click={() => {
-                            activeTab = 'exam-files';
-                            if (examFiles.length === 0) loadExamFiles();
-                        }}
+                        on:click={() => activeTab = 'exam-files'}
                     >
                         <div class="flex items-center space-x-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1176,25 +1340,134 @@
                             <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
                         {/if}
                     </button>
-                    <button
-                        class="relative px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 {activeTab === 'categories' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-slate-700/50'}"
-                        on:click={() => {
-                            activeTab = 'categories';
-                            if (categories.length === 0) loadCategories();
-                        }}
-                    >
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                            </svg>
-                            <span>Categories</span>
-                        </div>
-                        {#if activeTab === 'categories'}
-                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-glow"></div>
-                        {/if}
-                    </button>
                 </nav>
             </div>
+
+            <!-- Dashboard Tab -->
+            {#if activeTab === 'dashboard'}
+                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-200 mb-2">System Overview</h3>
+                        <p class="text-gray-400">Get insights into platform performance and user engagement</p>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <button
+                            on:click={() => activeTab = 'moderation'}
+                            class="p-6 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center group-hover:bg-amber-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-amber-400">{(stats?.pending_content?.exam_files || 0) + (stats?.pending_content?.flashcard_sets || 0)}</span>
+                            </div>
+                            <h4 class="text-white font-semibold">Content Review</h4>
+                            <p class="text-gray-400 text-sm">Items pending moderation</p>
+                        </button>
+
+                        <button
+                            on:click={() => activeTab = 'users'}
+                            class="p-6 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-blue-400">{(stats?.users?.total || 0).toLocaleString()}</span>
+                            </div>
+                            <h4 class="text-white font-semibold">User Management</h4>
+                            <p class="text-gray-400 text-sm">Manage platform users</p>
+                        </button>
+
+                        <button
+                            on:click={() => activeTab = 'analytics'}
+                            class="p-6 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-purple-400">{(stats?.analytics?.monthly_growth || 0)}%</span>
+                            </div>
+                            <h4 class="text-white font-semibold">Analytics</h4>
+                            <p class="text-gray-400 text-sm">View detailed reports</p>
+                        </button>
+
+                        <button
+                            on:click={() => activeTab = 'system'}
+                            class="p-6 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition-all duration-300 text-left group"
+                        >
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors">
+                                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-2xl font-bold text-emerald-400">{systemFeatures.length}</span>
+                            </div>
+                            <h4 class="text-white font-semibold">System Settings</h4>
+                            <p class="text-gray-400 text-sm">Configure features</p>
+                        </button>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Recent Content -->
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                                <svg class="w-5 h-5 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Recent Exam Files
+                            </h4>
+                            <div class="space-y-3">
+                                {#each examFiles.slice(0, 5) as file}
+                                    <div class="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+                                        <div>
+                                            <p class="text-gray-200 font-medium">{file.title}</p>
+                                            <p class="text-gray-400 text-sm">by {file.uploaded_by}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-green-400 text-sm">{file.essay_count + file.choice_count} questions</p>
+                                        </div>
+                                    </div>
+                                {:else}
+                                    <p class="text-gray-400 text-center py-4">No exam files yet</p>
+                                {/each}
+                            </div>
+                        </div>
+
+                        <!-- Popular Tags -->
+                        <div class="bg-slate-800/20 backdrop-blur-lg border border-gray-700/30 rounded-2xl p-6">
+                            <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center">
+                                <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                </svg>
+                                Popular Tags
+                            </h4>
+                            <div class="space-y-3">
+                                {#each stats?.analytics?.popular_tags?.slice(0, 5) || [] as tagData}
+                                    <div class="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+                                        <span class="text-gray-200">#{tagData.tag}</span>
+                                        <span class="text-purple-400 font-semibold">{tagData.count}</span>
+                                    </div>
+                                {:else}
+                                    <p class="text-gray-400 text-center py-4">No tag data available</p>
+                                {/each}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
 
             <!-- Users Tab -->
             {#if activeTab === 'users'}
@@ -1510,7 +1783,7 @@
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                                         </svg>
-                                                        <span>Delete</span>
+                                                        <span>{$t('delete')}</span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -1580,7 +1853,7 @@
                                 <div class="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-spin">
                                     <div class="absolute w-4 h-4 bg-slate-800/50 rounded-full top-1 left-1"></div>
                                 </div>
-                                <span class="text-gray-300 font-medium">Loading more users...</span>
+                                <span class="text-gray-300 font-medium">{$t('loadingMoreUsers')}</span>
                             </div>
                         </div>
                     {/if}
@@ -1778,9 +2051,17 @@
                                                 <button
                                                     on:click={() => sortExamFiles('title')}
                                                     class="group inline-flex items-center text-sm font-semibold text-gray-200 hover:text-white transition-colors"
+                                                    aria-label="Sort by file title"
                                                 >
                                                     <svg class="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                    </svg>
+                                                    File Information
+                                                    <span class="ml-2 flex-none rounded text-gray-400 group-hover:text-gray-300">
+                                                        <svg class="h-4 w-4 {examFileSortBy === 'title' ? (examFileSortOrder === 'asc' ? 'rotate-0' : 'rotate-180') : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                        </svg>
+                                                    </span>
                                                 </button>
                                             </th>
                                             <th scope="col" class="px-3 py-4 text-left text-sm font-semibold text-gray-200">
@@ -1890,9 +2171,12 @@
                                                         <button
                                                             on:click={() => openExamFileModal(examFile)}
                                                             class="inline-flex items-center px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
+                                                            aria-label="Edit exam file"
                                                         >
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                            </svg>
+                                                            <span>Edit</span>
                                                         </button>
                                                         <button
                                                             on:click={() => deleteExamFile(examFile.id)}
@@ -1901,7 +2185,7 @@
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                                             </svg>
-                                                            <span>Delete</span>
+                                                            <span>{$t('delete')}</span>
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1975,136 +2259,6 @@
                                     <div class="absolute w-4 h-4 bg-slate-800/50 rounded-full top-1 left-1"></div>
                                 </div>
                                 <span class="text-gray-300 font-medium">Loading more files...</span>
-                            </div>
-                        </div>
-                    {/if}
-                </div>
-            {/if}
-
-            <!-- Categories Tab -->
-            {#if activeTab === 'categories'}
-                <div class="p-8 bg-slate-800/10 backdrop-blur-lg">
-                    <!-- Categories Header -->
-                    <div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <h3 class="text-2xl font-bold text-gray-200 mb-2">Category Management</h3>
-                            <p class="text-gray-400">Create and manage exam categories for better organization</p>
-                        </div>
-                        <div class="flex gap-3">
-                            <button
-                                on:click={loadCategories}
-                                class="px-4 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:from-slate-700 hover:to-slate-800 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm border border-gray-600/50"
-                                title="Refresh categories"
-                                aria-label="Refresh categories list"
-                            >
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                                </svg>
-                            </button>
-                            <button
-                                on:click={() => openCategoryModal()}
-                                class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm"
-                            >
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                </svg>
-                                <span>Add Category</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Categories Table -->
-                    {#if skeletonLoading}
-                        <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
-                            <table class="min-w-full divide-y divide-slate-700/50">
-                                <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
-                                    <tr>
-                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-200">Name</th>
-                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-200">English Name</th>
-                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-200">Description</th>
-                                        <th class="px-6 py-4 text-center text-sm font-semibold text-gray-200">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
-                                    {#each Array.from({length: 5}) as _, i}
-                                        <tr class="animate-pulse">
-                                            <td class="px-6 py-4"><div class="h-4 bg-slate-600/50 rounded w-24"></div></td>
-                                            <td class="px-6 py-4"><div class="h-4 bg-slate-600/50 rounded w-20"></div></td>
-                                            <td class="px-6 py-4"><div class="h-4 bg-slate-600/50 rounded w-32"></div></td>
-                                            <td class="px-6 py-4"><div class="h-8 bg-slate-600/50 rounded w-16 mx-auto"></div></td>
-                                        </tr>
-                                    {/each}
-                                </tbody>
-                            </table>
-                        </div>
-                    {:else if categories.length > 0}
-                        <div class="overflow-hidden shadow-xl ring-1 ring-slate-700/50 rounded-2xl backdrop-blur-lg">
-                            <table class="min-w-full divide-y divide-slate-700/50">
-                                <thead class="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-lg">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-gray-200">
-                                            <div class="flex items-center space-x-2">
-                                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                                                </svg>
-                                                <span>Name</span>
-                                            </div>
-                                        </th>
-                                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-gray-200">English Name</th>
-                                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-gray-200">Description</th>
-                                        <th scope="col" class="px-6 py-4 text-center text-sm font-semibold text-gray-200">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-700/50 bg-slate-800/30 backdrop-blur-lg">
-                                    {#each categories as category (category.id)}
-                                        <tr class="hover:bg-slate-700/30 transition-colors duration-150">
-                                            <td class="px-6 py-4 text-sm text-gray-200 font-medium">{category.name}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-400">{category.english_name || 'N/A'}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-400">{category.description || 'No description'}</td>
-                                            <td class="px-6 py-4 text-sm font-medium">
-                                                <div class="flex items-center justify-center gap-2">
-                                                    <button
-                                                        on:click={() => openCategoryModal(category)}
-                                                        class="inline-flex items-center text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 px-3 py-2 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
-                                                    >
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                        </svg>
-                                                        <span>Edit</span>
-                                                    </button>
-                                                    <button
-                                                        on:click={() => deleteCategory(category.id)}
-                                                        class="inline-flex items-center text-red-400 hover:text-red-300 hover:bg-red-500/20 px-3 py-2 rounded-xl transition-all duration-300 space-x-1 text-sm font-medium backdrop-blur-sm"
-                                                    >
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                                        </svg>
-                                                        <span>Delete</span>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    {/each}
-                                </tbody>
-                            </table>
-                        </div>
-                    {:else}
-                        <div class="text-center py-12 bg-slate-800/30 rounded-2xl border border-gray-700/30 backdrop-blur-lg">
-                            <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                            </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-300">No categories found</h3>
-                            <p class="mt-1 text-sm text-gray-400">Get started by creating a new category.</p>
-                            <div class="mt-6">
-                                <button
-                                    on:click={() => openCategoryModal()}
-                                    class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300"
-                                >
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                    </svg>
-                                    Add Category
-                                </button>
                             </div>
                         </div>
                     {/if}
@@ -2204,6 +2358,7 @@
                         <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
                         </div>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-200">Edit Exam File</h3>
@@ -2401,7 +2556,7 @@
                 </div>
             </div>
             <div class="mt-6 text-center">
-                <h3 class="text-lg font-semibold text-white mb-2">Loading Admin Dashboard</h3>
+                <h3 class="text-lg font-semibold text-white mb-2">{$t('loadingAdminDashboard')}</h3>
                 <p class="text-gray-300">Please wait while we fetch the latest data...</p>
             </div>
         </div>

@@ -4,6 +4,7 @@
     import katex from 'katex';
     import ScientificCalculator from './ScientificCalculator.svelte';
     import MarkdownNotepad from './MarkdownNotepad.svelte';
+    import { t } from '$lib/i18n.js';
 
     // Types
     type Question = {
@@ -807,7 +808,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L3.316 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                     </svg>
                 </div>
-                <h3 class="text-xl font-semibold text-white mb-2">Submit Exam?</h3>
+                <h3 class="text-xl font-semibold text-white mb-2">{$t('submitExamQuestion')}</h3>
                 <p class="text-gray-300 mb-6">
                     You have answered {answeredCount} out of {questions.length} questions.
                     {#if unansweredCount > 0}

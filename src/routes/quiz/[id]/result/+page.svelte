@@ -545,149 +545,68 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    {/if}
+                </div>
+                <h1 class="text-2xl md:text-3xl font-bold text-white mb-2 text-center">
+                    {summary.isAiExam ? 'AI Exam Results' : 'สรุปผลการทำข้อสอบ'}
+                </h1>
+                <p class="text-blue-200 text-center opacity-90">{summary.title}</p>
+            </div>
 
-                    <!-- Score Display -->
-                    <div class="p-8">
-                        <div class="text-center mb-8">
-                            <div class="relative inline-flex items-center justify-center mb-6">
-                                <div class="w-40 h-40 rounded-full bg-gradient-to-r {getGradientColors(percentage)} p-1">
-                                    <div class="w-full h-full rounded-full bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
-                                        <div class="text-center">
-                                            <div class="text-4xl font-bold text-white mb-1">{percentage}%</div>
-                                            <div class="text-lg font-semibold text-white/80">Grade {getGrade(percentage)}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- Floating achievement elements -->
-                                {#if percentage >= 90}
-                                    <div class="absolute -top-2 -right-2 text-3xl animate-bounce">🏆</div>
-                                {:else if percentage >= 80}
-                                    <div class="absolute -top-2 -right-2 text-3xl animate-bounce">🌟</div>
-                                {:else if percentage >= 70}
-                                    <div class="absolute -top-2 -right-2 text-3xl animate-bounce">👍</div>
-                                {/if}
-                            </div>
-                            
-                            <h2 class="text-3xl font-bold {getScoreColor(percentage)} mb-2">
-                                {getPerformanceMessage(percentage)}
-                            </h2>
-                            
-                            <p class="text-white/80 text-lg">
-                                Completed on {formatDate(submissionDetails.submitted_at)}
-                            </p>
-                        </div>
-
-                        <!-- Stats Grid -->
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-                            <div class="group bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-6 border border-green-400/30 hover:border-green-400/50 transition-all duration-300 hover:scale-105">
-                                <div class="flex flex-col items-center text-center">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="text-3xl font-bold text-green-400 mb-1">{correctCount}</span>
-                                    <span class="text-sm text-green-200 font-medium">Correct</span>
-                                </div>
-                            </div>
-                            
-                            <div class="group bg-gradient-to-br from-red-500/20 to-rose-500/20 backdrop-blur-sm rounded-2xl p-6 border border-red-400/30 hover:border-red-400/50 transition-all duration-300 hover:scale-105">
-                                <div class="flex flex-col items-center text-center">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-red-400 to-rose-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="text-3xl font-bold text-red-400 mb-1">{wrongCount}</span>
-                                    <span class="text-sm text-red-200 font-medium">Incorrect</span>
-                                </div>
-                            </div>
-                            
-                            <div class="group bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 border border-blue-400/30 hover:border-blue-400/50 transition-all duration-300 hover:scale-105">
-                                <div class="flex flex-col items-center text-center">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="text-3xl font-bold text-blue-400 mb-1">{totalQuestions}</span>
-                                    <span class="text-sm text-blue-200 font-medium">Total</span>
-                                </div>
-                            </div>
-                            
-                            <div class="group bg-gradient-to-br from-purple-500/20 to-violet-500/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-400/30 hover:border-purple-400/50 transition-all duration-300 hover:scale-105">
-                                <div class="flex flex-col items-center text-center">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-violet-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="text-2xl font-bold text-purple-400 mb-1">{formatTime(timeSpent)}</span>
-                                    <span class="text-sm text-purple-200 font-medium">Time Spent</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Performance Insights -->
-                        {#if performanceData.averageTimePerQuestion > 0}
-                            <div class="bg-gradient-to-r from-orange-500/20 to-amber-500/20 backdrop-blur-sm rounded-2xl p-6 border border-orange-400/30 mb-8">
-                                <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                    <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                    </svg>
-                                    Performance Insights
-                                </h3>
-                                <div class="grid md:grid-cols-3 gap-4">
-                                    <div class="bg-white/10 rounded-xl p-4">
-                                        <p class="text-orange-200 text-sm font-medium mb-1">Average Time Per Question</p>
-                                        <p class="text-white text-2xl font-bold">{formatTime(performanceData.averageTimePerQuestion)}</p>
-                                    </div>
-                                    <div class="bg-white/10 rounded-xl p-4">
-                                        <p class="text-orange-200 text-sm font-medium mb-1">Difficulty Level</p>
-                                        <p class="text-white text-2xl font-bold">{performanceData.difficulty}</p>
-                                    </div>
-                                    <div class="bg-white/10 rounded-xl p-4">
-                                        <p class="text-orange-200 text-sm font-medium mb-1">Next Steps</p>
-                                        <div class="space-y-1">
-                                            {#each performanceData.recommendedTopics.slice(0, 2) as topic}
-                                                <p class="text-orange-100 text-sm">• {topic}</p>
-                                            {/each}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        {/if}
-
-                        <!-- Action Buttons -->
-                        <div class="flex flex-col sm:flex-row justify-center gap-4">
-                            <button
-                                on:click={retakeExam}
-                                class="group px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                            >
-                                {#if isAiExam}
-                                    <svg class="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                    </svg>
-                                    Generate New AI Exam
-                                {:else}
-                                    <svg class="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                    </svg>
-                                    Retake Exam
-                                {/if}
-                            </button>
-                            
-                            <button
-                                on:click={goHome}
-                                class="group px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-medium shadow-lg border border-white/20 hover:border-white/30 transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                            >
-                                <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+            <div class="p-8">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                    <div class="group bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-2xl p-6 border border-green-400/30 hover:border-green-400/50 transition-all duration-300 hover:scale-105">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                 </svg>
-                                Browse Exams
-                            </button>
+                            </div>
+                            <span class="text-4xl font-bold text-green-400 mb-1">{summary.correct}</span>
+                            <span class="text-sm text-green-200 font-medium">
+                                {summary.isAiExam ? 'Answered' : 'ข้อถูก'}
+                            </span>
                         </div>
+                    </div>
+                    <div class="group bg-gradient-to-br from-red-500/20 to-rose-500/20 backdrop-blur-sm rounded-2xl p-6 border border-red-400/30 hover:border-red-400/50 transition-all duration-300 hover:scale-105">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-red-400 to-rose-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </div>
+                            <span class="text-4xl font-bold text-red-400 mb-1">{summary.incorrect}</span>
+                            <span class="text-sm text-red-200 font-medium">
+                                {summary.isAiExam ? 'Unanswered' : 'ข้อผิด'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="group bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 border border-blue-400/30 hover:border-blue-400/50 transition-all duration-300 hover:scale-105">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <span class="text-4xl font-bold text-blue-400 mb-1">{formatTime(summary.timeSpentSeconds)}</span>
+                            <span class="text-sm text-blue-200 font-medium">เวลาที่ใช้ทำ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completion/Accuracy Bar -->
+                <div class="mb-10 bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+                    <h2 class="font-semibold text-white mb-4 text-center text-lg">
+                        {summary.isAiExam ? 'Completion Rate' : 'ความแม่นยำ'}: 
+                        <span class="text-blue-400">{accuracy}%</span>
+                    </h2>
+                    <div class="w-full bg-white/10 rounded-full h-6 overflow-hidden backdrop-blur-sm">
+                        <div class="bg-gradient-to-r from-green-400 to-emerald-500 h-full transition-all duration-1000 ease-out rounded-full shadow-lg" style="width: {accuracy}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-white/60 mt-2">
+                        <span>0%</span>
+                        <span>100%</span>
                     </div>
                 </div>
                 <!-- Detailed Results -->
@@ -711,6 +630,18 @@
                                         <span class="text-sm font-medium">Show only incorrect answers</span>
                                     </label>
                                 </div>
+                                <h3 class="text-lg font-semibold text-white">AI Exam Completed!</h3>
+                            </div>
+                            <p class="text-gray-300 mb-4">
+                                You've successfully completed this AI-generated exam. Your responses have been recorded and you can review your performance above.
+                            </p>
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <p class="text-sm text-white/80 mb-2">💡 <strong>Next Steps:</strong></p>
+                                <ul class="text-sm text-gray-300 space-y-1">
+                                    <li>• Generate a new AI exam on a different topic</li>
+                                    <li>• Try increasing the difficulty level</li>
+                                    <li>• Practice with more questions to improve your knowledge</li>
+                                </ul>
                             </div>
                         </div>
 
@@ -821,31 +752,33 @@
                 {/if}
             </div>
 
-        {:else}
-            <!-- No Results State -->
-            <div class="flex items-center justify-center min-h-screen">
-                <div class="max-w-md w-full bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 p-8 text-center">
-                    <div class="w-20 h-20 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <button 
+                        on:click={retakeExam} 
+                        class="group px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 backdrop-blur-sm flex items-center justify-center gap-2"
+                    >
+                        {#if summary.isAiExam}
+                            <svg class="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Generate New AI Exam
+                        {:else}
+                            <svg class="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            ทำข้อสอบอีกครั้ง
+                        {/if}
+                    </button>
+                    <button 
+                        on:click={() => goto('/exams')} 
+                        class="group px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-medium shadow-lg border border-white/20 hover:border-white/30 transition-all duration-300 transform hover:scale-105 backdrop-blur-sm flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                         </svg>
-                    </div>
-                    <h2 class="text-2xl font-bold text-white mb-4">No Results Found</h2>
-                    <p class="text-gray-300 mb-6">We couldn't find any results for this exam. This might happen if the exam was not submitted or the results expired.</p>
-                    <div class="flex gap-3">
-                        <button
-                            on:click={retakeExam}
-                            class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105"
-                        >
-                            Take Exam
-                        </button>
-                        <button
-                            on:click={goHome}
-                            class="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 px-6 rounded-xl border border-white/20 transition-all duration-300 transform hover:scale-105"
-                        >
-                            Browse Exams
-                        </button>
-                    </div>
+                        {summary.isAiExam ? 'Back to Exams' : 'กลับไปหน้ารายการข้อสอบ'}
+                    </button>
                 </div>
             </div>
         {/if}
