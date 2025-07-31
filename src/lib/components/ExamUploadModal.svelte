@@ -35,6 +35,29 @@
     let mcAnswers: string[] = [];
     let essayAnswers: string[] = [];
     let answerKeyValid = false;
+    
+    // Step-by-step answer key interface
+    let currentQuestionIndex = 0;
+    let showStepByStep = false;
+    let totalQuestions = 0;
+    
+    // Calculate total questions for step-by-step interface
+    $: totalQuestions = (Number(uploadForm.choice_count) || 0) + (Number(uploadForm.essay_count) || 0);
+
+    // Reactive computation for current question type
+    $: currentQuestionType = (() => {
+        const mcCount = Number(uploadForm.choice_count) || 0;
+        return currentQuestionIndex < mcCount ? 'multiple-choice' : 'essay';
+    })();
+
+    // Reactive computation for current question number
+    $: currentQuestionNumber = currentQuestionIndex + 1;
+
+    // Reactive computation for actual array index
+    $: actualArrayIndex = (() => {
+        const mcCount = Number(uploadForm.choice_count) || 0;
+        return currentQuestionIndex < mcCount ? currentQuestionIndex : currentQuestionIndex - mcCount;
+    })();
 
     // Reactive validation for answer key
     $: {
@@ -93,11 +116,94 @@
         answerKeyFormat = 'detailed'; // Default to helper mode
         mcAnswers = [];
         essayAnswers = [];
+        currentQuestionIndex = 0;
+        showStepByStep = false;
     }
 
     function closeModal() {
         resetUploadForm();
         onClose();
+    }
+
+    // Step-by-step navigation functions
+    function goToQuestion(index: number) {
+        if (index >= 0 && index < totalQuestions) {
+            currentQuestionIndex = index;
+        }
+    }
+
+    function goToNextQuestion() {
+        if (currentQuestionIndex < totalQuestions - 1) {
+            currentQuestionIndex++;
+        }
+    }
+
+    function goToPreviousQuestion() {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+        }
+    }
+
+    function selectChoice(choice: string) {
+        if (currentQuestionType === 'multiple-choice') {
+            mcAnswers[actualArrayIndex] = choice;
+            mcAnswers = mcAnswers; // Trigger reactivity
+        }
+        
+        generateAnswerKey();
+        
+        // Auto-advance to next question
+        if (currentQuestionIndex < totalQuestions - 1) {
+            setTimeout(() => {
+                goToNextQuestion();
+            }, 200);
+        }
+    }
+
+    function handleKeyPress(event: KeyboardEvent) {
+        if (!showStepByStep) return;
+        
+        // Handle number keys for multiple choice
+        if (currentQuestionType === 'multiple-choice') {
+            switch (event.key) {
+                case '1':
+                    event.preventDefault();
+                    selectChoice('A');
+                    break;
+                case '2':
+                    event.preventDefault();
+                    selectChoice('B');
+                    break;
+                case '3':
+                    event.preventDefault();
+                    selectChoice('C');
+                    break;
+                case '4':
+                    event.preventDefault();
+                    selectChoice('D');
+                    break;
+                case '5':
+                    event.preventDefault();
+                    selectChoice('E');
+                    break;
+            }
+        }
+        
+        // Handle navigation keys
+        switch (event.key) {
+            case 'ArrowLeft':
+                event.preventDefault();
+                goToPreviousQuestion();
+                break;
+            case 'ArrowRight':
+                event.preventDefault();
+                goToNextQuestion();
+                break;
+            case 'Escape':
+                event.preventDefault();
+                showStepByStep = false;
+                break;
+        }
     }
 
     // Answer key helper functions
@@ -147,6 +253,11 @@
             essayAnswers = [...essayAnswers, ...Array(essayCount - essayAnswers.length).fill('')];
         } else if (essayAnswers.length > essayCount) {
             essayAnswers = essayAnswers.slice(0, essayCount);
+        }
+
+        // Reset step-by-step interface if current question is out of bounds
+        if (currentQuestionIndex >= totalQuestions) {
+            currentQuestionIndex = Math.max(0, totalQuestions - 1);
         }
 
         // Auto-generate answer key if in detailed mode
@@ -285,7 +396,12 @@
 
 <!-- Upload Exam Modal -->
 {#if showModal}
-    <div class="fixed inset-0 z-50 overflow-y-auto">
+    <div 
+        class="fixed inset-0 z-50 overflow-y-auto"
+        on:keydown={handleKeyPress}
+        role="dialog"
+        tabindex="-1"
+    >
         <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <!-- Background overlay -->
             <div 
@@ -569,16 +685,34 @@
                                         <button
                                             type="button"
                                             class="px-3 py-1 text-xs rounded {answerKeyFormat === 'simple' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
-                                            on:click={() => answerKeyFormat = 'simple'}
+                                            on:click={() => {
+                                                answerKeyFormat = 'simple';
+                                                showStepByStep = false;
+                                            }}
                                         >
                                             Manual JSON
                                         </button>
                                         <button
                                             type="button"
-                                            class="px-3 py-1 text-xs rounded {answerKeyFormat === 'detailed' ? 'bg-blue-500 text-white' : 'text-gray-300'}"
-                                            on:click={() => answerKeyFormat = 'detailed'}
+                                            class="px-3 py-1 text-xs rounded {answerKeyFormat === 'detailed' && !showStepByStep ? 'bg-blue-500 text-white' : 'text-gray-300'}"
+                                            on:click={() => {
+                                                answerKeyFormat = 'detailed';
+                                                showStepByStep = false;
+                                            }}
                                         >
                                             Helper
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="px-3 py-1 text-xs rounded {showStepByStep ? 'bg-blue-500 text-white' : 'text-gray-300'}"
+                                            on:click={() => {
+                                                answerKeyFormat = 'detailed';
+                                                showStepByStep = true;
+                                                currentQuestionIndex = 0;
+                                            }}
+                                            disabled={totalQuestions === 0}
+                                        >
+                                            Step-by-Step
                                         </button>
                                     </div>
                                 </div>
@@ -594,7 +728,137 @@
                                     <p class="mt-1 text-sm text-gray-400">
                                         Provide a JSON object mapping question numbers to answers. For multiple choice use letters (A, B, C, D), for essays use text descriptions.
                                     </p>
+                                {:else if showStepByStep}
+                                    <!-- Step-by-Step Answer Key Interface -->
+                                    <div class="space-y-4">
+                                        {#if totalQuestions > 0}
+                                            <!-- Progress Bar -->
+                                            <div class="space-y-2">
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-sm text-gray-300">Progress</span>
+                                                    <span class="text-sm text-gray-400">{currentQuestionIndex + 1} of {totalQuestions}</span>
+                                                </div>
+                                                <div class="w-full bg-slate-600 rounded-full h-2">
+                                                    <div 
+                                                        class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                                        style="width: {((currentQuestionIndex + 1) / totalQuestions) * 100}%"
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Question Navigator -->
+                                            <div class="space-y-2">
+                                                <h4 class="text-sm font-medium text-gray-300">Quick Jump</h4>
+                                                <div class="flex flex-wrap gap-1">
+                                                    {#each Array(totalQuestions) as _, i}
+                                                        {@const questionType = i < (Number(uploadForm.choice_count) || 0) ? 'mc' : 'essay'}
+                                                        {@const isAnswered = questionType === 'mc' ? 
+                                                            mcAnswers[i]?.trim() : 
+                                                            essayAnswers[i - (Number(uploadForm.choice_count) || 0)]?.trim()}
+                                                        <button
+                                                            type="button"
+                                                            on:click={() => goToQuestion(i)}
+                                                            class="w-8 h-8 text-xs rounded border transition-colors {
+                                                                i === currentQuestionIndex 
+                                                                    ? 'bg-blue-500 text-white border-blue-400' 
+                                                                    : isAnswered 
+                                                                        ? 'bg-green-600 text-white border-green-500' 
+                                                                        : 'bg-slate-600 text-gray-300 border-slate-500 hover:bg-slate-500'
+                                                            }"
+                                                        >
+                                                            {i + 1}
+                                                        </button>
+                                                    {/each}
+                                                </div>
+                                            </div>
+
+                                            <!-- Current Question -->
+                                            <div class="border border-slate-600 rounded-lg p-4 bg-slate-700/50">
+                                                <div class="flex justify-between items-center mb-3">
+                                                    <h3 class="text-lg font-medium text-white">
+                                                        Question {currentQuestionNumber}
+                                                        <span class="text-sm text-gray-400 ml-2">
+                                                            ({currentQuestionType === 'multiple-choice' ? 'Multiple Choice' : 'Essay'})
+                                                        </span>
+                                                    </h3>
+                                                    <div class="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            on:click={goToPreviousQuestion}
+                                                            disabled={currentQuestionIndex === 0}
+                                                            class="px-3 py-1 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded text-sm transition-colors"
+                                                        >
+                                                            ← Back
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            on:click={goToNextQuestion}
+                                                            disabled={currentQuestionIndex === totalQuestions - 1}
+                                                            class="px-3 py-1 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded text-sm transition-colors"
+                                                        >
+                                                            Next →
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {#if currentQuestionType === 'multiple-choice'}
+                                                    <!-- Multiple Choice Options -->
+                                                    <div class="space-y-3">
+                                                        <p class="text-sm text-gray-300 mb-3">Select the correct answer:</p>
+                                                        <div class="grid grid-cols-1 gap-2">
+                                                            {#each ['A', 'B', 'C', 'D', 'E'] as choice}
+                                                                {@const isSelected = mcAnswers[actualArrayIndex] === choice}
+                                                                <button
+                                                                    type="button"
+                                                                    on:click={() => selectChoice(choice)}
+                                                                    class="flex items-center justify-center p-3 rounded-lg border transition-all duration-200 {
+                                                                        isSelected 
+                                                                            ? 'bg-blue-500 text-white border-blue-400 shadow-lg' 
+                                                                            : 'bg-slate-600 text-gray-300 border-slate-500 hover:bg-slate-500 hover:border-slate-400'
+                                                                    }"
+                                                                >
+                                                                    <span class="font-medium text-lg">{choice}</span>
+                                                                </button>
+                                                            {/each}
+                                                        </div>
+                                                        <div class="mt-3 p-3 bg-slate-800 rounded-lg border border-slate-600">
+                                                            <p class="text-xs text-gray-400">
+                                                                💡 <strong>Keyboard shortcuts:</strong> Press 1-5 to select A-E, ← → to navigate, Esc to exit
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                {:else}
+                                                    <!-- Essay Answer -->
+                                                    <div class="space-y-3">
+                                                        <label class="block text-sm text-gray-300">Answer Guidelines:</label>
+                                                        <textarea
+                                                            bind:value={essayAnswers[actualArrayIndex]}
+                                                            on:input={generateAnswerKey}
+                                                            placeholder="Enter the answer or guidelines for this essay question"
+                                                            rows="4"
+                                                            class="w-full bg-slate-600 border border-slate-500 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                                        ></textarea>
+                                                    </div>
+                                                {/if}
+                                            </div>
+
+                                            <!-- Summary -->
+                                            <div class="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-600">
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-sm text-gray-300">Completion Status</span>
+                                                    <span class="text-sm text-gray-400">
+                                                        {mcAnswers.filter(a => a.trim()).length + essayAnswers.filter(a => a.trim()).length} / {totalQuestions} answered
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        {:else}
+                                            <div class="text-center py-8 text-gray-400">
+                                                <p>Set the number of questions above to start creating answer keys</p>
+                                            </div>
+                                        {/if}
+                                    </div>
                                 {:else}
+                                    <!-- Traditional Helper Mode -->
                                     <div class="space-y-4">
                                         <!-- Multiple Choice Answers -->
                                         {#if uploadForm.choice_count > 0}

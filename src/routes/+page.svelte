@@ -319,9 +319,9 @@
 						<!-- CTA Buttons -->
 						<div class="animate-fade-in-up delay-300">
 							<div class="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-center lg:justify-start">
-								<button class="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-semibold rounded-xl shadow-xl hover:shadow-purple-500/25 transition-all duration-300">
+								<a href="/login" class="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-semibold rounded-xl shadow-xl hover:shadow-purple-500/25 transition-all duration-300">
 									เริ่มต้นใช้งานฟรี
-								</button>
+								</a>
 							</div>
 						</div>
 					</div>
