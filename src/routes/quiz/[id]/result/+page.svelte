@@ -663,9 +663,9 @@
 										
 										<!-- Answer Comparison -->
 										<div class="grid md:grid-cols-2 gap-4 mb-6">
-											<div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4">
-												<div class="text-sm font-medium text-red-800 dark:text-red-400 mb-2">คำตอบของคุณ</div>
-												<div class="text-red-900 dark:text-red-300 font-mono">{question.user_answer}</div>
+											<div class="bg-black/50 dark:bg-black/50 border border-gray-700 dark:border-gray-700 rounded-lg p-4">
+												<div class="text-sm font-medium text-blue-200 dark:text-blue-400 mb-2">คำตอบของคุณ</div>
+												<div class="text-red-900 dark:text-white font-mono">{question.user_answer}</div>
 											</div>
 											<div class="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4">
 												<div class="text-sm font-medium text-green-800 dark:text-green-400 mb-2">คำตอบที่ถูกต้อง</div>
