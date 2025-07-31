@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import Header from '../../../components/Header.svelte';
+	import Footer from '../../../components/Footer.svelte';
 	
 	// Types
 	interface QuestionDetail {
@@ -19,10 +23,13 @@
 		total: number;
 		completedAt: string;
 		details: QuestionDetail[];
+		timeSpent?: number; // Time in seconds
 	}
 
 	interface ExamResults {
 		result: QuizResult;  // Changed from results array to single result
+		timeSpent?: number; // Backup time field
+		examTitle?: string; // Add exam title field
 	}
 
 	interface Statistics {
@@ -47,37 +54,36 @@
 	let isImporting = false;
 	let toastMessage = '';
 	let showToast = false;
+	let timeSpentMinutes = 0;
+	let examTitle = ''; // Add exam title state variable
 
 	// Default sample data
 	const defaultExamResults: ExamResults = {
-		results: [
-			{
-				id: "sample-1",
-				userId: "user-1",
-				score: 2,
-				total: 10,
-				completedAt: new Date().toISOString(),
-				details: [
-					{
-						question_id: "1",
-						user_answer: "A",
-						correct_answer: "B",
-						is_correct: false,
-						why_answer_this_one: "ลูกบอลทั้งหมด $$4+6=10$$ ลูก ความน่าจะเป็นที่ได้สีแดงคือ $$\\dfrac{4}{10} = \\dfrac{2}{5}$$ ดังนั้นคำตอบคือ B",
-						question: "ถ้ามีลูกบอลสีแดง $$4$$ ลูกและสีน้ำเงิน $$6$$ ลูกในกล่อง จะสุ่มหยิบลูกบอล $$1$$ ลูก ความน่าจะเป็นที่หยิบได้ลูกบอลสีแดงคือข้อใด?"
-					},
-					{
-						question_id: "2",
-						user_answer: "C",
-						correct_answer: "A",
-						is_correct: false,
-						why_answer_this_one: "มีตัวอักษร 4 ตัว (M, A, T, H) โอกาสได้ A คือ $$\\dfrac{1}{4}$$ ตอบข้อ A",
-						question: "เมื่อต้องการสุ่มเลือกตัวอักษรจากคำว่า 'MATH' ความน่าจะเป็นที่จะเลือกได้ตัวอักษร 'A' คือข้อใด?"
-					}
-				]
-			}
-		],
-		history: []
+		result: {
+			id: "sample-1",
+			userId: "user-1",
+			score: 2,
+			total: 10,
+			completedAt: new Date().toISOString(),
+			details: [
+				{
+					question_id: "1",
+					user_answer: "A",
+					correct_answer: "B",
+					is_correct: false,
+					why_answer_this_one: "ลูกบอลทั้งหมด $$4+6=10$$ ลูก ความน่าจะเป็นที่ได้สีแดงคือ $$\\dfrac{4}{10} = \\dfrac{2}{5}$$ ดังนั้นคำตอบคือ B",
+					question: "ถ้ามีลูกบอลสีแดง $$4$$ ลูกและสีน้ำเงิน $$6$$ ลูกในกล่อง จะสุ่มหยิบลูกบอล $$1$$ ลูก ความน่าจะเป็นที่หยิบได้ลูกบอลสีแดงคือข้อใด?"
+				},
+				{
+					question_id: "2",
+					user_answer: "C",
+					correct_answer: "A",
+					is_correct: false,
+					why_answer_this_one: "มีตัวอักษร 4 ตัว (M, A, T, H) โอกาสได้ A คือ $$\\dfrac{1}{4}$$ ตอบข้อ A",
+					question: "เมื่อต้องการสุ่มเลือกตัวอักษรจากคำว่า 'MATH' ความน่าจะเป็นที่จะเลือกได้ตัวอักษร 'A' คือข้อใด?"
+				}
+			]
+		}
 	};
 
 	// Utility functions
@@ -106,9 +112,9 @@
 
 	function getScoreColor(score: number, total: number) {
 		const percentage = (score / total) * 100;
-		if (percentage >= 80) return "text-emerald-400";
-		if (percentage >= 60) return "text-yellow-400";
-		return "text-red-400";
+		if (percentage >= 80) return "text-emerald-600 dark:text-emerald-400";
+		if (percentage >= 60) return "text-yellow-600 dark:text-yellow-400";
+		return "text-red-600 dark:text-red-400";
 	}
 
 	function getProgressColor(percentage: number) {
@@ -123,10 +129,7 @@
 		
 		try {
 			const stored = localStorage.getItem('examResults');
-            const parsed = JSON.parse(stored);
-
-            console.log(3)
-			console.log(parsed);
+			const parsed = JSON.parse(stored);
 			return parsed;
 		} catch (error) {
 			console.error("Failed to parse exam results from localStorage:", error);
@@ -147,7 +150,7 @@
 
 	function getStatistics(): Statistics {
 		const data = getExamResults();
-		const allResults = [...data.results, ...data.history];
+		const allResults = data.result ? [data.result] : [];
 		
 		if (allResults.length === 0) {
 			return {
@@ -183,10 +186,86 @@
 			currentResult = data.result;  // Changed from data.results[0]
 			history = [];  // Since we don't have history in new structure
 			statistics = getStatistics();
+			
+			// Calculate time spent from the exam data
+			if (currentResult) {
+				timeSpentMinutes = calculateTimeSpent(data);
+			}
+
+			// Get exam title from stored data first, then fallback to loading
+			examTitle = data.examTitle || '';
+			if (!examTitle) {
+				loadExamTitle();
+			}
 		} catch (error) {
 			showToastMessage("ไม่สามารถโหลดข้อมูลจาก localStorage ได้");
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function loadExamTitle() {
+		try {
+			const examId = $page.params.id;
+			
+			// First, try to get exam title from AI exam data if it's an AI exam
+			if (examId.startsWith('ai-')) {
+				const tempExamData = localStorage.getItem('tempAiExam');
+				if (tempExamData) {
+					const aiExam = JSON.parse(tempExamData);
+					examTitle = aiExam.title || 'AI Generated Exam';
+					return;
+				}
+			}
+
+			// For regular exams, try to fetch from the API or use a default
+			const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+			
+			// We can't make API calls easily from the result page, so let's check if we can get it from the result data
+			// or use a generic title for now
+			examTitle = 'Exam Results'; // Default fallback
+			
+		} catch (error) {
+			console.error('Failed to load exam title:', error);
+			examTitle = 'Exam Results'; // Fallback
+		}
+	}
+
+	function calculateTimeSpent(data: ExamResults): number {
+		// Try to get time from different possible locations
+		if (currentResult?.timeSpent) {
+			return Math.round(currentResult.timeSpent / 60); // Convert seconds to minutes
+		}
+		if (data.timeSpent) {
+			return Math.round(data.timeSpent / 60); // Convert seconds to minutes
+		}
+		
+		// For results from the API, check if there's a time_spent field
+		if (currentResult && typeof currentResult === 'object' && 'time_spent' in currentResult) {
+			const timeSpentSeconds = (currentResult as any).time_spent;
+			if (typeof timeSpentSeconds === 'number' && timeSpentSeconds > 0) {
+				return Math.round(timeSpentSeconds / 60); // Convert seconds to minutes
+			}
+		}
+		
+		// Final fallback: estimate based on question count (assume 1.5 minutes per question)
+		if (currentResult?.total) {
+			return Math.round(currentResult.total * 1.5);
+		}
+		
+		return 15; // Ultimate fallback
+	}
+
+	function formatTimeSpent(minutes: number): string {
+		if (minutes < 60) {
+			return `${minutes} นาที`;
+		} else {
+			const hours = Math.floor(minutes / 60);
+			const remainingMinutes = minutes % 60;
+			if (remainingMinutes === 0) {
+				return `${hours} ชั่วโมง`;
+			}
+			return `${hours} ชั่วโมง ${remainingMinutes} นาที`;
 		}
 	}
 
@@ -258,7 +337,7 @@
 
 		try {
 			const parsed = JSON.parse(importData);
-			if (parsed.results && Array.isArray(parsed.results)) {
+			if (parsed.result) {
 				setExamResults(parsed);
 				showToastMessage("นำเข้าสำเร็จ");
 				importData = '';
@@ -331,115 +410,85 @@
 </script>
 
 <svelte:head>
-	<title>ผลการสอบ - ExamTie</title>
+	<title>{examTitle ? `${examTitle} - ผลการสอบ` : 'ผลการสอบ'} - ExamTie</title>
 	<meta name="description" content="ดูผลการสอบและรายละเอียดคำตอบพร้อมคำอธิบายแบบครบถ้วน - ExamTie แพลตฟอร์มการเรียนรู้ออนไลน์" />
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
 	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
 </svelte:head>
 
 {#if isLoading}
-	<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 flex items-center justify-center">
-		<div class="text-white text-lg">กำลังโหลดผลการสอบ...</div>
+	<div class="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
+		<div class="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
+			<div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+			<span>กำลังโหลดผลการสอบ...</span>
+		</div>
 	</div>
 {:else if !currentResult}
-	<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 flex items-center justify-center">
-		<div class="text-center">
-			<div class="text-red-400 text-lg mb-4">ไม่พบข้อมูลผลการสอบ</div>
-			<button 
-				class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg"
-				on:click={() => {
-					setExamResults(defaultExamResults);
-					loadData();
-				}}
-			>
-				สร้างข้อมูลตัวอย่าง
-			</button>
-		</div>
+	<div class="min-h-screen bg-gray-50 dark:bg-slate-900">
+		<Header />
+		<main class="pt-16 flex items-center justify-center min-h-screen">
+			<div class="text-center">
+				<div class="text-red-600 dark:text-red-400 text-lg mb-4">ไม่พบข้อมูลผลการสอบ</div>
+				<button 
+					class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+					on:click={() => {
+						setExamResults(defaultExamResults);
+						loadData();
+					}}
+				>
+					สร้างข้อมูลตัวอย่าง
+				</button>
+			</div>
+		</main>
 	</div>
 {:else}
-	<div class="min-h-screen bg-slate-900 text-white font-sans">
-		<!-- Background with animated particles -->
-		<div class="fixed inset-0 overflow-hidden">
-			<div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950"></div>
-			
-			<!-- Floating particles -->
-			<div class="absolute inset-0 pointer-events-none">
-				<div class="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-green-400/10 rounded-full blur-xl animate-pulse"></div>
-				<div class="absolute top-40 right-16 w-24 h-24 bg-gradient-to-br from-blue-500/25 to-cyan-400/15 rounded-full blur-lg animate-pulse" style="animation-delay: 1s"></div>
-				<div class="absolute bottom-32 left-1/4 w-20 h-20 bg-gradient-to-br from-purple-500/20 to-pink-400/10 rounded-full blur-md animate-pulse" style="animation-delay: 2s"></div>
+	<div class="min-h-screen bg-gray-50 dark:bg-slate-900">
+		<!-- Header -->
+		<Header />
+		
+		<!-- Exam Title Header -->
+		{#if examTitle}
+		<div class="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+				<h1 class="text-2xl font-bold text-gray-900 dark:text-white">{examTitle}</h1>
+				<p class="text-sm text-gray-600 dark:text-slate-400 mt-1">ผลการสอบ</p>
 			</div>
-			
-			<!-- Subtle grid pattern -->
-			<div 
-				class="absolute inset-0 opacity-5" 
-				style="background-image: radial-gradient(circle at 2px 2px, rgba(34, 197, 94, 0.3) 1px, transparent 0); background-size: 40px 40px;"
-			></div>
 		</div>
-
-		<!-- Navigation Header -->
-		<nav class="relative z-10 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex items-center justify-between h-16">
-					<div class="flex items-center space-x-4">
-						<div class="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
-							ExamTie
-						</div>
-						<div class="text-slate-400 text-sm hidden sm:block">
-							ผลการสอบ
-						</div>
-					</div>
-					<div class="flex items-center space-x-3">
-						<button 
-							class="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2"
-							on:click={loadData}
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-							</svg>
-							<span class="hidden sm:inline">รีเฟรช</span>
-						</button>
-						<button class="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2">
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-							</svg>
-							<span class="hidden sm:inline">หน้าหลัก</span>
-						</button>
-						<button class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2">
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-							</svg>
-							<span>ทำข้อสอบใหม่</span>
-						</button>
-					</div>
-				</div>
-			</div>
-		</nav>
-
+		{/if}
+		
 		<!-- Main Content -->
-		<main class="relative z-10 min-h-screen pt-8 pb-16">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<main class="pt-16">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				
 				<!-- Tabs -->
 				<div class="w-full mb-8">
-					<div class="flex space-x-1 bg-slate-800/50 p-1 rounded-lg border border-slate-700">
+					<div class="flex space-x-1 bg-white dark:bg-slate-800/50 p-1 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm">
 						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'results'}
+							class="flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors"
+							class:bg-blue-600={activeTab === 'results'}
 							class:text-white={activeTab === 'results'}
-							class:text-slate-300={activeTab !== 'results'}
+							class:shadow-sm={activeTab === 'results'}
+							class:text-gray-600={activeTab !== 'results'}
+							class:dark:text-gray-300={activeTab !== 'results'}
+							class:hover:text-gray-900={activeTab !== 'results'}
+							class:dark:hover:text-white={activeTab !== 'results'}
 							on:click={() => activeTab = 'results'}
 						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+							</svg>
 							<span>ผลลัพธ์</span>
 						</button>
 						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'statistics'}
+							class="flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors"
+							class:bg-blue-600={activeTab === 'statistics'}
 							class:text-white={activeTab === 'statistics'}
-							class:text-slate-300={activeTab !== 'statistics'}
+							class:shadow-sm={activeTab === 'statistics'}
+							class:text-gray-600={activeTab !== 'statistics'}
+							class:dark:text-gray-300={activeTab !== 'statistics'}
+							class:hover:text-gray-900={activeTab !== 'statistics'}
+							class:dark:hover:text-white={activeTab !== 'statistics'}
 							on:click={() => activeTab = 'statistics'}
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,10 +497,14 @@
 							<span>สถิติ</span>
 						</button>
 						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'history'}
+							class="flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors"
+							class:bg-blue-600={activeTab === 'history'}
 							class:text-white={activeTab === 'history'}
-							class:text-slate-300={activeTab !== 'history'}
+							class:shadow-sm={activeTab === 'history'}
+							class:text-gray-600={activeTab !== 'history'}
+							class:dark:text-gray-300={activeTab !== 'history'}
+							class:hover:text-gray-900={activeTab !== 'history'}
+							class:dark:hover:text-white={activeTab !== 'history'}
 							on:click={() => activeTab = 'history'}
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -460,10 +513,14 @@
 							<span>ประวัติ</span>
 						</button>
 						<button 
-							class="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm transition-colors"
-							class:bg-slate-600={activeTab === 'settings'}
+							class="flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors"
+							class:bg-blue-600={activeTab === 'settings'}
 							class:text-white={activeTab === 'settings'}
-							class:text-slate-300={activeTab !== 'settings'}
+							class:shadow-sm={activeTab === 'settings'}
+							class:text-gray-600={activeTab !== 'settings'}
+							class:dark:text-gray-300={activeTab !== 'settings'}
+							class:hover:text-gray-900={activeTab !== 'settings'}
+							class:dark:hover:text-white={activeTab !== 'settings'}
 							on:click={() => activeTab = 'settings'}
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -478,46 +535,49 @@
 				{#if activeTab === 'results'}
 					<!-- Results Overview -->
 					<div class="mb-8">
-						<div class="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-lg p-6 sm:p-8">
+						<div class="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6 sm:p-8 shadow-lg backdrop-blur-sm">
 							<div class="text-center">
-								<div class="mb-4">
-									<span class="bg-blue-100/10 text-blue-300 border border-blue-500/20 px-3 py-1 rounded-full text-sm">
+								<div class="mb-6">
+									<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400 border border-green-200 dark:border-green-800">
+										<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+										</svg>
 										ผลการสอบเสร็จสิ้น
 									</span>
 								</div>
 								
 								<!-- Score Display -->
-								<div class="mb-6">
+								<div class="mb-8">
 									<div class="text-6xl sm:text-7xl font-bold mb-2">
-										<span class="text-white">{currentResult.score}</span>
-										<span class="text-slate-400">/</span>
-										<span class="text-slate-300">{currentResult.total}</span>
+										<span class="text-gray-900 dark:text-white">{currentResult.score}</span>
+										<span class="text-gray-400 dark:text-slate-400">/</span>
+										<span class="text-gray-600 dark:text-slate-300">{currentResult.total}</span>
 									</div>
-									<div class="text-xl text-slate-300">คะแนนที่ได้</div>
-									<div class="mt-2">
-										<div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+									<div class="text-xl text-gray-600 dark:text-slate-300 mb-4">คะแนนที่ได้</div>
+									<div class="max-w-xs mx-auto">
+										<div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden mb-2">
 											<div 
-												class="h-3 rounded-full transition-all duration-1000 ease-out {getProgressColor(percentage)}"
+												class="{getProgressColor(percentage)} h-3 rounded-full transition-all duration-1000 ease-out"
 												style="width: {percentage}%"
 											></div>
 										</div>
-										<div class="text-sm text-slate-400 mt-2">{percentage}% ถูกต้อง</div>
+										<div class="text-sm text-gray-500 dark:text-slate-400">{percentage}% ถูกต้อง</div>
 									</div>
 								</div>
 								
 								<!-- Performance Summary -->
 								<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-									<div class="bg-slate-700/30 rounded-lg p-4">
-										<div class="text-2xl font-bold text-emerald-400">{currentResult.score}</div>
-										<div class="text-sm text-slate-300">ตอบถูก</div>
+									<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 border border-gray-100 dark:border-slate-600/30">
+										<div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{currentResult.score}</div>
+										<div class="text-sm text-gray-600 dark:text-slate-300">ตอบถูก</div>
 									</div>
-									<div class="bg-slate-700/30 rounded-lg p-4">
-										<div class="text-2xl font-bold text-red-400">{currentResult.total - currentResult.score}</div>
-										<div class="text-sm text-slate-300">ตอบผิด</div>
+									<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 border border-gray-100 dark:border-slate-600/30">
+										<div class="text-2xl font-bold text-red-600 dark:text-red-400">{currentResult.total - currentResult.score}</div>
+										<div class="text-sm text-gray-600 dark:text-slate-300">ตอบผิด</div>
 									</div>
-									<div class="bg-slate-700/30 rounded-lg p-4">
-										<div class="text-2xl font-bold text-slate-400">15</div>
-										<div class="text-sm text-slate-300">นาที</div>
+									<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 border border-gray-100 dark:border-slate-600/30">
+										<div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{timeSpentMinutes}</div>
+										<div class="text-sm text-gray-600 dark:text-slate-300">{formatTimeSpent(timeSpentMinutes)}</div>
 									</div>
 								</div>
 							</div>
@@ -527,30 +587,40 @@
 					<!-- Question Results Section -->
 					<div class="space-y-6">
 						<div class="flex items-center justify-between">
-							<h2 class="text-2xl font-bold text-white">รายละเอียดข้อสอบ</h2>
+							<h2 class="text-2xl font-bold text-gray-900 dark:text-white">รายละเอียดข้อสอบ</h2>
 							<div class="flex space-x-2">
 								<button
-									class="px-3 py-1 text-sm rounded-lg transition-colors"
-									class:bg-slate-600={filter === 'all'}
+									class="px-3 py-2 text-sm rounded-lg transition-colors font-medium"
+									class:bg-blue-600={filter === 'all'}
 									class:text-white={filter === 'all'}
-									class:bg-slate-700={filter !== 'all'}
-									class:text-slate-300={filter !== 'all'}
+									class:bg-gray-200={filter !== 'all'}
+									class:dark:bg-slate-700={filter !== 'all'}
+									class:text-gray-600={filter !== 'all'}
+									class:dark:text-slate-300={filter !== 'all'}
+									class:hover:bg-gray-300={filter !== 'all'}
+									class:dark:hover:bg-slate-600={filter !== 'all'}
 									on:click={() => handleFilter('all')}
 								>
 									ทั้งหมด
 								</button>
 								<button
-									class="px-3 py-1 text-sm rounded-lg transition-colors bg-red-600/20 hover:bg-red-600/30 text-red-300"
+									class="px-3 py-2 text-sm rounded-lg transition-colors font-medium"
 									class:bg-red-600={filter === 'incorrect'}
 									class:text-white={filter === 'incorrect'}
+									class:bg-red-100={filter !== 'incorrect'}
+									class:text-red-600={filter !== 'incorrect'}
+									class:hover:bg-red-200={filter !== 'incorrect'}
 									on:click={() => handleFilter('incorrect')}
 								>
 									ตอบผิด
 								</button>
 								<button
-									class="px-3 py-1 text-sm rounded-lg transition-colors bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300"
+									class="px-3 py-2 text-sm rounded-lg transition-colors font-medium"
 									class:bg-emerald-600={filter === 'correct'}
 									class:text-white={filter === 'correct'}
+									class:bg-emerald-100={filter !== 'correct'}
+									class:text-emerald-600={filter !== 'correct'}
+									class:hover:bg-emerald-200={filter !== 'correct'}
 									on:click={() => handleFilter('correct')}
 								>
 									ตอบถูก
@@ -562,62 +632,55 @@
 						{#if displayedQuestions}
 							<div class="space-y-6">
 								{#each displayedQuestions as question, index}
-									<div class="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-lg p-6">
+									<div class="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6 shadow-sm">
 										<div class="flex items-start justify-between mb-4">
 											<div class="flex items-center space-x-3">
-												<div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border {
-													question.is_correct 
-														? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-														: 'bg-red-500/20 text-red-400 border-red-500/30'
-												}">
-													{question.question_id}
+												<div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-semibold text-sm">
+													{index + 1}
 												</div>
-												<span class="px-2 py-1 rounded text-xs {
-													question.is_correct ? 'text-emerald-400 bg-emerald-500/20' : 'text-red-400 bg-red-500/20'
-												}">
-													{question.is_correct ? 'ตอบถูก' : 'ตอบผิด'}
-												</span>
-											</div>
-											<div class="text-sm text-slate-400">
-												คำถาม {question.question_id} จาก {currentResult.total}
+												<div class="flex items-center space-x-2">
+													<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {
+														question.is_correct 
+															? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
+															: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+													}">
+														{question.is_correct ? '✓ ถูกต้อง' : '✗ ผิด'}
+													</span>
+												</div>
 											</div>
 										</div>
 										
 										<!-- Question Text -->
 										<div class="mb-6">
-											<div class="text-lg text-white mb-4" use:renderMath>
+											<div 
+												class="text-gray-900 dark:text-white text-base leading-relaxed"
+												bind:this={question.element}
+												use:renderMath
+											>
 												{question.question}
 											</div>
 										</div>
 										
 										<!-- Answer Comparison -->
 										<div class="grid md:grid-cols-2 gap-4 mb-6">
-											<div class="border rounded-lg p-4 {
-												question.is_correct 
-													? 'bg-emerald-500/10 border-emerald-500/30'
-													: 'bg-red-500/10 border-red-500/30'
-											}">
-												<div class="text-sm mb-2 {
-													question.is_correct ? 'text-emerald-300' : 'text-red-300'
-												}">
-													คำตอบของคุณ
-												</div>
-												<div class="text-lg font-medium text-white">
-													{question.user_answer}
-												</div>
+											<div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4">
+												<div class="text-sm font-medium text-red-800 dark:text-red-400 mb-2">คำตอบของคุณ</div>
+												<div class="text-red-900 dark:text-red-300 font-mono">{question.user_answer}</div>
 											</div>
-											<div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-												<div class="text-sm text-emerald-300 mb-2">คำตอบที่ถูกต้อง</div>
-												<div class="text-lg font-medium text-white">
-													{question.correct_answer}
-												</div>
+											<div class="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4">
+												<div class="text-sm font-medium text-green-800 dark:text-green-400 mb-2">คำตอบที่ถูกต้อง</div>
+												<div class="text-green-900 dark:text-green-300 font-mono">{question.correct_answer}</div>
 											</div>
 										</div>
 										
 										<!-- Explanation -->
-										<div class="bg-slate-700/30 rounded-lg p-4">
-											<div class="text-sm text-slate-300 mb-2">คำอธิบาย</div>
-											<div class="text-white" use:renderMath>
+										<div class="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+											<div class="text-sm font-medium text-blue-800 dark:text-blue-400 mb-2">คำอธิบาย</div>
+											<div 
+												class="text-blue-900 dark:text-blue-300 text-sm leading-relaxed"
+												bind:this={question.explanationElement}
+												use:renderMath
+											>
 												{question.why_answer_this_one}
 											</div>
 										</div>
@@ -629,7 +692,7 @@
 							{#if hasMoreQuestions}
 								<div class="text-center pt-6">
 									<button 
-										class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg"
+										class="bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 px-6 py-3 rounded-lg transition-colors"
 										on:click={loadMoreQuestions}
 									>
 										แสดงข้อถัดไป ({filteredQuestions.length - visibleQuestions} ข้อเหลือ)
@@ -640,88 +703,99 @@
 
 						<!-- Action Buttons -->
 						<div class="mt-12 text-center space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:justify-center">
-							<button class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg">
+							<a href="/exams" class="w-full sm:w-auto inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
+								<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+								</svg>
 								ทำข้อสอบใหม่
-							</button>
-							<button class="w-full sm:w-auto bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg">
+							</a>
+							<a href="/" class="w-full sm:w-auto inline-flex items-center justify-center bg-gray-600 dark:bg-slate-700 hover:bg-gray-700 dark:hover:bg-slate-600 text-white px-6 py-3 rounded-lg transition-colors">
+								<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+								</svg>
 								กลับไปหน้าหลัก
-							</button>
+							</a>
 							<button 
-								class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
+								class="w-full sm:w-auto inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors"
 								on:click={shareResults}
 							>
+								<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+								</svg>
 								แชร์ผลลัพธ์
 							</button>
 						</div>
 					</div>
+
 				{:else if activeTab === 'statistics' && statistics}
 					<!-- Statistics Card -->
-					<div class="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-lg p-6">
+					<div class="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6 shadow-lg">
 						<div class="flex items-center space-x-3 mb-6">
-							<svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
 							</svg>
-							<h3 class="text-xl font-semibold text-white">สถิติการสอบ</h3>
+							<h3 class="text-xl font-semibold text-gray-900 dark:text-white">สถิติการสอบ</h3>
 						</div>
 						
 						<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-							<div class="bg-slate-700/30 rounded-lg p-4 text-center">
+							<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 text-center border border-gray-100 dark:border-slate-600/30">
 								<div class="flex items-center justify-center mb-2">
-									<svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">{statistics.totalTests}</div>
-								<div class="text-sm text-slate-300">ครั้งที่สอบ</div>
+								<div class="text-2xl font-bold text-gray-900 dark:text-white">{statistics.totalTests}</div>
+								<div class="text-sm text-gray-600 dark:text-slate-300">ครั้งที่สอบ</div>
 							</div>
 							
-							<div class="bg-slate-700/30 rounded-lg p-4 text-center">
+							<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 text-center border border-gray-100 dark:border-slate-600/30">
 								<div class="flex items-center justify-center mb-2">
-									<svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">{formatPercentage(statistics.averageScore)}%</div>
-								<div class="text-sm text-slate-300">คะแนนเฉลี่ย</div>
+								<div class="text-2xl font-bold text-gray-900 dark:text-white">{formatPercentage(statistics.averageScore)}%</div>
+								<div class="text-sm text-gray-600 dark:text-slate-300">คะแนนเฉลี่ย</div>
 							</div>
 							
-							<div class="bg-slate-700/30 rounded-lg p-4 text-center">
+							<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 text-center border border-gray-100 dark:border-slate-600/30">
 								<div class="flex items-center justify-center mb-2">
-									<svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">{formatPercentage(statistics.bestScore)}%</div>
-								<div class="text-sm text-slate-300">คะแนนสูงสุด</div>
+								<div class="text-2xl font-bold text-gray-900 dark:text-white">{formatPercentage(statistics.bestScore)}%</div>
+								<div class="text-sm text-gray-600 dark:text-slate-300">คะแนนสูงสุด</div>
 							</div>
 							
-							<div class="bg-slate-700/30 rounded-lg p-4 text-center">
+							<div class="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 text-center border border-gray-100 dark:border-slate-600/30">
 								<div class="flex items-center justify-center mb-2">
-									<svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">{formatPercentage(statistics.accuracy)}%</div>
-								<div class="text-sm text-slate-300">ความแม่นยำ</div>
+								<div class="text-2xl font-bold text-gray-900 dark:text-white">{formatPercentage(statistics.accuracy)}%</div>
+								<div class="text-sm text-gray-600 dark:text-slate-300">ความแม่นยำ</div>
 							</div>
 						</div>
 						
-						<div class="mt-4 pt-4 border-t border-slate-700/50">
-							<div class="text-sm text-slate-400 text-center">
+						<div class="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700/50">
+							<div class="text-sm text-gray-500 dark:text-slate-400 text-center">
 								ตอบถูก {statistics.totalCorrect} จาก {statistics.totalQuestions} ข้อ ทั้งหมด
 							</div>
 						</div>
 					</div>
+
 				{:else if activeTab === 'history'}
 					<!-- History Card -->
-					<div class="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-lg p-6">
+					<div class="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6 shadow-lg">
 						<div class="flex items-center space-x-3 mb-6">
-							<svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 							</svg>
-							<h3 class="text-xl font-semibold text-white">ประวัตการสอบ</h3>
+							<h3 class="text-xl font-semibold text-gray-900 dark:text-white">ประวัตการสอบ</h3>
 							{#if history.length > 0}
-								<span class="ml-auto bg-slate-600 text-slate-200 px-2 py-1 rounded text-sm">
+								<span class="ml-auto bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-200 px-2 py-1 rounded text-sm">
 									{history.length} ครั้ง
 								</span>
 							{/if}
@@ -729,53 +803,36 @@
 						
 						{#if history.length === 0}
 							<div class="text-center py-8">
-								<div class="text-slate-400 mb-2">ยังไม่มีประวัตการสอบ</div>
-								<div class="text-sm text-slate-500">เมื่อคุณทำข้อสอบมากขึ้น ประวัติจะแสดงที่นี่</div>
+								<div class="text-gray-500 dark:text-slate-400 mb-2">ยังไม่มีประวัตการสอบ</div>
+								<div class="text-sm text-gray-400 dark:text-slate-500">เมื่อคุณทำข้อสอบมากขึ้น ประวัติจะแสดงที่นี่</div>
 							</div>
 						{:else}
 							<div class="space-y-3 max-h-96 overflow-y-auto">
 								{#each history as result, index}
 									{@const resultPercentage = Math.round((result.score / result.total) * 100)}
-									{@const prevResult = history[index + 1]}
-									{@const trend = prevResult ? (result.score / result.total) - (prevResult.score / prevResult.total) : 0}
 									
 									<button
-										class="w-full bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-colors text-left"
+										class="w-full bg-gray-50 dark:bg-slate-700/30 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-left border border-gray-200 dark:border-slate-600/30"
 										on:click={() => handleSelectHistoryResult(result)}
 									>
 										<div class="flex items-center justify-between">
 											<div class="flex items-center space-x-3">
-												<div class="text-2xl font-bold {getScoreColor(result.score, result.total)}">
-													{result.score}/{result.total}
+												<div class="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-semibold">
+													{result.score}
 												</div>
 												<div>
-													<div class="text-white font-medium">{resultPercentage}%</div>
-													<div class="text-xs text-slate-400">
+													<div class="font-medium text-gray-900 dark:text-white">
+														{result.score}/{result.total} คะแนน
+													</div>
+													<div class="text-sm text-gray-500 dark:text-slate-400">
 														{formatDate(result.completedAt)}
 													</div>
 												</div>
 											</div>
-											
-											<div class="flex items-center space-x-2">
-												{#if trend !== 0}
-													<div class="flex items-center space-x-1 {trend > 0 ? 'text-emerald-400' : 'text-red-400'}">
-														{#if trend > 0}
-															<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-															</svg>
-														{:else}
-															<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
-															</svg>
-														{/if}
-														<span class="text-xs">
-															{Math.abs(Math.round(trend * 100))}%
-														</span>
-													</div>
-												{/if}
-												<span class="bg-slate-600 text-slate-200 px-2 py-1 rounded text-xs">
-													ดูรายละเอียด
-												</span>
+											<div class="text-right">
+												<div class="text-lg font-semibold {getScoreColor(result.score, result.total)}">
+													{resultPercentage}%
+												</div>
 											</div>
 										</div>
 									</button>
@@ -783,16 +840,17 @@
 							</div>
 						{/if}
 					</div>
+
 				{:else if activeTab === 'settings'}
 					<!-- Export/Import Card -->
-					<div class="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-lg p-6">
-						<h3 class="text-xl font-semibold text-white mb-6">จัดการข้อมูล</h3>
+					<div class="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-xl p-6 shadow-lg">
+						<h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">จัดการข้อมูล</h3>
 						
 						<div class="space-y-4">
 							<!-- Export/Import Buttons -->
 							<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
 								<button
-									class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center space-x-2"
+									class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center space-x-2 transition-colors"
 									on:click={handleExport}
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -802,7 +860,7 @@
 								</button>
 								
 								<button
-									class="border border-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center space-x-2"
+									class="border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg flex items-center space-x-2 transition-colors"
 									on:click={() => isImporting = !isImporting}
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -812,7 +870,7 @@
 								</button>
 								
 								<button
-									class="border border-yellow-600 text-yellow-400 hover:bg-yellow-600/10 px-3 py-2 rounded-lg flex items-center space-x-2"
+									class="border border-yellow-300 dark:border-yellow-600 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/10 px-3 py-2 rounded-lg flex items-center space-x-2 transition-colors"
 									on:click={handleReset}
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -822,7 +880,7 @@
 								</button>
 								
 								<button
-									class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center space-x-2"
+									class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center space-x-2 transition-colors"
 									on:click={handleClear}
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -834,23 +892,26 @@
 							
 							<!-- Import Section -->
 							{#if isImporting}
-								<div class="space-y-3 pt-4 border-t border-slate-700">
-									<div class="text-sm text-slate-300">วาง JSON ข้อมูลผลการสอบ:</div>
+								<div class="space-y-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+									<div class="text-sm text-gray-700 dark:text-slate-300">วาง JSON ข้อมูลผลการสอบ:</div>
 									<textarea
+										class="w-full h-32 bg-gray-50 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white rounded-lg p-3 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 										bind:value={importData}
-										placeholder='x'
-										class="w-full h-32 bg-slate-700/50 border border-slate-600 text-white rounded-lg p-3 resize-none"
+										placeholder="วาง JSON ข้อมูลที่นี่..."
 									></textarea>
 									<div class="flex space-x-2">
-										<button 
-											class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm"
+										<button
+											class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
 											on:click={handleImport}
 										>
 											นำเข้าข้อมูล
 										</button>
-										<button 
-											class="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg text-sm"
-											on:click={() => {isImporting = false; importData = "";}}
+										<button
+											class="bg-gray-300 dark:bg-slate-600 hover:bg-gray-400 dark:hover:bg-slate-500 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
+											on:click={() => {
+												isImporting = false;
+												importData = '';
+											}}
 										>
 											ยกเลิก
 										</button>
@@ -862,23 +923,20 @@
 				{/if}
 			</div>
 		</main>
+		
+		<!-- Footer -->
+		<Footer />
 	</div>
+{/if}
 
-	<!-- Toast Notification -->
-	{#if showToast}
-		<div class="fixed bottom-4 right-4 z-50 bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-lg shadow-lg">
-			{toastMessage}
-		</div>
-	{/if}
+<!-- Toast Notification -->
+{#if showToast}
+	<div class="fixed bottom-4 right-4 z-50 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white px-4 py-3 rounded-lg shadow-lg">
+		{toastMessage}
+	</div>
 {/if}
 
 <style>
-	:global(body) {
-		font-family: 'Inter', system-ui, sans-serif;
-		margin: 0;
-		padding: 0;
-	}
-	
 	:global(.katex) {
 		font-size: 1.1em;
 	}

@@ -612,6 +612,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
             // Store results for the results page
             const resultsData = {
                 result: result,
+                examTitle: exam?.title || 'Exam Results', // Include exam title
+                timeSpent: timeSpent // Include time spent
             };
 
             
