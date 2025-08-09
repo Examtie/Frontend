@@ -49,6 +49,7 @@
     }
   };
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
   async function testConnection() {
     if (!localProvider.provider || !localProvider.apiKey) {
       toastStore.error('Please select a provider and enter an API key');
@@ -56,12 +57,27 @@
     }
 
     isTestingConnection = true;
-    // Simulate API test (implement actual test based on your backend)
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const authToken = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Authorization': authToken ? `Bearer ${authToken}` : ''
+      };
+      if (localProvider.provider) headers['X-Provider'] = localProvider.provider;
+      if (localProvider.apiKey) headers['X-API-Key'] = localProvider.apiKey;
+      if (localProvider.model) headers['X-Model'] = localProvider.model;
+      if (localProvider.baseUrl) headers['X-Base-Url'] = localProvider.baseUrl;
+
+      const res = await fetch(`${API_BASE_URL}/ai/api/v1/provider/test`, {
+        method: 'POST',
+        headers
+      });
+      if (!res.ok) {
+        const data: any = await res.json().catch(() => ({} as any));
+        throw new Error((data && (data.detail || data.message)) || res.statusText);
+      }
       toastStore.success('Connection test successful!');
-    } catch (error) {
-      toastStore.error('Connection test failed. Please check your settings.');
+    } catch (error: any) {
+      toastStore.error(`Connection test failed: ${error?.message || 'Unknown error'}`);
     } finally {
       isTestingConnection = false;
     }
@@ -310,8 +326,7 @@
             <div>
               <h4 class="text-sm font-semibold text-amber-400 mb-1">Security Notice</h4>
               <p class="text-xs text-gray-300 leading-relaxed">
-                Your API keys are stored locally in your browser and never sent to our servers. 
-                They are used directly to communicate with your chosen AI provider.
+                Your API keys are stored locally and sent only as headers for your requests; the backend forwards them to your chosen provider to fulfill your request. Keys are not persisted on our servers.
               </p>
             </div>
           </div>
@@ -428,17 +443,6 @@
     [role="dialog"] {
       padding: 0.5rem;
     }
-    
-    /* Better mobile button layout */
-    .mobile-button-stack {
-      flex-direction: column;
-      width: 100%;
-    }
-    
-    .mobile-button-stack button {
-      width: 100%;
-      justify-content: center;
-    }
   }
 
   /* Accessibility improvements */
@@ -455,9 +459,7 @@
   }
 
   /* Prevent content overflow */
-  .modal-content {
-    overflow: hidden;
-  }
+  /* removed unused .modal-content selector */
 
   /* Better touch targets on mobile */
   @media (max-width: 768px) {
@@ -479,15 +481,5 @@
     transition-duration: 200ms;
   }
 
-  /* Ensure modal doesn't exceed viewport */
-  [role="dialog"] .modal-container {
-    max-height: 95vh;
-    max-width: calc(100vw - 2rem);
-  }
-
-  @media (max-width: 640px) {
-    [role="dialog"] .modal-container {
-      max-width: calc(100vw - 1rem);
-    }
-  }
+  /* removed unused .modal-container selectors */
 </style>
