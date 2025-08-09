@@ -641,7 +641,8 @@ const STORAGE_BASE_URL = import.meta.env.VITE_STORAGE_BASE_URL || '';
                 totalQuestions: questions.length,
                 submittedAt: new Date().toISOString(),
                 result: result,
-                isAiExam: false
+                examTitle: exam?.title || 'Exam Results', // Include exam title
+                timeSpent: timeSpent // Include time spent
             };
             localStorage.setItem('examResults', JSON.stringify(resultsData));
 
