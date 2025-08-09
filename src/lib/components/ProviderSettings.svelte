@@ -7,7 +7,16 @@
   let showApiKey = false;
   let isTestingConnection = false;
 
-  $: localProvider = Object.keys($providerConfig || {}).length ? { ...$providerConfig } : localProvider;
+  // Initialize from store only when modal opens (avoid overwriting user's edits on every reactive cycle)
+  let wasOpen = false;
+  $: {
+    if (show && !wasOpen) {
+      localProvider = { ...($providerConfig || {}) };
+      wasOpen = true;
+    } else if (!show && wasOpen) {
+      wasOpen = false;
+    }
+  }
 
   // Provider descriptions and help text
   const providerInfo = {
