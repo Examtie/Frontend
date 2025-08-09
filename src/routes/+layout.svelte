@@ -3,6 +3,8 @@
 	import { auth } from '$lib/stores/auth'; // Import the auth store
 	import { onMount } from 'svelte';
 	import ToastContainer from './components/ToastContainer.svelte';
+	import ProviderSettings from '$lib/components/ProviderSettings.svelte';
+	import { showProviderSettings } from '$lib/stores/ui';
 
 	let { children } = $props();
 
@@ -16,3 +18,6 @@
 {@render children()}
 
 <ToastContainer />
+
+<!-- Mount global modals at root to avoid ancestor clipping -->
+<ProviderSettings bind:show={$showProviderSettings} />

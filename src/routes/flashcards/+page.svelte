@@ -10,6 +10,7 @@
 	import { auth } from '$lib/stores/auth';
 	import katex from 'katex';
 	import 'katex/dist/katex.min.css';
+	import { providerConfig, buildProviderHeaders } from '$lib/stores/provider';
 
 	// --- State Management ---
 	let isDragOver = $state(false);
@@ -117,7 +118,8 @@ function renderLatex(text: string): string {
 				method: 'POST',
 				headers: {
 					Authorization: `Bearer ${authToken}`,
-					'Content-Type': 'application/json'
+					'Content-Type': 'application/json',
+					...buildProviderHeaders($providerConfig)
 				}
 			});
 
@@ -184,7 +186,8 @@ function renderLatex(text: string): string {
 			const response = await fetch(apiUrl, {
 				method: 'POST',
 				headers: {
-					Authorization: `Bearer ${authToken}`
+					Authorization: `Bearer ${authToken}`,
+					...buildProviderHeaders($providerConfig)
 				},
 				body: formData
 			});

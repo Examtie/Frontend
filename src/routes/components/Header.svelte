@@ -3,10 +3,12 @@
 	import { switchLanguage } from '../../lib/i18n.js';
 	import { t } from '../../lib/i18n.js';
 	import { auth } from '../../lib/stores/auth';
+	import { providerConfig } from '../../lib/stores/provider.js';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import StreakCounter from './StreakCounter.svelte';
+	import { showProviderSettings as showProviderSettingsStore } from '$lib/stores/ui';
 
 	let { class: className = '' } = $props();
 	let isMenuOpen = $state(false);
@@ -14,6 +16,7 @@
 	let isUserDropdownOpen = $state(false);
 	let isMobileSearchOpen = $state(false);
 	let searchValue = $state('');
+	// modal visibility handled via global store in root layout
 
 	// Performance optimization - debounce search
 	let searchTimeout: number;
@@ -179,7 +182,32 @@
 				<!-- Streak Counter -->
 				<StreakCounter />
 
-				<!-- Enhanced Language Dropdown -->
+				<!-- Enhanced BYO Provider Settings (Desktop) -->
+				<div class="hidden md:block">
+					<button
+						onclick={() => showProviderSettingsStore.set(true)}
+						class="flex items-center space-x-2 text-gray-300 hover:text-white transition-all duration-300 cursor-pointer px-3 py-2.5 rounded-xl hover:bg-slate-800/50 border border-transparent hover:border-blue-500/30 backdrop-blur-sm group relative overflow-hidden"
+						aria-label="Configure AI provider settings"
+					>
+						<!-- Subtle gradient background on hover -->
+						<div class="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+						
+						<!-- Enhanced icon with better visibility -->
+						<div class="relative z-10 w-5 h-5 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+							<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-3.586l4.293-4.293A6 6 0 0119 9z" />
+							</svg>
+						</div>
+						
+						<!-- Enhanced text with better contrast -->
+						<span class="hidden sm:inline text-sm font-medium relative z-10 group-hover:text-blue-200 transition-colors duration-300">AI Keys</span>
+						
+						<!-- Status indicator -->
+						{#if $providerConfig && $providerConfig.provider}
+							<div class="w-2 h-2 bg-green-400 rounded-full relative z-10 animate-pulse"></div>
+						{/if}
+					</button>
+				</div>				<!-- Enhanced Language Dropdown -->
 				<div class="hidden md:block relative language-dropdown">
 					<button 
 						onclick={toggleLanguageDropdown}
@@ -391,6 +419,48 @@
 							</button>
 						</div>
 					</div>
+
+					<!-- Enhanced Mobile BYO Provider Settings trigger -->
+					<div class="pt-6 border-t border-gray-700/50">
+						<h3 class="text-sm font-semibold text-gray-400 mb-4 px-4 flex items-center space-x-2">
+							<div class="w-4 h-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded flex items-center justify-center">
+								<svg class="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 10V3L4 14h7v7l9-11h-7z" />
+								</svg>
+							</div>
+							<span>AI Configuration</span>
+						</h3>
+						<button 
+							onclick={() => { showProviderSettingsStore.set(true); closeMenu(); }} 
+							class="w-full text-left py-4 px-4 text-gray-300 hover:text-white hover:bg-slate-700/50 transition-all duration-300 rounded-xl flex items-center space-x-3 group relative overflow-hidden"
+						>
+							<!-- Background gradient on hover -->
+							<div class="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+							
+							<!-- Enhanced icon -->
+							<div class="relative z-10 w-8 h-8 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+								<svg class="w-4 h-4 text-blue-400 group-hover:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-3.586l4.293-4.293A6 6 0 0119 9z" />
+								</svg>
+							</div>
+							
+							<!-- Enhanced text and description -->
+							<div class="relative z-10 flex-1">
+								<div class="font-semibold text-white group-hover:text-blue-200 transition-colors duration-300">AI Provider Settings</div>
+								<div class="text-xs text-gray-400 group-hover:text-gray-300 transition-colors duration-300">Configure your own API keys</div>
+							</div>
+							
+							<!-- Status and arrow -->
+							<div class="relative z-10 flex items-center space-x-2">
+								{#if $providerConfig && $providerConfig.provider}
+									<div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+								{/if}
+								<svg class="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+								</svg>
+							</div>
+						</button>
+					</div>
 					
 					<!-- Enhanced Mobile User/Auth Section -->
 					<div class="pt-6 border-t border-gray-700/50 space-y-3">
@@ -446,6 +516,8 @@
 			</div>
 		{/if}
 	</nav>
+
+	<!-- Modal mounted at root layout -->
 </header>
 
 <style lang="postcss">

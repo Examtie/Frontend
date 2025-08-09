@@ -4,6 +4,7 @@
     import { toastStore } from '$lib/stores/toast';
     import { t } from '$lib/i18n';
     import { goto } from '$app/navigation';
+    import { providerConfig, buildProviderHeaders } from '$lib/stores/provider';
 
     export let showModal = false;
 
@@ -79,7 +80,7 @@
             
             const questions = await makeAuthenticatedRequest(
                 `${API_BASE_URL}/ai/api/v1/exam/generate-text?${params}`,
-                { method: 'POST' }
+                { method: 'POST', headers: buildProviderHeaders($providerConfig) }
             );
 
             toastStore.success($t('examGeneratedSuccessfully'));
@@ -130,7 +131,7 @@
                     body: formData,
                     headers: {
                         'Authorization': `Bearer ${$auth.token}`,
-                        // Don't set Content-Type, let browser set it with boundary for FormData
+                        ...buildProviderHeaders($providerConfig)
                     },
                 }
             );
